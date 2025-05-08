@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repo2Txt - Convert Repositories to Text</title>
+    <style>
+        :root {
+            --primary-color: #0ea5e9;
+            --primary-dark: #0284c7;
+            --primary-light: #e0f2fe;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: var(--gray-800);
+            background: linear-gradient(to bottom right, #f0f9ff, #f3f4f6);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, var(--primary-color), var(--primary-dark));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        p.subtitle {
+            color: var(--gray-700);
+            font-size: 1.2rem;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--gray-200);
+            margin-bottom: 2rem;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            color: var(--gray-700);
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab:hover:not(.active) {
+            color: var(--primary-dark);
+            border-bottom-color: var(--gray-300);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--gray-800);
+        }
+        
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--primary-light);
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .output-container {
+            margin-top: 2rem;
+            display: none;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 1rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .token-count {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-700);
+        }
+        
+        .file-upload-container {
+            border: 2px dashed var(--gray-300);
+            padding: 2rem;
+            text-align: center;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s;
+        }
+        
+        .file-upload-container:hover {
+            border-color: var(--primary-color);
+        }
+        
+        .file-upload-container p {
+            margin-bottom: 1rem;
+            color: var(--gray-700);
+        }
+        
+        .error {
+            color: #ef4444;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .success {
+            color: #10b981;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+        
+        footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <div id="error-box" style="display:none;background:#fee2e2;color:#991b1b;padding:1em;border-radius:6px;margin:1em 0;font-weight:500;"></div>
+        <header>
+            <h1>Repo2Txt</h1>
+            <p class="subtitle">Convert GitHub Repositories or Local Files to Plain Text</p>
+            <div style="background:#e0f2fe;color:#0284c7;padding:0.7em 1em;border-radius:6px;margin:1em 0 2em 0;font-size:1.02em;">
+                <b>GitHub API Rate Limits:</b> <br>
+                <span style="color:#0284c7;">60 requests/hour without token, 5000 requests/hour with token.</span>
+                <br>
+                <span style="color:#1e293b;">For large or private repositories, please provide a personal access token.</span>
+            </div>
+        </header>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="github">GitHub Repository</div>
+            <div class="tab" data-tab="smart-fetch">Smart Fetch</div>
+            <div class="tab" data-tab="fast-zip">Fast Zip Fetch</div>
+            <div class="tab" data-tab="local-dir">Local Directory</div>
+            <div class="tab" data-tab="local-zip">Local Zip File</div>
+        </div>
+        
+        <div class="tab-content active" id="github-tab">
+            <form id="github-form">
+                <!-- Smart Fetch Form -->
+                <div class="form-group">
+                    <label for="repo-url">GitHub Repository URL:</label>
+                    <input type="text" id="repo-url" placeholder="[https://github.com/username/repository"](https://github.com/username/repository") required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="access-token">GitHub Access Token (optional):
+    <span style="font-size:0.9em;color:#0284c7;cursor:pointer;" title="Providing a personal access token increases your GitHub API rate limit from 60 to 5000 requests per hour. Required for private repos or large public repos. See GitHub documentation for how to generate a token.">
+        [?]
+    </span>
+</label>
+<input type="text" id="access-token" name="access-token" placeholder="Paste your GitHub token here (optional)">
+<div style="font-size:0.92em;color:#374151;margin-bottom:1em;">
+    <strong>Note:</strong> GitHub API limits are <b>60 requests/hour</b> without a token, <b>5000 requests/hour</b> with a token. <br>
+    <a href="https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token" target="_blank" style="color:#0ea5e9;text-decoration:underline;">How to create a GitHub token</a> (no special scopes needed for public repos).
+</div>
+                    <p class="help-text">Your token will be stored locally and not shared with the server.</p>
+                </div>
+                
+                <button type="submit" class="btn btn-block">Fetch Repository Structure</button>
+            </form>
+        </div>
+        
+        <div class="tab-content" id="fast-zip-tab">
+            <form id="fast-zip-form">
+                <div class="form-group">
+                    <label for="zip-repo-url">GitHub Repository URL:</label>
+                    <input type="text" id="zip-repo-url" name="zip-repo-url" placeholder="https://github.com/owner/repo">
+                </div>
+                <div class="form-group">
+                    <label for="zip-branch">Branch (optional):</label>
+                    <input type="text" id="zip-branch" name="zip-branch" placeholder="main (default)">
+                </div>
+                <div class="form-group">
+                    <label for="zip-access-token">GitHub Access Token (optional):</label>
+                    <input type="text" id="zip-access-token" name="zip-access-token" placeholder="Leave blank for Fast Zip Fetch">
+                    <div style="font-size:0.92em;color:#374151;margin-bottom:1em;">
+                        <strong>Note:</strong> Fast Zip Fetch only works for public repos without a token. <br>
+                        If you provide a token, the backend will ask you to use Smart Fetch instead.
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-block">Fast Zip Fetch</button>
+            </form>
+        </div>
+
+        <div class="tab-content" id="smart-fetch-tab">
+            <form id="smart-fetch-form">
+                <div class="form-group">
+                    <label for="smart-repo-url">GitHub Repository URL:</label>
+                    <input type="text" id="smart-repo-url" placeholder="[https://github.com/username/repository"](https://github.com/username/repository") required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="smart-access-token">Personal Access Token (optional):</label>
+                    <input type="text" id="smart-access-token" placeholder="ghp_xxxxxxxxxxxxxxxx">
+                    <p class="help-text">Your token will be stored locally and not shared with the server.</p>
+                </div>
+                
+                <button type="submit" class="btn btn-block">Smart Fetch Repository</button>
+            </form>
+        </div>
+        
+        <div class="tab-content" id="local-dir-tab">
+            <form id="local-dir-form">
+                <div class="file-upload-container">
+                    <p>Drag and drop a folder or select files</p>
+                    <input type="file" id="local-dir-input" name="local-dir-input" webkitdirectory directory multiple>
+                </div>
+                <div id="local-dir-files" class="file-section">
+                    <h4>Files to be processed:</h4>
+                    <ul id="local-dir-file-list" class="file-list-ul"></ul>
+                </div>
+                <button type="submit" class="btn btn-block">Process Directory</button>
+            </form>
+        </div>
+        
+        <div class="tab-content" id="local-zip-tab">
+            <form id="local-zip-form">
+                <div class="file-upload-container">
+                    <p>Select a zip file to convert</p>
+                    <input type="file" id="local-zip-input" name="local-zip-input" accept=".zip,.rar,.7z">
+                </div>
+                <div id="local-zip-files" class="file-section">
+                    <h4>Files to be processed:</h4>
+                    <ul id="local-zip-file-list" class="file-list-ul"></ul>
+                </div>
+                <button type="submit" class="btn btn-block">Process Zip File</button>
+            </form>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loading-text">Processing...</p>
+        </div>
+        
+        <div id="file-structure-container" style="display: none;">
+            <h3>File Structure</h3>
+            <div id="file-structure" class="form-group"></div>
+            <div id="extension-filters" class="form-group"></div>
+            <button id="generate-text-btn" class="btn btn-block">Generate Text</button>
+        </div>
+        
+        <div class="output-container" id="output-container">
+            <textarea id="output-text" readonly></textarea>
+            <div class="token-count" id="token-count"></div>
+            <div class="actions">
+                <button id="copy-btn" class="btn">Copy to Clipboard</button>
+                <button id="download-btn" class="btn btn-secondary">Download Text File</button>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>
+            &copy; 2025 Repo2Txt | 
+            <a href="[https://github.com/abinthomasonline/repo2txt"](https://github.com/abinthomasonline/repo2txt") target="_blank">View on GitHub</a>
+        </p>
+    </footer>
+    
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+        
+        // Save token to local storage
+        function saveToken(token) {
+            if (token) {
+                localStorage.setItem('githubAccessToken', token);
+            }
+        }
+        
+        // Load token from local storage
+        function loadSavedToken() {
+            const savedToken = localStorage.getItem('githubAccessToken');
+            if (savedToken) {
+                document.getElementById('access-token').value = savedToken;
+                document.getElementById('smart-access-token').value = savedToken;
+            }
+        }
+        
+        // Load saved token on page load
+        document.addEventListener('DOMContentLoaded', loadSavedToken);
+        
+        // GitHub repository form submission
+        document.getElementById('github-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const repoUrl = document.getElementById('repo-url').value;
+            const accessToken = document.getElementById('access-token').value;
+            
+            // Save token
+            saveToken(accessToken);
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = 'Fetching repository structure...';
+            
+            try {
+                const response = await fetch('/api/github/fetch-structure', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        repo_url: repoUrl,
+                        access_token: accessToken
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to fetch repository structure');
+                }
+                
+                const data = await response.json();
+                displayFileStructure(data.tree);
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        
+        // Smart fetch form submission
+        document.getElementById('smart-fetch-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const repoUrl = document.getElementById('smart-repo-url').value;
+            const accessToken = document.getElementById('smart-access-token').value;
+            
+            // Save token
+            saveToken(accessToken);
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = 'Smart fetching repository...';
+            
+            try {
+                const response = await fetch('/api/github/smart-fetch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        repo_url: repoUrl,
+                        access_token: accessToken
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to smart fetch repository');
+                }
+                
+                // For smart fetch, we directly get the formatted text
+                const text = await response.text();
+                displayOutput(text);
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        
+        // Local directory form submission
+        document.getElementById('local-dir-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const files = document.getElementById('local-dir-input').files;
+            if (files.length === 0) {
+                alert('Please select a directory');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = 'Processing directory...';
+            
+            try {
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('files', file);
+                }
+                
+                const response = await fetch('/api/local/upload-directory', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to process directory');
+                }
+                
+                const data = await response.json();
+                displayFileStructure(data.tree);
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        
+        // Local zip form submission
+        document.getElementById('local-zip-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const zipFile = document.getElementById('local-zip-input').files[0];
+            if (!zipFile) {
+                alert('Please select a zip file');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = 'Processing zip file...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('zip_file', zipFile);
+                
+                const response = await fetch('/api/local/upload-zip', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to process zip file');
+                }
+                
+                const data = await response.json();
+                displayFileStructure(data.tree);
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        
+        // Display file structure
+        function displayFileStructure(tree) {
+            const container = document.getElementById('file-structure-container');
+            const structureElement = document.getElementById('file-structure');
+            
+            // Clear previous content
+            structureElement.innerHTML = '';
+            
+            // Build file structure UI
+            const filesByExtension = {};
+            
+            tree.forEach(file => {
+                const extension = file.path.split('.').pop().toLowerCase();
+                if (!filesByExtension[extension]) {
+                    filesByExtension[extension] = [];
+                }
+                filesByExtension[extension].push(file);
+            });
+            
+            // Create extension filters
+            const filtersElement = document.getElementById('extension-filters');
+            filtersElement.innerHTML = '<h4>Filter by Extension:</h4><div class="extension-checkboxes"></div>';
+            const extensionCheckboxes = filtersElement.querySelector('.extension-checkboxes');
+            
+            Object.keys(filesByExtension).sort().forEach(ext => {
+                const count = filesByExtension[ext].length;
+                const checkbox = document.createElement('label');
+                checkbox.className = 'extension-checkbox';
+                checkbox.innerHTML = `
+                    <input type="checkbox" data-extension="${ext}" checked>
+                    .${ext} (${count})
+                `;
+                extensionCheckboxes.appendChild(checkbox);
+            });
+            
+            // Create file list
+            const fileList = document.createElement('ul');
+            fileList.className = 'file-list';
+            
+            tree.sort((a, b) => a.path.localeCompare(b.path)).forEach(file => {
+                const item = document.createElement('li');
+                item.className = 'file-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = true;
+                checkbox.dataset.path = file.path;
+                checkbox.dataset.url = file.url;
+                checkbox.dataset.type = file.type;
+                
+                const extension = file.path.split('.').pop().toLowerCase();
+                checkbox.dataset.extension = extension;
+                
+                const label = document.createElement('label');
+                label.textContent = file.path;
+                
+                item.appendChild(checkbox);
+                item.appendChild(label);
+                fileList.appendChild(item);
+            });
+            
+            structureElement.appendChild(fileList);
+            
+            // Add event listeners for extension filters
+            document.querySelectorAll('.extension-checkbox input').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const extension = checkbox.dataset.extension;
+                    const checked = checkbox.checked;
+                    
+                    document.querySelectorAll(`.file-item input[data-extension="${extension}"]`).forEach(fileCheckbox => {
+                        fileCheckbox.checked = checked;
+                    });
+                });
+            });
+            
+            // Show file structure container
+            container.style.display = 'block';
+            
+            // Add event listener for generate text button
+            document.getElementById('generate-text-btn').addEventListener('click', generateText);
+        }
+        
+        // Generate text from selected files
+        async function generateText() {
+            // Get selected files
+            const selectedFiles = [];
+            document.querySelectorAll('.file-item input:checked').forEach(checkbox => {
+                selectedFiles.push({
+                    path: checkbox.dataset.path,
+                    type: checkbox.dataset.type,
+                    url: checkbox.dataset.url
+                });
+            });
+            
+            if (selectedFiles.length === 0) {
+                alert('Please select at least one file');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = 'Generating text...';
+            
+            try {
+                // Determine which API to call based on active tab
+                let endpoint;
+                let accessToken = null;
+                
+                const activeTab = document.querySelector('.tab.active').dataset.tab;
+                
+                if (activeTab === 'github') {
+                    endpoint = '/api/github/generate-text';
+                    accessToken = document.getElementById('access-token').value;
+                } else {
+                    endpoint = '/api/local/generate-text';
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: selectedFiles,
+                        access_token: accessToken
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to generate text');
+                }
+                
+                const text = await response.text();
+                displayOutput(text);
+                
+            } catch (error) {
+                // Show user-friendly error message in error-box
+                const errorBox = document.getElementById('error-box');
+                if (errorBox) {
+                    errorBox.textContent = `Error: ${error.message}`;
+                    errorBox.style.display = 'block';
+                    setTimeout(() => errorBox.style.display = 'none', 12000);
+                } else {
+                    alert(`Error: ${error.message}`);
+                }
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // Display output text
+        function displayOutput(text) {
+            const outputContainer = document.getElementById('output-container');
+            const outputText = document.getElementById('output-text');
+            
+            outputText.value = text;
+            outputContainer.style.display = 'block';
+            
+            // Scroll to output
+            outputContainer.scrollIntoView({ behavior: 'smooth' });
+            
+            // Estimate token count (rough approximation)
+            const tokenCount = Math.round(text.length / 4);
+            document.getElementById('token-count').textContent = `Approximate token count: ${tokenCount.toLocaleString()}`;
+            
+            // Add event listeners for copy and download buttons
+            document.getElementById('copy-btn').addEventListener('click', () => {
+                outputText.select();
+                document.execCommand('copy');
+                alert('Copied to clipboard!');
+            });
+            
+            document.getElementById('download-btn').addEventListener('click', () => {
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'repo_content.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+        // Fast Zip Fetch logic
+        document.getElementById('fast-zip-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const repoUrl = document.getElementById('zip-repo-url').value.trim();
+            const branch = document.getElementById('zip-branch').value.trim();
+            const token = document.getElementById('zip-access-token').value.trim();
+            const errorBox = document.getElementById('error-box');
+            errorBox.style.display = 'none';
+            if (!repoUrl) {
+                errorBox.textContent = 'Please enter a GitHub repository URL.';
+                errorBox.style.display = 'block';
+                return;
+            }
+            if (token) {
+                errorBox.textContent = 'Token provided. Please use Smart Fetch for authenticated fetch.';
+                errorBox.style.display = 'block';
+                return;
+            }
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = 'Fetching and extracting ZIP...';
+            try {
+                let url = '/api/github/zip-fetch';
+                let body = { repo_url: repoUrl };
+                if (branch) {
+                    // Append branch to URL if provided
+                    if (repoUrl.endsWith('/')) {
+                        body.repo_url = repoUrl + 'tree/' + branch;
+                    } else {
+                        body.repo_url = repoUrl + '/tree/' + branch;
+                    }
+                }
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to fetch ZIP');
+                }
+                const data = await response.json();
+                displayOutput(data.text);
+            } catch (error) {
+                errorBox.textContent = `Error: ${error.message}`;
+                errorBox.style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+
+        // Improve file section display for local dir/zip
+        function updateFileList(inputId, listId) {
+            const input = document.getElementById(inputId);
+            const list = document.getElementById(listId);
+            list.innerHTML = '';
+            if (!input.files || input.files.length === 0) {
+                list.parentElement.style.display = 'none';
+                return;
+            }
+            const files = Array.from(input.files);
+            const extGroups = {};
+            files.forEach(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (!extGroups[ext]) extGroups[ext] = [];
+                extGroups[ext].push(file);
+            });
+            let total = 0;
+            Object.keys(extGroups).sort().forEach(ext => {
+                const group = extGroups[ext];
+                const extLabel = ext ? '.' + ext : '(no ext)';
+                const li = document.createElement('li');
+                li.innerHTML = `<b>${extLabel}</b> <span style="color:#888;font-size:0.95em;">(${group.length} file${group.length>1?'s':''})</span> <button class="toggle-files" style="margin-left:1em;">Show/Hide</button>`;
+                const ul = document.createElement('ul');
+                ul.style.display = 'none';
+                group.forEach(f => {
+                    const fileLi = document.createElement('li');
+                    fileLi.textContent = f.webkitRelativePath || f.name;
+                    ul.appendChild(fileLi);
+                });
+                li.appendChild(ul);
+                li.querySelector('.toggle-files').addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    ul.style.display = ul.style.display === 'none' ? 'block' : 'none';
+                });
+                list.appendChild(li);
+                total += group.length;
+            });
+            list.parentElement.style.display = 'block';
+            list.parentElement.querySelector('h4').textContent = `Files to be processed: (${total})`;
+        }
+        document.getElementById('local-dir-input').addEventListener('change', function() {
+            updateFileList('local-dir-input', 'local-dir-file-list');
+        });
+        document.getElementById('local-zip-input').addEventListener('change', function() {
+            updateFileList('local-zip-input', 'local-zip-file-list');
+        });
+    </script>
+</body>
+</html>

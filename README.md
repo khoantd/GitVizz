@@ -1,38 +1,119 @@
-# GitHub Repo to Text Converter (Local Directory Supported)
+# Repo2Txt Python API
 
-https://repo2txt.simplebasedomain.com/
-
-This web-based tool converts GitHub repository (or local directory) contents  into a formatted text file for Large Language Model (LLM) prompts. It streamlines the process of transforming repository data into LLM-friendly input.
-
-![demo.gif](demo.gif)
-
-
+This is a Python-based FastAPI implementation of the Repo2Txt tool that converts GitHub repositories or local files to plain text format.
 
 ## Features
 
-- Display GitHub repository structure
-- Select files/directories to include
-- Filter files by extensions
-- Generate formatted text file
-- Copy text to clipboard
-- Download generated text
-- Support for private repositories
-- Browser-based for privacy and security
-- Download zip of selected files
-- Local directory support
+- GitHub repository conversion to plain text
+- Local directory upload and conversion
+- ZIP file upload and conversion
+- Configurable rate limiting for GitHub API requests
+- Clean API endpoints for integration with frontend applications
 
-This tool runs entirely in the browser, ensuring data security without server-side processing.
+## Installation
 
+1. Clone the repository
+2. Install the required dependencies:
 
-## To do
+```bash
+pip install -r requirements.txt
+```
 
-- Compile tailwind css (gh action maybe?)
-- python bindings
+## Usage
 
-## Contributing
+### Running the server
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+```
 
-## License
+Or simply run:
 
-This project is open source and available under the [MIT License](LICENSE).
+```bash
+python server.py
+```
+
+The server will be available at http://localhost:8000
+
+### API Documentation
+
+Once the server is running, you can access the auto-generated API documentation at:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+## API Endpoints
+
+### GitHub Repository Endpoints
+
+- `POST /api/github/fetch-structure`: Fetch the structure of a GitHub repository
+- `POST /api/github/fetch-contents`: Fetch the contents of selected files from a GitHub repository
+- `POST /api/github/generate-text`: Generate a formatted text file from GitHub repository contents
+
+### Local File Endpoints
+
+- `POST /api/local/upload-directory`: Process uploaded directory files
+- `POST /api/local/upload-zip`: Process uploaded zip file
+- `POST /api/local/generate-text`: Generate a formatted text file from local files
+
+### Configuration Endpoints
+
+- `GET /api/config`: Get current configuration
+- `POST /api/config`: Update configuration (rate limit)
+
+## Rate Limiting
+
+The API implements rate limiting for GitHub API requests to avoid hitting GitHub's rate limits. By default, it's set to 60 requests per minute, but this can be configured via the `/api/config` endpoint.
+
+## Example Usage
+
+### Converting a GitHub Repository
+
+1. Fetch the repository structure:
+```
+POST /api/github/fetch-structure
+{
+    "repo_url": "https://github.com/username/repository",
+    "access_token": "your_github_token" (optional)
+}
+```
+
+2. Generate text from selected files:
+```
+POST /api/github/generate-text
+{
+    "files": [
+        {
+            "path": "file/path.js",
+            "type": "blob",
+            "url": "https://api.github.com/repos/username/repository/git/blobs/sha"
+        }
+    ],
+    "access_token": "your_github_token" (optional)
+}
+```
+
+### Converting Local Files
+
+1. Upload a directory:
+```
+POST /api/local/upload-directory
+[Form data with files]
+```
+
+2. Generate text from selected files:
+```
+POST /api/local/generate-text
+{
+    "files": [
+        {
+            "path": "file/path.js",
+            "type": "blob",
+            "url": "/tmp/path/to/file.js"
+        }
+    ]
+}
+```
+
+## Frontend Integration
+
+This API is designed to be easily integrated with frontend applications. You can build a custom frontend or use the existing JavaScript-based frontend with minimal modifications to point to these API endpoints.
