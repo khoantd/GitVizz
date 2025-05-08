@@ -14,11 +14,14 @@ from io import BytesIO
 import requests
 import httpx
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+
+import ast
+import networkx as nx
 
 # =====================
 # App Configuration
@@ -49,6 +52,74 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 # =====================
 # Models
 # =====================
+
+@app.post("/api/visualize-graph")
+async def visualize_python_code_graph():
+    """
+    Parse all .py files in the repo, build an interactive code structure graph using pyvis, save as static/code_graph.html, and return HTML URL.
+    """
+    from pyvis.network import Network
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    static_html_path = os.path.join(repo_dir, "static", "code_graph.html")
+    G = nx.DiGraph()
+    py_files = []
+    for root, dirs, files in os.walk(repo_dir):
+        for fname in files:
+            if fname.endswith(".py") and "__pycache__" not in root:
+                py_files.append(os.path.join(root, fname))
+
+    node_labels = {}
+    for pyf in py_files:
+        module = os.path.relpath(pyf, repo_dir)
+        try:
+            with open(pyf, "r", encoding="utf-8") as f:
+                tree = ast.parse(f.read(), filename=pyf)
+        except Exception:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                class_name = f"{module}:{node.name}"
+                G.add_node(class_name, type="class")
+                node_labels[class_name] = node.name
+                # Inheritance edges
+                for base in node.bases:
+                    if isinstance(base, ast.Name):
+                        base_name = f"{module}:{base.id}"
+                        G.add_edge(base_name, class_name, type="inherits")
+            elif isinstance(node, ast.FunctionDef):
+                func_name = f"{module}:{node.name}"
+                G.add_node(func_name, type="function")
+                node_labels[func_name] = node.name
+                # If inside a class, relate to class
+                parent = getattr(node, 'parent', None)
+                if parent and isinstance(parent, ast.ClassDef):
+                    class_name = f"{module}:{parent.name}"
+                    G.add_edge(class_name, func_name, type="method")
+                # Function calls
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Call):
+                        if isinstance(child.func, ast.Name):
+                            callee = child.func.id
+                            callee_name = f"{module}:{callee}"
+                            G.add_edge(func_name, callee_name, type="calls")
+        # Set parent attributes for function->class mapping
+        for node in ast.iter_child_nodes(tree):
+            for child in ast.walk(node):
+                for sub in ast.iter_child_nodes(child):
+                    sub.parent = child
+    # Interactive graph with pyvis
+    net = Network(height="700px", width="100%", directed=True, bgcolor="#ffffff", font_color="black")
+    for n in G.nodes:
+        ntype = G.nodes[n].get("type", "function")
+        color = "#0ea5e9" if ntype == "class" else "#a3a3a3"
+        net.add_node(n, label=node_labels.get(n, n), color=color, font={"color": "black"})
+    for src, dst, data in G.edges(data=True):
+        etype = data.get("type", "calls")
+        color = "#0284c7" if etype == "inherits" else ("#10b981" if etype == "method" else "#6366f1")
+        net.add_edge(src, dst, color=color, title=etype)
+    net.write_html(static_html_path, notebook=False)
+    return JSONResponse({"html_url": "/static/code_graph.html"})
+
 class RepoRequest(BaseModel):
     """GitHub repository request model."""
     repo_url: str
