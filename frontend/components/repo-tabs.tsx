@@ -3,10 +3,11 @@
 import { useState, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, BarChart } from "lucide-react";
+import { Copy, Download, BarChart, Code } from "lucide-react";
 import { LocalZipForm } from "@/components/forms/local-zip-form";
 import { GraphVisualization } from "@/components/graph-visualization";
 import { GithubForm } from "./forms/github-form";
+import { CodeViewerSheet } from "./CodeViewerSheet";
 
 export function RepoTabs() {
   const [activeTab, setActiveTab] = useState("github");
@@ -14,12 +15,13 @@ export function RepoTabs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGraph, setShowGraph] = useState(false);
+  const [showCode, setShowCode] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [sourceData, setSourceData] = useState<any>(null);
-  const [sourceType, setSourceType] = useState<'github' | 'zip' | null>(null);
+  const [sourceType, setSourceType] = useState<"github" | "zip" | null>(null);
   const outputRef = useRef<HTMLPreElement>(null);
 
-  const handleOutput = (text: string, type?: 'github' | 'zip', data?: any) => {
+  const handleOutput = (text: string, type?: "github" | "zip", data?: any) => {
     setOutput(text);
     setLoading(false);
     setError(null);
@@ -49,23 +51,27 @@ export function RepoTabs() {
         </div>
       )}
 
-      <Tabs defaultValue="github" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        defaultValue="github"
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="github">GitHub URL</TabsTrigger>
           <TabsTrigger value="local-zip">ZIP Upload</TabsTrigger>
         </TabsList>
         <TabsContent value="github">
-          <GithubForm 
-            onOutput={handleOutput} 
-            onError={handleError} 
-            onLoading={handleLoading} 
+          <GithubForm
+            onOutput={handleOutput}
+            onError={handleError}
+            onLoading={handleLoading}
           />
         </TabsContent>
         <TabsContent value="local-zip">
-          <LocalZipForm 
-            onOutput={(text, file) => handleOutput(text, 'zip', file)} 
-            onError={handleError} 
-            onLoading={handleLoading} 
+          <LocalZipForm
+            onOutput={(text, file) => handleOutput(text, "zip", file)}
+            onError={handleError}
+            onLoading={handleLoading}
           />
         </TabsContent>
       </Tabs>
@@ -84,11 +90,11 @@ export function RepoTabs() {
               <Button
                 onClick={() => {
                   if (output) {
-                    const blob = new Blob([output], { type: 'text/plain' });
+                    const blob = new Blob([output], { type: "text/plain" });
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
+                    const a = document.createElement("a");
                     a.href = url;
-                    a.download = 'repository_content.txt';
+                    a.download = "repository_content.txt";
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -126,22 +132,40 @@ export function RepoTabs() {
                 <BarChart className="h-4 w-4" />
                 {showGraph ? "Hide Graph" : "Show Graph"}
               </Button>
+              <Button
+                onClick={() => setShowCode(true)}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+              >
+                <Code className="h-4 w-4" />
+                View Code
+              </Button>
             </div>
           </div>
           <div className="bg-muted p-4 rounded-md overflow-auto max-h-[500px]">
-            <pre ref={outputRef} className="whitespace-pre-wrap break-all">{output}</pre>
+            <pre ref={outputRef} className="whitespace-pre-wrap break-all">
+              {output}
+            </pre>
           </div>
         </div>
       )}
-      
+
       {showGraph && output && (
-        <GraphVisualization 
-          onError={handleError} 
+        <GraphVisualization
+          onError={handleError}
           formattedText={output}
           sourceType={sourceType || undefined}
           sourceData={sourceData}
         />
       )}
+
+      {/* Code Viewer Sheet */}
+      <CodeViewerSheet
+        isOpen={showCode}
+        onClose={() => setShowCode(false)}
+        repoContent={output}
+      />
     </div>
   );
 }

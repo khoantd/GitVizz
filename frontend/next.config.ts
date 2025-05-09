@@ -10,6 +10,18 @@ const nextConfig: NextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  // Configure webpack for Monaco Editor
+  webpack: (config) => {
+    // Add rule for Monaco Editor's CSS
+    config.module.rules.push({
+      test: /\.ttf$/,
+      type: 'asset/resource',
+    });
+
+    return config;
+  },
+  // Disable static exports for dynamic imports
+  output: 'standalone',
   async rewrites() {
     return [
       {
