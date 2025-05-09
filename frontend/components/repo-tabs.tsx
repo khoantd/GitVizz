@@ -9,6 +9,13 @@ import { GraphVisualization } from "@/components/graph-visualization";
 import { GithubForm } from "./forms/github-form";
 import { CodeViewerSheet } from "./CodeViewerSheet";
 
+interface GitHubSourceData {
+  repo_url: string;
+  access_token?: string;
+}
+
+type SourceData = GitHubSourceData | File | null;
+
 export function RepoTabs() {
   const [activeTab, setActiveTab] = useState("github");
   const [output, setOutput] = useState<string | null>(null);
@@ -17,18 +24,24 @@ export function RepoTabs() {
   const [showGraph, setShowGraph] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [sourceData, setSourceData] = useState<any>(null);
+  const [sourceData, setSourceData] = useState<SourceData>(null);
   const [sourceType, setSourceType] = useState<"github" | "zip" | null>(null);
   const outputRef = useRef<HTMLPreElement>(null);
 
-  const handleOutput = (text: string, type?: "github" | "zip", data?: any) => {
+  const handleOutput = (
+    text: string,
+    type?: "github" | "zip",
+    data?: Record<string, string> | SourceData
+  ) => {
     setOutput(text);
     setLoading(false);
     setError(null);
     setCopySuccess(false);
     if (type && data) {
       setSourceType(type);
-      setSourceData(data);
+      setSourceData(
+        type === "github" ? (data as GitHubSourceData) : (data as SourceData)
+      );
     }
   };
 
@@ -156,7 +169,7 @@ export function RepoTabs() {
           onError={handleError}
           formattedText={output}
           sourceType={sourceType || undefined}
-          sourceData={sourceData}
+          sourceData={sourceData || undefined}
         />
       )}
 

@@ -2,54 +2,66 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { fetchGithubRepo, generateGraphFromGithub } from "@/utils/api";
+import { fetchGithubRepo } from "@/utils/api";
 
 interface GithubFormProps {
-  onOutput: (text: string, type?: 'github' | 'zip', data?: any) => void;
+  onOutput: (
+    text: string,
+    type?: "github" | "zip",
+    data?: Record<string, string>
+  ) => void;
   onError: (error: string) => void;
   onLoading: () => void;
+}
+
+interface FileItem {
+  path: string;
+  type: string;
 }
 
 export function GithubForm({ onOutput, onError, onLoading }: GithubFormProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [fileList, setFileList] = useState<any[]>([]);
+  const [fileList, setFileList] = useState<FileItem[]>([]);
   const [showFileList, setShowFileList] = useState(false);
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     onLoading();
-    
+
     try {
       // Create the request object with repo URL and access token
       const requestData = {
         repo_url: repoUrl,
-        access_token: accessToken || undefined,
+        access_token: accessToken || "",
       };
-      
+
       // Fetch the repository content directly
       const formattedText = await fetchGithubRepo(requestData);
-      
+
       // Extract file list from the formatted text for display
-      const extractedFiles = formattedText.split('='.repeat(80))
-        .filter(section => section.trim())
-        .map(section => {
-          const lines = section.trim().split('\n');
+      const extractedFiles = formattedText
+        .split("=".repeat(80))
+        .filter((section) => section.trim())
+        .map((section) => {
+          const lines = section.trim().split("\n");
           const pathLine = lines[0];
-          const path = pathLine.replace('File: ', '');
-          return { path, type: 'file' };
+          const path = pathLine.replace("File: ", "");
+          return { path, type: "file" };
         });
-      
+
       setFileList(extractedFiles);
       setShowFileList(true);
-      
+
       // Pass the formatted text and the request data for graph generation
-      onOutput(formattedText, 'github', requestData);
+      onOutput(formattedText, "github", requestData);
     } catch (error) {
-      onError(error instanceof Error ? error.message : "An unknown error occurred");
+      onError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     }
   };
-  
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
@@ -66,11 +78,11 @@ export function GithubForm({ onOutput, onError, onLoading }: GithubFormProps) {
           required
         />
       </div>
-      
+
       <div className="space-y-2">
-        <label htmlFor="access-token" className="block font-medium flex items-center">
+        <label htmlFor="access-token" className="font-medium flex items-center">
           GitHub Access Token (optional):
-          <span 
+          <span
             className="ml-2 text-sm text-primary cursor-pointer"
             title="Providing a personal access token increases your GitHub API rate limit from 60 to 5000 requests per hour. Required for private repos or large public repos."
           >
@@ -87,21 +99,22 @@ export function GithubForm({ onOutput, onError, onLoading }: GithubFormProps) {
         />
         <p className="text-sm text-muted-foreground">
           Your token will be stored locally and not shared with the server.
-          <a 
-            href="https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token" 
-            target="_blank" 
+          <a
+            href="https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token"
+            target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline ml-1"
           >
             How to create a GitHub token
-          </a> (no special scopes needed for public repos).
+          </a>{" "}
+          (no special scopes needed for public repos).
         </p>
       </div>
-      
+
       <Button type="submit" className="w-full">
         Fetch Repository Structure
       </Button>
-      
+
       {showFileList && fileList.length > 0 && (
         <div className="mt-4">
           <h3 className="font-medium mb-2">Files found: {fileList.length}</h3>

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useTheme } from "next-themes";
-import { Code, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Code } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -23,8 +21,6 @@ export function CodeViewerSheet({
   onClose,
   repoContent,
 }: CodeViewerSheetProps) {
-  const { theme } = useTheme();
-
   // Handle escape key to close the sheet
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {

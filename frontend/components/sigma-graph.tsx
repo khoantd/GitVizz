@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 // Dynamic imports for client-side only libraries
 import dynamic from "next/dynamic";
@@ -24,7 +24,7 @@ interface GraphEdge {
 interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 // We need to lazily load sigma and graphology since they're client-side only
@@ -57,13 +57,13 @@ export default function SigmaGraph({
   useTreeSitter = false,
   useCodetext = false,
   useLlm = false,
-  data
+  data,
 }: SigmaGraphProps = {}) {
   const [isClient, setIsClient] = useState(false);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Set graph data from props if provided
   useEffect(() => {
     if (data) {
@@ -71,51 +71,59 @@ export default function SigmaGraph({
       setIsLoading(false);
       return;
     }
-    
+
     const fetchGraphData = async () => {
       try {
         setIsLoading(true);
-        
+
         // If formatted text is provided, use the text-based API
         if (formattedText) {
-          const response = await fetch('/api/graph-data-from-text', {
-            method: 'POST',
+          const response = await fetch("/api/graph-data-from-text", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               text: formattedText,
               use_ast: useAst,
               use_tree_sitter: useTreeSitter,
               use_codetext: useCodetext,
-              use_llm: useLlm
+              use_llm: useLlm,
             }),
           });
-          
+
           if (!response.ok) {
-            throw new Error(`Failed to fetch graph data from text: ${response.statusText}`);
+            throw new Error(
+              `Failed to fetch graph data from text: ${response.statusText}`
+            );
           }
-          
+
           const responseData = await response.json();
           setGraphData(responseData);
         } else {
           // Otherwise use the regular API
           const queryParams = new URLSearchParams();
-          queryParams.set('use_ast', String(useAst));
-          queryParams.set('use_tree_sitter', String(useTreeSitter));
-          queryParams.set('use_codetext', String(useCodetext));
-          queryParams.set('use_llm', String(useLlm));
-          
-          const response = await fetch(`/api/graph-data?${queryParams.toString()}`);
+          queryParams.set("use_ast", String(useAst));
+          queryParams.set("use_tree_sitter", String(useTreeSitter));
+          queryParams.set("use_codetext", String(useCodetext));
+          queryParams.set("use_llm", String(useLlm));
+
+          const response = await fetch(
+            `/api/graph-data?${queryParams.toString()}`
+          );
           if (!response.ok) {
-            throw new Error(`Failed to fetch graph data: ${response.statusText}`);
+            throw new Error(
+              `Failed to fetch graph data: ${response.statusText}`
+            );
           }
           const responseData = await response.json();
           setGraphData(responseData);
         }
       } catch (err) {
-        console.error('Error fetching graph data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load graph data');
+        console.error("Error fetching graph data:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load graph data"
+        );
       } finally {
         setIsLoading(false);
       }

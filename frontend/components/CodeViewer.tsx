@@ -1,7 +1,9 @@
 "use client";
 
+import React, { JSX } from "react";
 import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import type * as Monaco from "monaco-editor";
 import { useTheme } from "next-themes";
 import {
   Folder,
@@ -12,10 +14,8 @@ import {
   Copy,
   CopyCheck,
   Search,
-  FilePlus,
   Expand,
   MinusCircle,
-  Settings,
   FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,7 @@ export function CodeViewer({ repoContent, className }: CodeViewerProps) {
   const [copyStatus, setCopyStatus] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"explorer" | "search">("explorer");
   const { theme } = useTheme();
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 
   // Parse repository structure from formatted text
   useEffect(() => {
@@ -66,7 +66,9 @@ export function CodeViewer({ repoContent, className }: CodeViewerProps) {
   }, [repoContent]);
 
   // Function to handle editor mount
-  const handleEditorDidMount = (editor: any) => {
+  const handleEditorDidMount = (
+    editor: Monaco.editor.IStandaloneCodeEditor
+  ) => {
     editorRef.current = editor;
   };
 
