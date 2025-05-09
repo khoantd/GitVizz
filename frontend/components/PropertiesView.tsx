@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useThemeGraph } from "./use-theme-graph";
-import type { Graph } from "graphology";
+import Graph from "graphology";
 
 interface NodeProperties {
   id: string;
