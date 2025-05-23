@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-
 from tree_sitter import Parser, Language, Node as TSNode  # Renamed to avoid conflict
 
 # Graph Data Structures (assuming they are defined elsewhere, e.g., in graph_generator.py)
@@ -53,12 +52,33 @@ class CustomTreeSitterParser:
         return self._node_text(node, source_bytes)
 
     def _get_line_number(self, node: TSNode) -> int:
-        """Returns the 1-based start line number of a node."""
-        return node.start_point[0] + 1
+        """Returns the 1-based start line number of a node.
+        Returns -1 if line number cannot be determined.
+        """
+        try:
+            # tree-sitter row is 0-indexed, node.start_point is (row, column)
+            # Ensure the node, its start_point, and the row value are not None
+            if node and node.start_point and node.start_point[0] is not None:
+                return node.start_point[0] + 1
+            return -1  # Default for undetermined line
+        except (AttributeError, IndexError, TypeError):
+            # AttributeError: node is None, or node.start_point is missing.
+            # IndexError: node.start_point is not a tuple with at least one element.
+            # TypeError: node.start_point[0] is None or not a number (already checked by 'is not None').
+            return -1  # Default for undetermined line
 
     def _get_end_line_number(self, node: TSNode) -> int:
-        """Returns the 1-based end line number of a node."""
-        return node.end_point[0] + 1
+        """Returns the 1-based end line number of a node.
+        Returns -1 if line number cannot be determined.
+        """
+        try:
+            # tree-sitter row is 0-indexed, node.end_point is (row, column)
+            # Ensure the node, its end_point, and the row value are not None
+            if node and node.end_point and node.end_point[0] is not None:
+                return node.end_point[0] + 1
+            return -1  # Default for undetermined line
+        except (AttributeError, IndexError, TypeError):
+            return -1  # Default for undetermined line
 
     def _get_module_id_from_file_path(self, relative_file_path: str) -> str:
         """

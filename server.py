@@ -10,7 +10,7 @@ from io import BytesIO
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import requests
 
 from graph_generator import GraphGenerator
@@ -61,7 +61,8 @@ class GraphNode(BaseModel):
     name: str
     category: str
     file: Optional[str] = None
-    line: Optional[int] = None
+    line: Optional[int] = Field(None, alias='start_line') # Use alias for start_line
+    end_line: Optional[int] = Field(None, alias='end_line') # Add end_line with alias
     code: Optional[str] = None
 
 
