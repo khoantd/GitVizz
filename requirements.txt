@@ -6,6 +6,11 @@ pydantic>=1.10.7
 networkx>=3.1
 matplotlib>=3.7.1
 pyvis>=0.3.2
+tree-sitter-javascript
+tree-sitter-typescript
+tree-sitter-rust
+tree-sitter-go
 tree-sitter-python
 tree-sitter
 codetext
+requests
