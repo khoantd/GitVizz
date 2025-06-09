@@ -68,50 +68,70 @@ class PythonParser(LanguageParser):
         nodes_data: List[GraphNodeData] = []
         edges_data: List[GraphEdgeData] = []
 
-        # To store module-level import information: {module_path: {alias: full_imported_name}}
         self.module_imports: Dict[str, Dict[str, str]] = {}
-        # To store defined symbols for resolution: {fully_qualified_name: node_details}
         self.defined_symbols: Dict[str, GraphNodeData] = {}
 
-        # First pass: Define modules, classes, functions and gather imports
         for file_data in files:
-            if not file_data["path"].endswith(".py"):
+            file_path = file_data["path"]
+            is_notebook = file_path.endswith(".ipynb")
+            is_python_file = file_path.endswith(".py")
+
+            if not (is_python_file or is_notebook):
                 continue
 
-            file_path = file_data["path"]
-            module_name_from_path = file_path.replace("/", ".").rstrip(".py")
+            file_content_for_parsing = ""
+            module_name_from_path = ""
+            actual_file_path_for_nodes = file_path  # Store original path for nodes
 
-            # Create module node
+            if is_notebook:
+                file_content_for_parsing = file_data.get(
+                    "python_equivalent_content", ""
+                )
+                # Generate a unique module name for notebooks, e.g., notebook.my_notebook_file
+                base_name = Path(file_path).stem
+                module_name_from_path = f"notebook.{base_name.replace('/', '.')}"
+            elif is_python_file:
+                file_content_for_parsing = file_data.get("content", "")
+                module_name_from_path = file_path.replace("/", ".").rstrip(".py")
+
+            if not file_content_for_parsing:
+                # print(f"Skipping {file_path} due to empty content for parsing.")
+                continue
+
             module_node_id = module_name_from_path
             module_node: GraphNodeData = {
                 "id": module_node_id,
                 "name": module_name_from_path.split(".")[-1],
                 "category": "module",
-                "file": file_path,
+                "file": actual_file_path_for_nodes,  # Use original path here
                 "start_line": 1,
-                "end_line": len(file_data["content"].splitlines()),  # Approximate
+                "end_line": len(file_content_for_parsing.splitlines()),
                 "code": None,
-                "parent_id": str(
-                    Path(file_path).parent
-                ),  # Set parent to directory path
+                "parent_id": str(Path(actual_file_path_for_nodes).parent),
                 "imports": [],
             }
             nodes_data.append(module_node)
             self.defined_symbols[module_node_id] = module_node
-            self.module_imports[file_path] = {}
+            self.module_imports[
+                actual_file_path_for_nodes
+            ] = {}  # Use actual path for imports key
 
             try:
-                tree = ast.parse(file_data["content"], filename=file_path)
+                tree = ast.parse(
+                    file_content_for_parsing, filename=actual_file_path_for_nodes
+                )
                 for node in ast.walk(tree):
                     for child in ast.iter_child_nodes(node):
-                        setattr(child, "parent_ast_node", node)  # For context
+                        setattr(child, "parent_ast_node", node)
 
-                for node in tree.body:  # Top-level statements
+                for node in tree.body:
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             imported_name = alias.name
                             as_name = alias.asname or imported_name
-                            self.module_imports[file_path][as_name] = imported_name
+                            self.module_imports[actual_file_path_for_nodes][as_name] = (
+                                imported_name
+                            )
                             if module_node.get("imports"):
                                 module_node["imports"].append(
                                     {
@@ -121,15 +141,14 @@ class PythonParser(LanguageParser):
                                     }
                                 )
                     elif isinstance(node, ast.ImportFrom):
-                        from_module = (
-                            node.module or ""
-                        )  # Relative imports might have module as None initially
-                        # TODO: Resolve relative imports based on file_path and project structure
+                        from_module = node.module or ""
                         for alias in node.names:
                             imported_name = alias.name
                             as_name = alias.asname or imported_name
                             full_imported_name = f"{from_module}.{imported_name}"
-                            self.module_imports[file_path][as_name] = full_imported_name
+                            self.module_imports[actual_file_path_for_nodes][as_name] = (
+                                full_imported_name
+                            )
                             if module_node.get("imports"):
                                 module_node["imports"].append(
                                     {
@@ -138,14 +157,13 @@ class PythonParser(LanguageParser):
                                         "source_module": from_module,
                                     }
                                 )
-
                     elif isinstance(node, ast.ClassDef):
                         class_id = f"{module_node_id}.{node.name}"
                         class_node: GraphNodeData = {
                             "id": class_id,
                             "name": node.name,
                             "category": "class",
-                            "file": file_path,
+                            "file": actual_file_path_for_nodes,
                             "start_line": node.lineno,
                             "end_line": _get_node_end_line(node),
                             "code": ast.unparse(node)
@@ -160,11 +178,10 @@ class PythonParser(LanguageParser):
                                 "source": module_node_id,
                                 "target": class_id,
                                 "relationship": "defines_class",
-                                "file": file_path,
+                                "file": actual_file_path_for_nodes,
                                 "line": node.lineno,
                             }
                         )
-
                         for func_node in node.body:
                             if isinstance(func_node, ast.FunctionDef):
                                 method_id = f"{class_id}.{func_node.name}"
@@ -172,7 +189,7 @@ class PythonParser(LanguageParser):
                                     "id": method_id,
                                     "name": func_node.name,
                                     "category": "method",
-                                    "file": file_path,
+                                    "file": actual_file_path_for_nodes,
                                     "start_line": func_node.lineno,
                                     "end_line": _get_node_end_line(func_node),
                                     "code": ast.unparse(func_node)
@@ -187,18 +204,17 @@ class PythonParser(LanguageParser):
                                         "source": class_id,
                                         "target": method_id,
                                         "relationship": "defines_method",
-                                        "file": file_path,
+                                        "file": actual_file_path_for_nodes,
                                         "line": func_node.lineno,
                                     }
                                 )
-
                     elif isinstance(node, ast.FunctionDef):
                         func_id = f"{module_node_id}.{node.name}"
                         func_node_data: GraphNodeData = {
                             "id": func_id,
                             "name": node.name,
                             "category": "function",
-                            "file": file_path,
+                            "file": actual_file_path_for_nodes,
                             "start_line": node.lineno,
                             "end_line": _get_node_end_line(node),
                             "code": ast.unparse(node)
@@ -213,31 +229,55 @@ class PythonParser(LanguageParser):
                                 "source": module_node_id,
                                 "target": func_id,
                                 "relationship": "defines_function",
-                                "file": file_path,
+                                "file": actual_file_path_for_nodes,
                                 "line": node.lineno,
                             }
                         )
             except Exception as e:
-                print(f"Error parsing Python file (pass 1) {file_path}: {e}")
+                print(
+                    f"Error parsing Python file/notebook (pass 1) {actual_file_path_for_nodes}: {e}"
+                )
                 continue
 
         # Second pass: Resolve calls, inheritance, and other relationships
         for file_data in files:
-            if not file_data["path"].endswith(".py"):
-                continue
             file_path = file_data["path"]
-            module_name_from_path = file_path.replace("/", ".").rstrip(".py")
-            current_module_id = module_name_from_path
+            is_notebook = file_path.endswith(".ipynb")
+            is_python_file = file_path.endswith(".py")
+
+            if not (is_python_file or is_notebook):
+                continue
+
+            actual_file_path_for_nodes = file_path  # Store original path
+            file_content_for_parsing = ""
+            current_module_id = ""
+
+            if is_notebook:
+                file_content_for_parsing = file_data.get(
+                    "python_equivalent_content", ""
+                )
+                base_name = Path(file_path).stem
+                current_module_id = f"notebook.{base_name.replace('/', '.')}"
+            elif is_python_file:
+                file_content_for_parsing = file_data.get("content", "")
+                current_module_id = file_path.replace("/", ".").rstrip(".py")
+
+            if not file_content_for_parsing:
+                continue
 
             try:
-                tree = ast.parse(file_data["content"], filename=file_path)
-                # Assign parent AST nodes for context
+                tree = ast.parse(
+                    file_content_for_parsing, filename=actual_file_path_for_nodes
+                )
                 for node_walker in ast.walk(tree):
                     for child in ast.iter_child_nodes(node_walker):
                         setattr(child, "parent_ast_node", node_walker)
 
                 for node in ast.walk(tree):
-                    current_context_id = self._get_context_id(node, current_module_id)
+                    # Use actual_file_path_for_nodes for resolving symbols, as imports are keyed by it
+                    context_id_for_symbols = self._get_context_id(
+                        node, current_module_id
+                    )
 
                     if isinstance(node, ast.ClassDef):
                         class_id = f"{current_module_id}.{node.name}"
@@ -248,43 +288,32 @@ class PythonParser(LanguageParser):
                                 else "unknown_base"
                             )
                             resolved_base_id = self._resolve_symbol(
-                                base_name, file_path, current_module_id
+                                base_name, actual_file_path_for_nodes, current_module_id
                             )
-                            if (
-                                resolved_base_id
-                            ):  # Check if resolved_base_id is in self.defined_symbols
+                            if resolved_base_id:
                                 target_id = resolved_base_id
-                            else:  # Fallback or create a placeholder external node
-                                target_id = base_name  # Could be external or unresolved
+                            else:
+                                target_id = base_name
                             if self.defined_symbols.get(
                                 target_id
-                            ) or not target_id.startswith(
-                                current_module_id
-                            ):  # Link if defined or external
+                            ) or not target_id.startswith(current_module_id):
                                 edges_data.append(
                                     {
                                         "source": class_id,
                                         "target": target_id,
                                         "relationship": "inherits",
-                                        "file": file_path,
+                                        "file": actual_file_path_for_nodes,
                                         "line": base_node.lineno,
                                     }
                                 )
-
                     elif isinstance(node, ast.Call):
-                        if not current_context_id:
-                            continue  # Call is not in a defined function/method
+                        if not context_id_for_symbols:
+                            continue
 
                         callee_name_str = ""
-                        if isinstance(
-                            node.func, ast.Name
-                        ):  # Direct function call: my_func()
+                        if isinstance(node.func, ast.Name):
                             callee_name_str = node.func.id
-                        elif isinstance(
-                            node.func, ast.Attribute
-                        ):  # Attribute call: obj.method() or module.func()
-                            # Try to reconstruct the full attribute path
-                            # This is simplified; proper resolution needs type inference
+                        elif isinstance(node.func, ast.Attribute):
                             obj_name = (
                                 ast.unparse(node.func.value)
                                 if hasattr(ast, "unparse")
@@ -294,29 +323,32 @@ class PythonParser(LanguageParser):
 
                         if callee_name_str:
                             resolved_callee_id = self._resolve_symbol(
-                                callee_name_str, file_path, current_module_id
+                                callee_name_str,
+                                actual_file_path_for_nodes,
+                                current_module_id,
                             )
                             if resolved_callee_id:
                                 target_id = resolved_callee_id
                             else:
-                                target_id = callee_name_str  # External or unresolved
+                                target_id = callee_name_str
 
-                            # Add edge if target is defined or seems to be an external fully qualified name
                             if self.defined_symbols.get(target_id) or (
                                 "." in target_id
                                 and not target_id.startswith(current_module_id)
                             ):
                                 edges_data.append(
                                     {
-                                        "source": current_context_id,
+                                        "source": context_id_for_symbols,
                                         "target": target_id,
                                         "relationship": "calls",
-                                        "file": file_path,
+                                        "file": actual_file_path_for_nodes,
                                         "line": node.lineno,
                                     }
                                 )
             except Exception as e:
-                print(f"Error parsing Python file (pass 2) {file_path}: {e}")
+                print(
+                    f"Error parsing Python file/notebook (pass 2) {actual_file_path_for_nodes}: {e}"
+                )
                 continue
 
         return nodes_data, edges_data
@@ -962,6 +994,19 @@ class GraphGenerator:
     def __init__(self, files: List[Dict[str, Any]], output_html_path: str):
         self.files = files
         self.output_html_path = output_html_path
+        self.all_files_content: Dict[str, str] = {}
+
+        # Populate all_files_content, preferring python_equivalent_content for notebooks
+        for file_data in self.files:
+            path = file_data.get("path")
+            if not path:
+                continue
+            if path.endswith(".ipynb"):
+                self.all_files_content[path] = file_data.get(
+                    "python_equivalent_content", file_data.get("content", "")
+                )
+            else:
+                self.all_files_content[path] = file_data.get("content", "")
 
         # Determine project_root_path
         if self.files and "full_path" in self.files[0] and self.files[0]["full_path"]:
@@ -996,6 +1041,7 @@ class GraphGenerator:
 
         self.parsers: Dict[str, LanguageParser] = {
             ".py": PythonParser(),
+            ".ipynb": PythonParser(),  # Route .ipynb to PythonParser
             # Default JS parser is regex-based for non-React/Next projects or fallback
             ".js": JavaScriptParser(),
             ".jsx": JavaScriptParser(),
