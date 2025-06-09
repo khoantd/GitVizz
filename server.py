@@ -107,7 +107,9 @@ async def _process_input(
     repo_url: Optional[str],
     branch: Optional[str],  # Now used if repo_url is a GitHub link
     zip_file: Optional[UploadFile],
-) -> Tuple[List[Dict[str, Any]], str, List[str]]: # Returns (files, extract_dir_path, list_of_dirs_to_rmtree)
+) -> Tuple[
+    List[Dict[str, Any]], str, List[str]
+]:  # Returns (files, extract_dir_path, list_of_dirs_to_rmtree)
     """
     Processes input from either a GitHub URL or an uploaded ZIP file.
     Downloads from URL or saves uploaded file, then extracts ZIP.
@@ -117,7 +119,9 @@ async def _process_input(
         - List of temporary directories created by this process that need cleanup via rmtree.
     """
     temp_zip_file_path: Optional[str] = None  # Path of the temporary ZIP file
-    created_dirs_for_rmtree: List[str] = []  # Directories created by this function that need rmtree
+    created_dirs_for_rmtree: List[
+        str
+    ] = []  # Directories created by this function that need rmtree
 
     try:
         # Create a temporary file to store the zip.
@@ -127,14 +131,17 @@ async def _process_input(
 
             if repo_url:
                 # Construct download URL, assuming it's a GitHub link if branch is relevant
-                actual_zip_url = repo_url # Default if not GitHub or parse fails
+                actual_zip_url = repo_url  # Default if not GitHub or parse fails
                 if "github.com" in repo_url:  # Basic check
                     repo_info = parse_repo_url(repo_url)
-                    owner, repo_name_from_url = repo_info.get("owner"), repo_info.get("repo")
-                    if owner and repo_name_from_url and owner != "unknown":  # Successfully parsed as GitHub
-                        actual_zip_url = (
-                            f"https://github.com/{owner}/{repo_name_from_url}/archive/{branch}.zip"
-                        )
+                    owner, repo_name_from_url = (
+                        repo_info.get("owner"),
+                        repo_info.get("repo"),
+                    )
+                    if (
+                        owner and repo_name_from_url and owner != "unknown"
+                    ):  # Successfully parsed as GitHub
+                        actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/{branch}.zip"
                     # else: actual_zip_url remains repo_url if non-GitHub or parse failed
                 # else: actual_zip_url remains repo_url if direct link to zip
 
@@ -152,12 +159,15 @@ async def _process_input(
                 await zip_file.close()
             else:
                 raise HTTPException(
-                    status_code=400, detail="Either repo_url or zip_file must be provided."
+                    status_code=400,
+                    detail="Either repo_url or zip_file must be provided.",
                 )
         # temp_zip_obj is closed, content is in temp_zip_file_path
 
         # extract_zip_contents creates its own temp dir using mkdtemp
-        extracted_files, temp_extract_dir_path = extract_zip_contents(temp_zip_file_path)
+        extracted_files, temp_extract_dir_path = extract_zip_contents(
+            temp_zip_file_path
+        )
         # This directory was created by mkdtemp and needs to be cleaned up via rmtree.
         created_dirs_for_rmtree.append(temp_extract_dir_path)
 
@@ -174,7 +184,9 @@ async def _process_input(
             # Consider logging the full traceback for unexpected errors
             # import traceback
             # print(f"Unexpected error in _process_input: {e}\n{traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Error processing input: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Error processing input: {str(e)}"
+            )
     finally:
         # Always attempt to delete the temporary ZIP file if its path was set.
         if temp_zip_file_path and os.path.exists(temp_zip_file_path):
@@ -419,14 +431,18 @@ async def generate_text_endpoint(
     branch: Optional[str] = Form(
         "main", description="Branch to use if repo_url is a GitHub repository link."
     ),
-    zip_file_form_param: Any = File(None, alias="zip_file"), # Changed to Any and aliased
+    zip_file_form_param: Any = File(
+        None, alias="zip_file"
+    ),  # Changed to Any and aliased
 ) -> TextResponse:
     actual_zip_file: Optional[UploadFile] = None
     if isinstance(zip_file_form_param, UploadFile):
         if zip_file_form_param.filename:  # Check if it's a real file upload
             actual_zip_file = zip_file_form_param
         # If UploadFile has no filename, it's likely an empty input, treat as None
-    elif isinstance(zip_file_form_param, str) and not zip_file_form_param: # Handles empty string
+    elif (
+        isinstance(zip_file_form_param, str) and not zip_file_form_param
+    ):  # Handles empty string
         # If an empty string was sent for the file, treat as None
         actual_zip_file = None
     # If zip_file_form_param is None or other non-UploadFile type, actual_zip_file remains None
@@ -439,7 +455,9 @@ async def generate_text_endpoint(
     temp_dirs_to_cleanup = []
     try:
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
-            repo_url, branch, actual_zip_file # Use the processed actual_zip_file
+            repo_url,
+            branch,
+            actual_zip_file,  # Use the processed actual_zip_file
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -465,8 +483,10 @@ async def generate_text_endpoint(
                 filename_base = (
                     f"{repo_info['owner']}_{repo_info['repo']}_{branch}_content"
                 )
-        elif actual_zip_file and actual_zip_file.filename: # Use actual_zip_file
-            filename_base = f"{Path(actual_zip_file.filename).stem}_content" # Use actual_zip_file
+        elif actual_zip_file and actual_zip_file.filename:  # Use actual_zip_file
+            filename_base = (
+                f"{Path(actual_zip_file.filename).stem}_content"  # Use actual_zip_file
+            )
 
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return TextResponse(
