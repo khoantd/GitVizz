@@ -33,7 +33,6 @@ export default function ResultsPage() {
   const { output, error, outputMessage, sourceType, sourceData, loading } = useResultData()
 
   const [activeTab, setActiveTab] = useState("structure")
-  const [copied, setCopied] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
 
@@ -127,31 +126,6 @@ export default function ResultsPage() {
     }
 
     return "Repository"
-  }
-
-  // Copy/download handlers
-  const handleCopy = async () => {
-    if (!output) return
-    try {
-      await navigator.clipboard.writeText(output)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      showToast.error("Failed to copy")
-    }
-  }
-
-  const handleDownload = () => {
-    if (!output) return
-    const blob = new Blob([output], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "repository-structure.txt"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
 
   if (loading || !output) {
