@@ -378,7 +378,7 @@ export default function ResultsPage() {
                   </div>
                 </div>
                 <div className="p-4 sm:p-8">
-                  <StructureTab onCopy={handleCopy} onDownload={handleDownload} copied={copied} />
+                  <StructureTab />
                 </div>
               </div>
             </TabsContent>

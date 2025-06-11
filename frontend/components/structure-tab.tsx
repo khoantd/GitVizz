@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { Folder, FolderOpen, File, ChevronDown, ChevronRight, Download, FileText, Search, X, Copy, Check, Filter, Eye, EyeOff, Settings, MoreHorizontal, CheckCircle2, Circle } from 'lucide-react'
+import { Folder, FolderOpen, File, ChevronDown, ChevronRight, Download, FileText, Search, X, Filter, Eye, EyeOff, CheckCircle2, Circle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,13 +20,8 @@ interface FileNode {
     selected?: boolean
 }
 
-interface StructureTabProps {
-    onCopy: () => void
-    onDownload: () => void
-    copied: boolean
-}
 
-export function StructureTab({ onCopy, onDownload, copied }: StructureTabProps) {
+export function StructureTab() {
     const [fileTree, setFileTree] = useState<FileNode[]>([])
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
