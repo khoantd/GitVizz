@@ -57,9 +57,10 @@ export type BodyGenerateTextEndpointApiGenerateTextPost = {
      */
     branch?: string | null;
     /**
-     * Zip File Form Param
+     * Zip File
+     * A ZIP file of the repository.
      */
-    zip_file_form_param?: unknown;
+    zip_file?: (Blob | File) | null;
 };
 
 /**

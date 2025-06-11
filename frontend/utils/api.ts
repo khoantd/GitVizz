@@ -130,7 +130,7 @@ export async function generateStructureFromGithub(repoRequest: RepoRequest): Pro
 export async function uploadLocalZip(file: File): Promise<{ text: string }> {
   try {
     const body: BodyGenerateTextEndpointApiGenerateTextPost = {
-      zip_file_form_param: file
+      zip_file: file
     };
 
     const response = await generateTextEndpointApiGenerateTextPost({

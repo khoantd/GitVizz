@@ -117,8 +117,18 @@ export const Body_generate_text_endpoint_api_generate_text_postSchema = {
             description: 'Branch to use if repo_url is a GitHub repository link.',
             default: 'main'
         },
-        zip_file_form_param: {
-            title: 'Zip File Form Param'
+        zip_file: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'binary'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Zip File',
+            description: 'A ZIP file of the repository.'
         }
     },
     type: 'object',
