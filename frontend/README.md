@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitViz – Frontend
 
-## Getting Started
+A production-ready frontend built with **Next.js**, **TypeScript**, **TailwindCSS**, and **ShadCN UI**. This app visualizes repository structures and content by interacting with backend APIs.
 
-First, run the development server:
+---
+
+## 📦 Tech Stack
+
+- **Next.js** (App Router + TypeScript)
+- **TailwindCSS** (utility-first styling)
+- **ShadCN/UI** (component library)
+- **OpenAPI SDK** (`api-client/` auto-generated)
+- **PNPM** (package manager)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the Repository
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/your-username/gitviz.git
+cd gitviz
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install Dependencies
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Using **pnpm** (preferred):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm install
+```
 
-## Learn More
+Or, if using npm:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Setup Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Create a `.env.local` file by copying the example:
 
-## Deploy on Vercel
+```bash
+cp .env.example .env.local
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Update the variables in `.env.local` as needed (e.g. API base URL).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4. Run Development Server
+
+```bash
+pnpm dev
+```
+
+This runs the app in development mode.
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+
+### 5. Build for Production
+
+```bash
+pnpm build
+pnpm start
+```
+
+- `build` generates the production-optimized files
+- `start` runs the production server
+
+### 6. Lint the Code
+
+```bash
+pnpm lint
+```
+
+---
+
+## ⚙️ Scripts
+
+| Script | Description |
+|--------|-------------|
+| `dev` | Run dev server with Turbopack |
+| `build` | Create production build |
+| `start` | Start production server |
+| `lint` | Run ESLint |
+| `generate:api` | Regenerate SDK from OpenAPI spec |
+| `setup:env` | Copy .env.example to .env.local |
+
+---
+
+## 📁 Project Structure
+
+```
+.
+├── api-client/           # Auto-generated OpenAPI SDK files
+├── app/                  # Next.js App Router pages
+├── components/           # Reusable UI components
+├── context/              # React context providers
+├── lib/                  # Utility functions
+├── public/               # Static assets (images, icons)
+├── utils/                # API helpers & models
+├── styles/               # Global styles (e.g., Tailwind)
+├── .env.example          # Sample environment variables
+├── next.config.ts        # Next.js configuration
+├── openapi-ts.config.ts  # OpenAPI SDK generation config
+```

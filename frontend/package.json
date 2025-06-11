@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:api": "openapi-ts"
+    "generate:api": "openapi-ts",
+    "setup:env" : "cp .example.env .env.local && echo 'Environment variables copied to .env.local'"
   },
   "dependencies": {
     "@codeium/react-code-editor": "^1.0.12",
