@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { StructureTab } from "@/components/structure-tab"
 import ReagraphVisualization from "@/components/ReagraphVisualization"
 
 import {
   Download,
-  Copy,
   Network,
   Code2,
   FileText,
@@ -137,10 +137,10 @@ export default function ResultsPage() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // TODO: if needed, handle error more gracefully
       showToast.error("Failed to copy")
     }
   }
+
   const handleDownload = () => {
     if (!output) return
     const blob = new Blob([output], { type: "text/plain" })
@@ -359,63 +359,26 @@ export default function ResultsPage() {
               )}
             />
 
-            {/* Structure Tab */}
+            {/* Enhanced Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">
               <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
                 <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-2 sm:space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                          <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                        </div>
-                        <div>
-                          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                            Repository Structure
-                          </h2>
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            Structured text output optimized for AI processing
-                          </p>
-                        </div>
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
+                      <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCopy}
-                        className="flex-1 sm:flex-none rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                      >
-                        {copied ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                            <span className="text-green-600">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownload}
-                        className="flex-1 sm:flex-none rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        <span className="hidden xs:inline">Download</span>
-                      </Button>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                        Repository Structure
+                      </h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        Interactive file explorer with filtering and selection capabilities
+                      </p>
                     </div>
                   </div>
                 </div>
-                <div className="p-4 sm:p-8 h-[500px] sm:h-[600px] lg:h-[700px]">
-                  <div className="bg-muted/30 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-border/30 h-full w-full overflow-auto">
-                    <pre className="p-4 sm:p-8 text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap text-foreground/90">
-                      {output}
-                    </pre>
-                  </div>
+                <div className="p-4 sm:p-8">
+                  <StructureTab onCopy={handleCopy} onDownload={handleDownload} copied={copied} />
                 </div>
               </div>
             </TabsContent>
@@ -535,6 +498,7 @@ export default function ResultsPage() {
           </div>
         </Tabs>
       </main>
+
       {/* Expanded View Popup */}
       {isExpanded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
