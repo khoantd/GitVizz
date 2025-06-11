@@ -10,19 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  Network,
-  FileText,
-  Code,
-  ActivityIcon as Function,
-  Variable,
-  Package,
-  Layers,
-  Info,
-  Eye,
-  EyeOff,
-  Map as MapIcon,
-} from "lucide-react"
+import { Network, FileText, Code, ActivityIcon as Function, Variable, Package, Layers, Info, Eye, EyeOff, MapIcon, Menu, X } from 'lucide-react'
 
 // Properly import GraphCanvas with Next.js SSR handling
 const GraphCanvas = dynamic(() => import("reagraph").then((mod) => mod.GraphCanvas), {
@@ -34,15 +22,15 @@ const GraphCanvas = dynamic(() => import("reagraph").then((mod) => mod.GraphCanv
 const GraphLoadingComponent = memo(() => (
   <div className="flex justify-center items-center h-full">
     <div className="flex flex-col items-center gap-4 p-8">
-      <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
       <div className="text-center space-y-2">
-        <p className="text-sm font-medium text-foreground">Loading Graph</p>
+        <p className="text-xs sm:text-sm font-medium text-foreground">Loading Graph</p>
         <p className="text-xs text-muted-foreground">Analyzing code structure...</p>
       </div>
     </div>
   </div>
 ))
-GraphLoadingComponent.displayName = "GraphLoadingComponent";
+GraphLoadingComponent.displayName = "GraphLoadingComponent"
 
 // Extend the API types to include the missing `line` property for backward compatibility
 interface GraphNode extends ApiGraphNode {
@@ -116,7 +104,16 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
 
 // Stable color palette and icon list (moved outside component to prevent recreation)
 const COLOR_PALETTE = [
-  "#F06292", "#64B5F6", "#81C784", "#FFD54F", "#BA68C8", "#FF8A65", "#90A4AE", "#A1887F", "#4DB6AC", "#9575CD",
+  "#F06292",
+  "#64B5F6",
+  "#81C784",
+  "#FFD54F",
+  "#BA68C8",
+  "#FF8A65",
+  "#90A4AE",
+  "#A1887F",
+  "#4DB6AC",
+  "#9575CD",
 ]
 const ICON_LIST = [Layers, Function, Code, Variable, Package, FileText, Network]
 
@@ -126,7 +123,10 @@ const getDynamicNodeCategories = (() => {
 
   return (nodes: GraphNode[] = []): NodeCategories => {
     // Create a cache key based on node categories
-    const cacheKey = nodes.map(n => n.category || 'other').sort().join(',')
+    const cacheKey = nodes
+      .map((n) => n.category || "other")
+      .sort()
+      .join(",")
 
     if (cache.has(cacheKey)) {
       return cache.get(cacheKey)!
@@ -174,7 +174,7 @@ const transformApiResponseMemo = (() => {
       return cache.get(response)!
     }
 
-    const transformedNodes: GraphNode[] = response.nodes.map(node => ({
+    const transformedNodes: GraphNode[] = response.nodes.map((node) => ({
       ...node,
       line: node.start_line || 0, // Map start_line to line for backward compatibility
     }))
@@ -196,168 +196,178 @@ function isCacheValid(entry: CacheEntry): boolean {
 }
 
 // Memoized sidebar content components
-const OverviewTab = memo(({ categoryData }: { categoryData: Array<{ key: string; config: CategoryConfig; count: number }> }) => (
-  <ScrollArea className="h-full">
-    <div className="p-4 space-y-6">
-      {/* Legend - No Statistics */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Node Types</h3>
-        <div className="space-y-2">
-          {categoryData.map(({ key, config, count }) => {
-            const Icon = config.icon
-            return (
-              <div
-                key={key}
-                className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-2 flex-1">
+const OverviewTab = memo(
+  ({ categoryData }: { categoryData: Array<{ key: string; config: CategoryConfig; count: number }> }) => (
+    <div className="h-full overflow-hidden">
+      <ScrollArea className="h-full">
+        <div className="p-3 sm:p-4 space-y-4 sm:space-y-6">
+          {/* Legend - No Statistics */}
+          <div className="space-y-3">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground">Node Types</h3>
+            <div className="space-y-2">
+              {categoryData.map(({ key, config, count }) => {
+                const Icon = config.icon
+                return (
                   <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: config.color }}
-                  />
-                  <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{config.label}</p>
-                    <p className="text-xs text-muted-foreground truncate">{config.description}</p>
+                    key={key}
+                    className="flex items-center gap-2 sm:gap-3 p-2 rounded-lg sm:rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div
+                        className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: config.color }}
+                      />
+                      <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium text-foreground truncate">{config.label}</p>
+                        <p className="text-xs text-muted-foreground truncate">{config.description}</p>
+                      </div>
+                    </div>
+                    {count > 0 && (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        {count}
+                      </Badge>
+                    )}
                   </div>
-                </div>
-                {count > 0 && (
-                  <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
-                    {count}
-                  </Badge>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                )
+              })}
+            </div>
+          </div>
 
-      {/* Instructions */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Interaction</h3>
-        <div className="space-y-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary"></div>
-            <span>Click nodes to view details</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary"></div>
-            <span>Drag to pan the graph</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary"></div>
-            <span>Scroll to zoom in/out</span>
+          {/* Instructions */}
+          <div className="space-y-3">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground">Interaction</h3>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
+                <span>Click nodes to view details</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
+                <span>Drag to pan the graph</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
+                <span>Scroll to zoom in/out</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
-  </ScrollArea>
-))
+  ),
+)
 OverviewTab.displayName = "OverviewTab"
 
-const DetailsTab = memo(({
-  selectedNode,
-  getNodeColor,
-  onOpenInExplorer
-}: {
-  selectedNode: GraphNode | null
-  getNodeColor: (category: string) => string
-  onOpenInExplorer: (node: GraphNode) => void
-}) => (
-  <ScrollArea className="h-full">
-    <div className="p-4">
-      {selectedNode ? (
-        <div className="space-y-4">
-          {/* Node Header */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-4 h-4 rounded-full flex-shrink-0"
-                style={{
-                  backgroundColor: getNodeColor(selectedNode.category),
-                }}
-              />
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-foreground truncate">{selectedNode.name}</h3>
-                <p className="text-sm text-muted-foreground capitalize">{selectedNode.category}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Node Details */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-foreground">File Location</h4>
-              <div className="bg-muted/30 rounded-xl p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="font-mono text-xs truncate">{selectedNode.file || 'Unknown'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm mt-1">
-                  <span className="text-muted-foreground">Line:</span>
-                  <span className="font-mono text-xs">{selectedNode.line}</span>
+const DetailsTab = memo(
+  ({
+    selectedNode,
+    getNodeColor,
+    onOpenInExplorer,
+  }: {
+    selectedNode: GraphNode | null
+    getNodeColor: (category: string) => string
+    onOpenInExplorer: (node: GraphNode) => void
+  }) => (
+    <div className="h-full overflow-hidden">
+      <ScrollArea className="h-full">
+        <div className="p-3 sm:p-4">
+          {selectedNode ? (
+            <div className="space-y-4">
+              {/* Node Header */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                    style={{
+                      backgroundColor: getNodeColor(selectedNode.category),
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm sm:text-base font-semibold text-foreground truncate">
+                      {selectedNode.name}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground capitalize">{selectedNode.category}</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {selectedNode.code && (
+              {/* Node Details */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-xs sm:text-sm font-medium text-foreground">File Location</h4>
+                  <div className="bg-muted/30 rounded-lg sm:rounded-xl p-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="font-mono text-xs truncate">{selectedNode.file || "Unknown"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <span className="text-muted-foreground text-xs">Line:</span>
+                      <span className="font-mono text-xs">{selectedNode.line}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedNode.code && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs sm:text-sm font-medium text-foreground">Code Preview</h4>
+                    <div className="bg-muted/30 rounded-lg sm:rounded-xl p-3">
+                      <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap overflow-hidden">
+                        {selectedNode.code.length > 200
+                          ? selectedNode.code.substring(0, 200) + "..."
+                          : selectedNode.code}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-lg sm:rounded-xl text-xs sm:text-sm"
+                    onClick={() => onOpenInExplorer(selectedNode)}
+                  >
+                    <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    Open in Explorer
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center space-y-4 py-8">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center">
+                <Info className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
+              </div>
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-foreground">Code Preview</h4>
-                <div className="bg-muted/30 rounded-xl p-3">
-                  <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap overflow-hidden">
-                    {selectedNode.code.length > 200
-                      ? selectedNode.code.substring(0, 200) + "..."
-                      : selectedNode.code}
-                  </pre>
-                </div>
+                <h3 className="text-sm sm:text-base font-medium text-foreground">Select a Node</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Click on any node in the graph to view its details
+                </p>
               </div>
-            )}
-
-            {/* Actions */}
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full rounded-xl"
-                onClick={() => onOpenInExplorer(selectedNode)}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Open in Explorer
-              </Button>
             </div>
-          </div>
+          )}
         </div>
-      ) : (
-        <div className="text-center space-y-4 py-8">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-            <Info className="h-6 w-6 text-muted-foreground/50" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-medium text-foreground">Select a Node</h3>
-            <p className="text-sm text-muted-foreground">
-              Click on any node in the graph to view its details
-            </p>
-          </div>
-        </div>
-      )}
+      </ScrollArea>
     </div>
-  </ScrollArea>
-))
+  ),
+)
 DetailsTab.displayName = "DetailsTab"
 
 const MapTab = memo(() => (
-  <div className="p-4 h-full">
-    <div className="space-y-4 h-full">
-      <h3 className="text-sm font-semibold text-foreground">Graph Overview</h3>
+  <div className="p-3 sm:p-4 h-full overflow-hidden">
+    <div className="space-y-4 h-full flex flex-col">
+      <h3 className="text-xs sm:text-sm font-semibold text-foreground">Graph Overview</h3>
 
       {/* Minimap Container */}
-      <div className="flex-1 bg-muted/20 rounded-2xl border border-border/30 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-            <MapIcon className="h-8 w-8 text-muted-foreground/50" />
+      <div className="flex-1 bg-muted/20 rounded-xl sm:rounded-2xl border border-border/30 flex items-center justify-center min-h-0">
+        <div className="text-center space-y-3 p-4">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center">
+            <MapIcon className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/50" />
           </div>
           <div className="space-y-2">
-            <h4 className="font-medium text-foreground">Minimap View</h4>
-            <p className="text-sm text-muted-foreground max-w-sm">
+            <h4 className="text-sm sm:text-base font-medium text-foreground">Minimap View</h4>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
               Navigate large graphs with an overview map showing your current viewport
             </p>
           </div>
@@ -365,13 +375,13 @@ const MapTab = memo(() => (
       </div>
 
       {/* Map Controls */}
-      <div className="space-y-2">
-        <Button variant="outline" className="w-full rounded-xl" disabled>
-          <MapIcon className="w-4 h-4 mr-2" />
+      <div className="space-y-2 flex-shrink-0">
+        <Button variant="outline" className="w-full rounded-lg sm:rounded-xl text-xs sm:text-sm" disabled>
+          <MapIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
           Reset View
         </Button>
-        <Button variant="outline" className="w-full rounded-xl" disabled>
-          <Network className="w-4 h-4 mr-2" />
+        <Button variant="outline" className="w-full rounded-lg sm:rounded-xl text-xs sm:text-sm" disabled>
+          <Network className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
           Fit to Screen
         </Button>
       </div>
@@ -380,7 +390,11 @@ const MapTab = memo(() => (
 ))
 MapTab.displayName = "MapTab"
 
-export default function ReagraphVisualization({ setParentActiveTab, onError, onNodeClick }: ReagraphVisualizationProps) {
+export default function ReagraphVisualization({
+  setParentActiveTab,
+  onError,
+  onNodeClick,
+}: ReagraphVisualizationProps) {
   const { sourceType, sourceData, setSelectedFilePath, setSelectedFileLine, setCodeViewerSheetOpen } = useResultData()
   const [graphData, setGraphData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -389,6 +403,7 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
   const [showSidebar, setShowSidebar] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "details" | "map">("overview")
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   // Track if we've already loaded data for this session
   const hasLoadedRef = useRef(false)
@@ -401,7 +416,7 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
 
   // Helper function to check if sourceData is GitHubSourceData
   const isGitHubSourceData = useCallback((data: SourceData): data is GitHubSourceData => {
-    return data !== null && typeof data === 'object' && 'repo_url' in data
+    return data !== null && typeof data === "object" && "repo_url" in data
   }, [])
 
   // Memoize the request key to prevent unnecessary re-computations
@@ -431,7 +446,7 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
     // Check cache first
     const cachedEntry = apiCache.get(requestKey)
     if (cachedEntry && isCacheValid(cachedEntry)) {
-      console.log('Loading from cache:', requestKey)
+      console.log("Loading from cache:", requestKey)
       setGraphData(cachedEntry.data)
       hasLoadedRef.current = true
       currentRequestKeyRef.current = requestKey
@@ -445,7 +460,7 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
       setError(null)
 
       try {
-        console.log('Making API call for:', requestKey)
+        console.log("Making API call for:", requestKey)
         let data: GraphResponse
         if (sourceType === "github" && sourceData && isGitHubSourceData(sourceData)) {
           data = await generateGraphFromGithub(sourceData)
@@ -461,7 +476,7 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
           // Cache the response
           apiCache.set(requestKey, {
             data: transformedData,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           })
 
           setGraphData(transformedData)
@@ -503,11 +518,9 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
   const nodeCategories = useMemo(() => getDynamicNodeCategories(graphData?.nodes), [graphData?.nodes])
 
   const getNodeColor = useCallback(
-    (category: string) =>
-      nodeCategories[category?.toLowerCase()]?.color || nodeCategories["other"].color,
+    (category: string) => nodeCategories[category?.toLowerCase()]?.color || nodeCategories["other"].color,
     [nodeCategories],
   )
-
 
   interface ReaGraphGraphNode {
     id: string
@@ -522,6 +535,7 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
       if (graphNode) {
         setSelectedNode(graphNode)
         setActiveTab("details")
+        setIsMobileSidebarOpen(true) // Open mobile sidebar when node is selected
         onNodeClick?.(graphNode)
       }
     },
@@ -529,16 +543,20 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
   )
 
   // Handle open in explorer - STABLE REFERENCE
-  const handleOpenInExplorer = useCallback((node: GraphNode) => {
-    // Set file path and line in context, and open the code viewer sheet
-    if (node.file) {
-      setSelectedFilePath?.(node.file)
-    }
-    setSelectedFileLine?.(node.line)
-    setCodeViewerSheetOpen?.(true)
-    setParentActiveTab?.("explorer")
-    onNodeClick?.(node)
-  }, [setSelectedFilePath, setSelectedFileLine, setCodeViewerSheetOpen, setParentActiveTab, onNodeClick])
+  const handleOpenInExplorer = useCallback(
+    (node: GraphNode) => {
+      // Set file path and line in context, and open the code viewer sheet
+      if (node.file) {
+        setSelectedFilePath?.(node.file)
+      }
+      setSelectedFileLine?.(node.line)
+      setCodeViewerSheetOpen?.(true)
+      setParentActiveTab?.("explorer")
+      setIsMobileSidebarOpen(false) // Close mobile sidebar
+      onNodeClick?.(node)
+    },
+    [setSelectedFilePath, setSelectedFileLine, setCodeViewerSheetOpen, setParentActiveTab, onNodeClick],
+  )
 
   // Memoize reagraph data transformation - DEEP COMPARISON
   const reagraphData = useMemo((): ReagraphData | null => {
@@ -599,9 +617,9 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
     return (
       <div className="flex justify-center items-center h-full">
         <div className="flex flex-col items-center gap-4 p-8">
-          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+          <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
           <div className="text-center space-y-2">
-            <p className="text-sm font-medium text-foreground">Initializing</p>
+            <p className="text-xs sm:text-sm font-medium text-foreground">Initializing</p>
             <p className="text-xs text-muted-foreground">Setting up graph visualization...</p>
           </div>
         </div>
@@ -613,9 +631,9 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
     return (
       <div className="flex justify-center items-center h-full">
         <div className="flex flex-col items-center gap-4 p-8">
-          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+          <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
           <div className="text-center space-y-2">
-            <p className="text-sm font-medium text-foreground">Analyzing Dependencies</p>
+            <p className="text-xs sm:text-sm font-medium text-foreground">Analyzing Dependencies</p>
             <p className="text-xs text-muted-foreground">This may take a few moments...</p>
           </div>
         </div>
@@ -627,18 +645,14 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
     return (
       <div className="flex justify-center items-center h-full">
         <div className="text-center space-y-4 p-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-50 dark:bg-red-950/20 flex items-center justify-center">
-            <Network className="h-8 w-8 text-red-500" />
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-red-50 dark:bg-red-950/20 flex items-center justify-center">
+            <Network className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-medium text-foreground">Failed to Load Graph</h3>
-            <p className="text-sm text-muted-foreground max-w-md">{error}</p>
+            <h3 className="text-sm sm:text-base font-medium text-foreground">Failed to Load Graph</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">{error}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleTryAgain}
-            className="rounded-xl"
-          >
+          <Button variant="outline" onClick={handleTryAgain} className="rounded-xl text-xs sm:text-sm">
             Try Again
           </Button>
         </div>
@@ -650,12 +664,12 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
     return (
       <div className="flex justify-center items-center h-full">
         <div className="text-center space-y-4 p-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-            <Network className="h-6 w-6 text-muted-foreground/50" />
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center">
+            <Network className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-medium text-foreground">No Dependencies Found</h3>
-            <p className="text-sm text-muted-foreground max-w-md">
+            <h3 className="text-sm sm:text-base font-medium text-foreground">No Dependencies Found</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
               The repository may not have analyzable code structure or dependencies
             </p>
           </div>
@@ -665,9 +679,74 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
   }
 
   return (
-    <div className="flex h-full bg-background/60 backdrop-blur-xl rounded-2xl overflow-hidden">
+    <div className="flex h-full w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+          <div className="h-full w-full max-w-sm bg-background border-r border-border/30 shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-border/30">
+              <h3 className="font-semibold text-sm">Graph Details</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="h-8 w-8 rounded-lg"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as "overview" | "details" | "map")}
+                className="flex-1 flex flex-col h-full"
+              >
+                {/* Mobile Tab Navigation */}
+                <div className="p-3 border-b border-border/30">
+                  <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
+                    <TabsTrigger
+                      value="overview"
+                      className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs"
+                    >
+                      <Network className="w-3 h-3 mr-1" />
+                      Overview
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="details"
+                      className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs"
+                    >
+                      <Info className="w-3 h-3 mr-1" />
+                      Details
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                {/* Mobile Tab Content */}
+                <div className="flex-1 overflow-hidden">
+                  <TabsContent value="overview" className="h-full m-0 p-0">
+                    <OverviewTab categoryData={categoryData} />
+                  </TabsContent>
+
+                  <TabsContent value="details" className="h-full m-0 p-0">
+                    <DetailsTab
+                      selectedNode={selectedNode}
+                      getNodeColor={getNodeColor}
+                      onOpenInExplorer={handleOpenInExplorer}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="map" className="h-full m-0 p-0">
+                    <MapTab />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Graph Canvas */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-w-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm">
           <GraphCanvas
             nodes={reagraphData.nodes}
@@ -681,8 +760,20 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
           />
         </div>
 
-        {/* Graph Controls */}
-        <div className="absolute top-4 left-4 flex items-center gap-2">
+        {/* Mobile Graph Controls */}
+        <div className="lg:hidden absolute top-3 left-3 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 rounded-xl bg-background/90 backdrop-blur-sm border-border/60"
+            onClick={() => setIsMobileSidebarOpen(true)}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Desktop Graph Controls */}
+        <div className="hidden lg:flex absolute top-4 left-4 items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -701,49 +792,46 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
         </div>
 
         {/* Stats Badge */}
-        <div className="absolute top-4 right-4">
-          <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-3 py-1">
-            {reagraphData.nodes.length} nodes • {reagraphData.edges.length} edges
+        <div className="absolute top-3 right-3 lg:top-4 lg:right-4">
+          <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-2 py-1 lg:px-3 text-xs">
+            <span className="hidden sm:inline">{reagraphData.nodes.length} nodes • {reagraphData.edges.length} edges</span>
+            <span className="sm:hidden">{reagraphData.nodes.length}N • {reagraphData.edges.length}E</span>
           </Badge>
         </div>
       </div>
 
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       {showSidebar && (
-        <div className="w-80 lg:w-96 border-l border-border/30 bg-background/40 backdrop-blur-sm flex flex-col">
+        <div className="hidden lg:flex w-80 xl:w-96 border-l border-border/30 bg-background/40 backdrop-blur-sm flex-col">
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as "overview" | "details" | "map")}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col h-full"
           >
-            {/* Tab Navigation */}
-            <div className="p-4 border-b border-border/30">
+            {/* Desktop Tab Navigation */}
+            <div className="p-4 border-b border-border/30 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
                 <TabsTrigger
                   value="overview"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm"
+                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"
                 >
-                  <Network className="w-4 h-4 mr-1" />
-                  <span className="hidden sm:inline">Overview</span>
+                  <Network className="w-4 h-4 mr-1.5" />
+                  Overview
                 </TabsTrigger>
                 <TabsTrigger
                   value="details"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm"
+                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"
                 >
-                  <Info className="w-4 h-4 mr-1" />
-                  <span className="hidden sm:inline">Details</span>
+                  <Info className="w-4 h-4 mr-1.5" />
+                  Details
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            {/* Tab Content */}
+            {/* Desktop Tab Content */}
             <div className="flex-1 overflow-hidden">
               <TabsContent value="overview" className="h-full m-0 p-0">
                 <OverviewTab categoryData={categoryData} />
-              </TabsContent>
-
-              <TabsContent value="map" className="h-full m-0 p-0">
-                <MapTab />
               </TabsContent>
 
               <TabsContent value="details" className="h-full m-0 p-0">
@@ -752,6 +840,10 @@ export default function ReagraphVisualization({ setParentActiveTab, onError, onN
                   getNodeColor={getNodeColor}
                   onOpenInExplorer={handleOpenInExplorer}
                 />
+              </TabsContent>
+
+              <TabsContent value="map" className="h-full m-0 p-0">
+                <MapTab />
               </TabsContent>
             </div>
           </Tabs>

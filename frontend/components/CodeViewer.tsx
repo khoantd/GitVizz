@@ -1,7 +1,9 @@
 "use client"
 
+import type React from "react"
+
 import type { JSX } from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Editor from "@monaco-editor/react"
 import type * as Monaco from "monaco-editor"
 import { useTheme } from "next-themes"
@@ -19,6 +21,10 @@ import {
   FolderOpen,
   X,
   FileText,
+  Menu,
+  GripVertical,
+  Maximize2,
+  Minimize2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -48,9 +54,63 @@ export function CodeViewer({ className }: CodeViewerProps) {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [copyStatus, setCopyStatus] = useState<Record<string, boolean>>({})
   const [activeTab, setActiveTab] = useState<"explorer" | "search">("explorer")
+
+  // Mobile and responsive states
+  const [isMobileExplorerOpen, setIsMobileExplorerOpen] = useState(false)
+  const [explorerWidth, setExplorerWidth] = useState(320) // Default width in pixels
+  const [isResizing, setIsResizing] = useState(false)
+  const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false)
+
   const { theme } = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const explorerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const resizeHandleRef = useRef<HTMLDivElement>(null)
+
+  // Resizable functionality
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }, [])
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing || !containerRef.current) return
+
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const newWidth = e.clientX - containerRect.left
+
+      // Set min and max width constraints
+      const minWidth = 240
+      const maxWidth = Math.min(600, containerRect.width * 0.6)
+
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setExplorerWidth(newWidth)
+      }
+    },
+    [isResizing],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false)
+  }, [])
+
+  // Add mouse event listeners for resizing
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      document.body.style.cursor = "col-resize"
+      document.body.style.userSelect = "none"
+
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseUp)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
+      }
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp])
 
   // Parse repository structure from formatted text
   useEffect(() => {
@@ -171,6 +231,8 @@ export function CodeViewer({ className }: CodeViewerProps) {
 
   const handleFileSelect = (file: FileNode) => {
     setSelectedFile(file)
+    // Close mobile explorer when file is selected
+    setIsMobileExplorerOpen(false)
   }
 
   const copyFileContent = (file: FileNode) => {
@@ -300,7 +362,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
     const findFileAndParents = (
       nodes: FileNode[],
       targetPath: string,
-      parents: string[] = []
+      parents: string[] = [],
     ): { file: FileNode | null; parentPaths: string[] } => {
       for (const node of nodes) {
         if (node.type === "file" && node.path === targetPath) {
@@ -328,12 +390,12 @@ export function CodeViewer({ className }: CodeViewerProps) {
         if (explorerRef.current) {
           const el = explorerRef.current.querySelector(`[data-file-path="${file.path}"]`)
           if (el && "scrollIntoView" in el) {
-            (el as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" })
+            ;(el as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" })
           }
         }
       }, 100)
       // Clear selectedFilePath to avoid future collision
-      setTimeout(() => setSelectedFilePath(null), 200)
+      setTimeout(() => setSelectedFilePath?.(null), 200)
     }
   }, [selectedFilePath, fileTree, setSelectedFilePath])
 
@@ -354,25 +416,25 @@ export function CodeViewer({ className }: CodeViewerProps) {
             <div key={node.path}>
               <div
                 className={cn(
-                  "flex items-center py-2 px-3 cursor-pointer hover:bg-muted/50 rounded-xl group transition-all duration-200",
-                  level > 0 && "ml-3",
+                  "flex items-center py-2 px-2 sm:px-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl group transition-all duration-200",
+                  level > 0 && "ml-2 sm:ml-3",
                 )}
                 onClick={() => toggleFolder(node.path)}
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 mr-2 flex-shrink-0 text-muted-foreground" />
+                  <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 flex-shrink-0 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 mr-2 flex-shrink-0 text-muted-foreground" />
+                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 flex-shrink-0 text-muted-foreground" />
                 )}
                 {isExpanded ? (
-                  <FolderOpen className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                  <FolderOpen className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-blue-500 flex-shrink-0" />
                 ) : (
-                  <Folder className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                  <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-blue-500 flex-shrink-0" />
                 )}
-                <span className="text-sm font-medium truncate flex-grow">{node.name}</span>
+                <span className="text-xs sm:text-sm font-medium truncate flex-grow">{node.name}</span>
                 <div className="flex items-center gap-1">
                   {node.children && (
-                    <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0.5 rounded-full hidden sm:inline-flex">
                       {node.children.length}
                     </Badge>
                   )}
@@ -383,7 +445,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 rounded-lg hover:bg-background/80"
+                            className="h-5 w-5 sm:h-6 sm:w-6 rounded-lg hover:bg-background/80"
                             onClick={(e) => {
                               e.stopPropagation()
                               copyFolderContent(node)
@@ -391,9 +453,9 @@ export function CodeViewer({ className }: CodeViewerProps) {
                             aria-label="Copy folder content"
                           >
                             {copyStatus[node.path] ? (
-                              <CopyCheck className="w-3 h-3 text-green-500" />
+                              <CopyCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-green-500" />
                             ) : (
-                              <Copy className="w-3 h-3" />
+                              <Copy className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                             )}
                           </Button>
                         </TooltipTrigger>
@@ -404,37 +466,35 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 </div>
               </div>
               {isExpanded && node.children && (
-                <div className="ml-2 border-l border-border/30 pl-2 mt-1">{renderTree(node.children, level + 1)}</div>
+                <div className="ml-1 sm:ml-2 border-l border-border/30 pl-1 sm:pl-2 mt-1">
+                  {renderTree(node.children, level + 1)}
+                </div>
               )}
             </div>
           )
         } else {
           return (
-            <div
-              key={node.path}
-              className="group"
-              data-file-path={node.path}
-            >
+            <div key={node.path} className="group" data-file-path={node.path}>
               <div
                 className={cn(
-                  "flex items-center py-2 px-3 cursor-pointer hover:bg-muted/50 rounded-xl transition-all duration-200",
-                  level > 0 && "ml-3",
+                  "flex items-center py-2 px-2 sm:px-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl transition-all duration-200",
+                  level > 0 && "ml-2 sm:ml-3",
                   isSelected && "bg-primary/10 text-primary border border-primary/20",
                 )}
                 onClick={() => handleFileSelect(node)}
               >
-                <File className="w-4 h-4 mr-2 flex-shrink-0 text-muted-foreground" />
-                <span className="text-sm truncate flex-grow">{node.name}</span>
+                <File className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 flex-shrink-0 text-muted-foreground" />
+                <span className="text-xs sm:text-sm truncate flex-grow">{node.name}</span>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   {node.content && (
-                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 rounded-md">
+                    <Badge variant="outline" className="text-xs px-1 py-0.5 rounded-md hidden sm:inline-flex">
                       {node.content.split("\n").length}L
                     </Badge>
                   )}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 rounded-lg hover:bg-background/80"
+                    className="h-5 w-5 sm:h-6 sm:w-6 rounded-lg hover:bg-background/80"
                     onClick={(e) => {
                       e.stopPropagation()
                       copyFileContent(node)
@@ -442,9 +502,9 @@ export function CodeViewer({ className }: CodeViewerProps) {
                     aria-label="Copy file content"
                   >
                     {copyStatus[node.path] ? (
-                      <CopyCheck className="w-3 h-3 text-green-500" />
+                      <CopyCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-green-500" />
                     ) : (
-                      <Copy className="w-3 h-3" />
+                      <Copy className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     )}
                   </Button>
                 </div>
@@ -460,10 +520,10 @@ export function CodeViewer({ className }: CodeViewerProps) {
     if (results.length === 0) {
       return (
         <div className="p-4 text-center">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-            <Search className="h-6 w-6 text-muted-foreground/50" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+            <Search className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
           </div>
-          <p className="text-sm font-medium text-foreground">No results found</p>
+          <p className="text-xs sm:text-sm font-medium text-foreground">No results found</p>
           <p className="text-xs text-muted-foreground mt-1">Try adjusting your search terms</p>
         </div>
       )
@@ -474,20 +534,20 @@ export function CodeViewer({ className }: CodeViewerProps) {
         {results.map((file) => (
           <div
             key={file.path}
-            className="p-3 cursor-pointer hover:bg-muted/50 rounded-xl flex items-center transition-all duration-200 group"
+            className="p-2 sm:p-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl flex items-center transition-all duration-200 group"
             onClick={() => handleFileSelect(file)}
           >
             {file.type === "file" ? (
-              <File className="w-4 h-4 mr-3 text-muted-foreground flex-shrink-0" />
+              <File className="w-3 h-3 sm:w-4 sm:h-4 mr-2 sm:mr-3 text-muted-foreground flex-shrink-0" />
             ) : (
-              <Folder className="w-4 h-4 mr-3 text-blue-500 flex-shrink-0" />
+              <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-2 sm:mr-3 text-blue-500 flex-shrink-0" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{file.name}</p>
+              <p className="text-xs sm:text-sm font-medium truncate">{file.name}</p>
               <p className="text-xs text-muted-foreground truncate">{file.path}</p>
             </div>
             {file.type === "file" && file.content && (
-              <Badge variant="outline" className="text-xs px-1.5 py-0.5 rounded-md ml-2">
+              <Badge variant="outline" className="text-xs px-1.5 py-0.5 rounded-md ml-2 hidden sm:inline-flex">
                 {file.content.split("\n").length}L
               </Badge>
             )}
@@ -498,148 +558,400 @@ export function CodeViewer({ className }: CodeViewerProps) {
   }
 
   return (
-    <div className={cn("flex h-full bg-background/60 backdrop-blur-xl rounded-2xl overflow-hidden", className)}>
-      {/* Enhanced File Explorer Sidebar */}
-      <div className="w-80 flex flex-col border-r border-border/30 bg-background/40 backdrop-blur-sm">
-        {/* Simplified Tab Navigation */}
-        <div className="flex-shrink-0 p-3 border-b border-border/30">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "explorer" | "search")}>
-            <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
-              <TabsTrigger
-                value="explorer"
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+    <div
+      ref={containerRef}
+      className={cn(
+        "flex h-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative",
+        className,
+      )}
+    >
+      {/* Mobile Explorer Overlay */}
+      {isMobileExplorerOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+          <div className="h-full w-full max-w-sm bg-background border-r border-border/30 shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-border/30">
+              <h3 className="font-semibold text-sm">File Explorer</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileExplorerOpen(false)}
+                className="h-8 w-8 rounded-lg"
               >
-                <Folder className="w-4 h-4 mr-1.5" />
-                Explorer
-              </TabsTrigger>
-              <TabsTrigger
-                value="search"
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                <Search className="w-4 h-4 mr-1.5" />
-                Search
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {/* Tab Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as "explorer" | "search")}
-            className="flex-1 flex flex-col overflow-hidden"
-          >
-            <TabsContent value="explorer" className="flex-1 flex flex-col overflow-hidden data-[state=active]:flex data-[state=inactive]:hidden">
-              {/* Explorer Actions */}
-              <div className="flex-shrink-0 p-3 border-b border-border/30 flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">PROJECT FILES</span>
-                <div className="flex items-center gap-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={expandAllFolders}>
-                          <Expand className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Expand All</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={collapseAllFolders}>
-                          <MinusCircle className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Collapse All</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={copyAllContent}>
-                          {copyStatus.all ? (
-                            <CopyCheck className="w-3 h-3 text-green-500" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Copy All Content</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {/* Mobile Explorer Content - Same as desktop but in overlay */}
+              <div className="flex flex-col h-full">
+                {/* Tab Navigation */}
+                <div className="flex-shrink-0 p-3 border-b border-border/30">
+                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "explorer" | "search")}>
+                    <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
+                      <TabsTrigger
+                        value="explorer"
+                        className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs"
+                      >
+                        <Folder className="w-3 h-3 mr-1" />
+                        Explorer
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="search"
+                        className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs"
+                      >
+                        <Search className="w-3 h-3 mr-1" />
+                        Search
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
-              </div>
 
-              {/* File Tree*/}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={explorerRef}>
-                {fileTree.length > 0 ? (
-                  <div className="p-2">{renderTree(fileTree)}</div>
-                ) : (
-                  <div className="p-4 text-center">
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                      <FileText className="h-6 w-6 text-muted-foreground/50" />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">No files to display</p>
-                    <p className="text-xs text-muted-foreground mt-1">Upload a repository to get started</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="search" className="flex-1 flex flex-col overflow-hidden data-[state=active]:flex data-[state=inactive]:hidden">
-              {/* Search Input */}
-              <div className="flex-shrink-0 p-3 border-b border-border/30">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search files and content..."
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-muted/50 border border-border/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  {searchTerm && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-lg"
-                      onClick={() => setSearchTerm("")}
+                {/* Tab Content */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(v) => setActiveTab(v as "explorer" | "search")}
+                    className="flex-1 flex flex-col overflow-hidden"
+                  >
+                    <TabsContent
+                      value="explorer"
+                      className="flex-1 flex flex-col overflow-hidden data-[state=active]:flex data-[state=inactive]:hidden"
                     >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  )}
+                      {/* Explorer Actions */}
+                      <div className="flex-shrink-0 p-3 border-b border-border/30 flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">PROJECT FILES</span>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={expandAllFolders}>
+                            <Expand className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-lg"
+                            onClick={collapseAllFolders}
+                          >
+                            <MinusCircle className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={copyAllContent}>
+                            {copyStatus.all ? (
+                              <CopyCheck className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* File Tree */}
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                        {fileTree.length > 0 ? (
+                          <div className="p-2">{renderTree(fileTree)}</div>
+                        ) : (
+                          <div className="p-4 text-center">
+                            <div className="w-10 h-10 mx-auto rounded-xl bg-muted/50 flex items-center justify-center mb-3">
+                              <FileText className="h-5 w-5 text-muted-foreground/50" />
+                            </div>
+                            <p className="text-xs font-medium text-foreground">No files to display</p>
+                            <p className="text-xs text-muted-foreground mt-1">Upload a repository to get started</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent
+                      value="search"
+                      className="flex-1 flex flex-col overflow-hidden data-[state=active]:flex data-[state=inactive]:hidden"
+                    >
+                      {/* Search Input */}
+                      <div className="flex-shrink-0 p-3 border-b border-border/30">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Search files..."
+                            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-muted/50 border border-border/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                          {searchTerm && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 rounded-lg"
+                              onClick={() => setSearchTerm("")}
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Search Results */}
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                        {searchTerm ? (
+                          renderSearchResults()
+                        ) : (
+                          <div className="p-4 text-center">
+                            <div className="w-10 h-10 mx-auto rounded-xl bg-muted/50 flex items-center justify-center mb-3">
+                              <Search className="h-5 w-5 text-muted-foreground/50" />
+                            </div>
+                            <p className="text-xs font-medium text-foreground">Search through files</p>
+                            <p className="text-xs text-muted-foreground mt-1">Type to search file names and content</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </div>
-
-              {/* Search Results - With proper scrolling */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                {searchTerm ? (
-                  renderSearchResults()
-                ) : (
-                  <div className="p-4 text-center">
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                      <Search className="h-6 w-6 text-muted-foreground/50" />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">Search through files</p>
-                    <p className="text-xs text-muted-foreground mt-1">Type to search file names and content</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* Desktop File Explorer Sidebar */}
+      <div
+        className={cn(
+          "hidden lg:flex flex-col border-r border-border/30 bg-background/40 backdrop-blur-sm transition-all duration-300",
+          isExplorerCollapsed ? "w-12" : "",
+        )}
+        style={{
+          width: isExplorerCollapsed ? "48px" : `${explorerWidth}px`,
+          minWidth: isExplorerCollapsed ? "48px" : "240px",
+          maxWidth: isExplorerCollapsed ? "48px" : "600px",
+        }}
+      >
+        {isExplorerCollapsed ? (
+          // Collapsed state
+          <div className="flex flex-col items-center p-2 gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExplorerCollapsed(false)}
+              className="h-8 w-8 rounded-lg"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setActiveTab("explorer")}
+              className={cn("h-8 w-8 rounded-lg", activeTab === "explorer" && "bg-primary/10")}
+            >
+              <Folder className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setActiveTab("search")}
+              className={cn("h-8 w-8 rounded-lg", activeTab === "search" && "bg-primary/10")}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          // Expanded state
+          <>
+            {/* Tab Navigation */}
+            <div className="flex-shrink-0 p-3 border-b border-border/30">
+              <div className="flex items-center justify-between mb-3">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "explorer" | "search")}>
+                  <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
+                    <TabsTrigger
+                      value="explorer"
+                      className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    >
+                      <Folder className="w-4 h-4 mr-1.5" />
+                      Explorer
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="search"
+                      className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    >
+                      <Search className="w-4 h-4 mr-1.5" />
+                      Search
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsExplorerCollapsed(true)}
+                  className="h-6 w-6 rounded-lg ml-2"
+                >
+                  <Minimize2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as "explorer" | "search")}
+                className="flex-1 flex flex-col overflow-hidden"
+              >
+                <TabsContent
+                  value="explorer"
+                  className="flex-1 flex flex-col overflow-hidden data-[state=active]:flex data-[state=inactive]:hidden"
+                >
+                  {/* Explorer Actions */}
+                  <div className="flex-shrink-0 p-3 border-b border-border/30 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">PROJECT FILES</span>
+                    <div className="flex items-center gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-lg"
+                              onClick={expandAllFolders}
+                            >
+                              <Expand className="w-3 h-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Expand All</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-lg"
+                              onClick={collapseAllFolders}
+                            >
+                              <MinusCircle className="w-3 h-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Collapse All</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={copyAllContent}>
+                              {copyStatus.all ? (
+                                <CopyCheck className="w-3 h-3 text-green-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Copy All Content</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+
+                  {/* File Tree */}
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={explorerRef}>
+                    {fileTree.length > 0 ? (
+                      <div className="p-2">{renderTree(fileTree)}</div>
+                    ) : (
+                      <div className="p-4 text-center">
+                        <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                          <FileText className="h-6 w-6 text-muted-foreground/50" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">No files to display</p>
+                        <p className="text-xs text-muted-foreground mt-1">Upload a repository to get started</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="search"
+                  className="flex-1 flex flex-col overflow-hidden data-[state=active]:flex data-[state=inactive]:hidden"
+                >
+                  {/* Search Input */}
+                  <div className="flex-shrink-0 p-3 border-b border-border/30">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search files and content..."
+                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-muted/50 border border-border/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      {searchTerm && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-lg"
+                          onClick={() => setSearchTerm("")}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Search Results */}
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                    {searchTerm ? (
+                      renderSearchResults()
+                    ) : (
+                      <div className="p-4 text-center">
+                        <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                          <Search className="h-6 w-6 text-muted-foreground/50" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">Search through files</p>
+                        <p className="text-xs text-muted-foreground mt-1">Type to search file names and content</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Resize Handle - Desktop only */}
+      {!isExplorerCollapsed && (
+        <div
+          ref={resizeHandleRef}
+          className="hidden lg:block w-1 bg-border/30 hover:bg-primary/50 cursor-col-resize transition-colors duration-200 relative group"
+          onMouseDown={handleMouseDown}
+        >
+          <div className="absolute inset-y-0 -left-1 -right-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      )}
 
       {/* Code Editor Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center justify-between p-3 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsMobileExplorerOpen(true)}
+            className="h-8 gap-2 text-xs rounded-lg"
+          >
+            <Menu className="h-3 w-3" />
+            Files
+          </Button>
+          {selectedFile && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1 rounded-md bg-primary/10 flex-shrink-0">
+                <File className="w-3 h-3 text-primary" />
+              </div>
+              <span className="text-xs font-medium truncate">{selectedFile.name}</span>
+            </div>
+          )}
+        </div>
+
         {selectedFile ? (
           <>
-            {/* File Header */}
-            <div className="flex-shrink-0 p-4 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+            {/* Desktop File Header */}
+            <div className="hidden lg:block flex-shrink-0 p-4 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="p-1.5 rounded-lg bg-primary/10 flex-shrink-0">
@@ -690,15 +1002,15 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 theme={theme === "dark" ? "vs-dark" : "light"}
                 options={{
                   readOnly: true,
-                  minimap: { enabled: true },
+                  minimap: { enabled: window.innerWidth > 768 }, // Disable minimap on mobile
                   scrollBeyondLastLine: false,
-                  fontSize: 14,
+                  fontSize: window.innerWidth > 768 ? 14 : 12, // Smaller font on mobile
                   lineNumbers: "on",
                   renderLineHighlight: "all",
                   scrollbar: {
                     useShadows: true,
-                    verticalHasArrows: true,
-                    horizontalHasArrows: true,
+                    verticalHasArrows: false,
+                    horizontalHasArrows: false,
                     vertical: "visible",
                     horizontal: "visible",
                   },
@@ -706,6 +1018,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
                   smoothScrolling: true,
                   cursorBlinking: "smooth",
                   renderWhitespace: "selection",
+                  wordWrap: window.innerWidth > 768 ? "off" : "on", // Enable word wrap on mobile
                 }}
                 onMount={handleEditorDidMount}
               />
@@ -714,14 +1027,23 @@ export function CodeViewer({ className }: CodeViewerProps) {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-4 p-8">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-                <Code className="h-8 w-8 text-muted-foreground/50" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center">
+                <Code className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-medium text-foreground">Select a file to view</h3>
-                <p className="text-sm text-muted-foreground max-w-sm">
+                <h3 className="font-medium text-foreground text-sm sm:text-base">Select a file to view</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
                   Choose a file from the explorer to view its contents with syntax highlighting
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsMobileExplorerOpen(true)}
+                  className="lg:hidden mt-4 gap-2 text-xs rounded-lg"
+                >
+                  <Menu className="h-3 w-3" />
+                  Open File Explorer
+                </Button>
               </div>
             </div>
           </div>
