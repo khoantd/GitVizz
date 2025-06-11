@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   Tabs,
   TabsContent,
@@ -85,8 +85,12 @@ export function RepoTabs() {
       setOutputMessage("Repository analysis successful!");
       // Navigate to results page
       router.push("/results");
-    } catch (err: any) {
-      setError(err.message || "Failed to analyze repository.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to analyze repository.");
+      }
     } finally {
       setLoading(false);
     }
@@ -113,8 +117,12 @@ export function RepoTabs() {
       setOutputMessage("ZIP file processed successfully!");
       // Navigate to results page
       router.push("/results");
-    } catch (err: any) {
-      setError(err.message || "Failed to process ZIP file.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to process ZIP file.");
+      }
     } finally {
       setLoading(false);
     }

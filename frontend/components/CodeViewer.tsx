@@ -41,7 +41,7 @@ interface CodeViewerProps {
 
 export function CodeViewer({ className }: CodeViewerProps) {
   // Use repoContent from context
-  const { output: repoContent, selectedFilePath, selectedFileLine, setSelectedFilePath } = useResultData()
+  const { output: repoContent, selectedFilePath, setSelectedFilePath } = useResultData()
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null)
@@ -263,32 +263,6 @@ export function CodeViewer({ className }: CodeViewerProps) {
     }
 
     return languageMap[fileExtension] || "plaintext"
-  }
-
-  // Get file statistics
-  const getFileStats = () => {
-    let totalFiles = 0
-    let totalDirs = 0
-    let totalLines = 0
-
-    const countNodes = (nodes: FileNode[]) => {
-      nodes.forEach((node) => {
-        if (node.type === "file") {
-          totalFiles++
-          if (node.content) {
-            totalLines += node.content.split("\n").length
-          }
-        } else {
-          totalDirs++
-          if (node.children) {
-            countNodes(node.children)
-          }
-        }
-      })
-    }
-
-    countNodes(fileTree)
-    return { totalFiles, totalDirs, totalLines }
   }
 
   // Filter files by search term

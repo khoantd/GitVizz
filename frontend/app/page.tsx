@@ -20,14 +20,14 @@ export default function Home() {
       showToast.error(error);
       setError(""); // Clear error after showing
     }
-  }, [error]);
+  }, [error, setError]);
 
   useEffect(() => {
     if (outputMessage) {
       showToast.success(outputMessage);
       setOutputMessage(""); // Clear message after showing
     }
-  }, [outputMessage]);
+  }, [outputMessage, setOutputMessage]);
 
   return (
     <div className="min-h-screen bg-background">

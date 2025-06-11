@@ -19,7 +19,6 @@ import {
   CheckCircle,
   Share,
   Github,
-  Folder,
   Info,
   X,
   Minimize2,
@@ -47,7 +46,12 @@ export default function ResultsPage() {
 
   // popup state for full-screen code explorer
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // popup state for full-screen graph explorer
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
+
   const popupRef = useRef<HTMLDivElement>(null);
+  const popupGraphRef = useRef<HTMLDivElement>(null);
 
   // Handle click outside to close expanded view
   useEffect(() => {
@@ -90,6 +94,14 @@ export default function ResultsPage() {
     }
   }, [output, loading, router]);
 
+  type GitHubSource = {
+    repo_url: string;
+  };
+
+  type ZipSource = {
+    name: string;
+  };
+
   // Helper to get repository name from sourceData
   const getRepoName = () => {
     if (
@@ -97,20 +109,30 @@ export default function ResultsPage() {
       sourceData &&
       typeof sourceData === "object" &&
       "repo_url" in sourceData &&
-      typeof (sourceData as any).repo_url === "string"
+      typeof (sourceData as GitHubSource).repo_url === "string"
     ) {
       try {
-        const url = new URL((sourceData as any).repo_url);
+        const url = new URL((sourceData as GitHubSource).repo_url);
         const pathParts = url.pathname.split("/").filter(Boolean);
         if (pathParts.length >= 2) {
           return `${pathParts[0]}/${pathParts[1]}`;
         }
-      } catch (e) { }
-      return (sourceData as any).repo_url;
+      } catch {
+        // Do nothing
+      }
+      return (sourceData as GitHubSource).repo_url;
     }
-    if (sourceType === "zip" && sourceData && "name" in sourceData) {
-      return (sourceData as any).name;
+
+    if (
+      sourceType === "zip" &&
+      sourceData &&
+      typeof sourceData === "object" &&
+      "name" in sourceData &&
+      typeof (sourceData as ZipSource).name === "string"
+    ) {
+      return (sourceData as ZipSource).name;
     }
+
     return "Repository";
   };
 
@@ -121,7 +143,8 @@ export default function ResultsPage() {
       await navigator.clipboard.writeText(output);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
+      // TODO: if needed, handle error more gracefully
       showToast.error("Failed to copy");
     }
   };
@@ -342,7 +365,7 @@ export default function ResultsPage() {
                         <Download className="h-4 w-4 mr-2" />
                         Export
                       </Button>
-                      <Button variant="outline" size="sm" disabled className="rounded-xl border-border/50 opacity-50">
+                      <Button onClick={() => setIsGraphExpanded(true)} variant="outline" size="sm" className="rounded-xl border-border/50 opacity-50">
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Expand
                       </Button>
@@ -470,6 +493,52 @@ export default function ResultsPage() {
             <div className="flex-1 p-6 overflow-hidden">
               <div className="h-full rounded-2xl overflow-hidden bg-muted/20 border border-border/30">
                 <CodeViewer />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded View Popup */}
+      {isGraphExpanded && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-8">
+          <div
+            ref={popupGraphRef}
+            className="w-[90vw] h-[85vh] bg-background rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
+          >
+            {/* Popup Header */}
+            <div className="px-8 py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-primary/10">
+                    <Code2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-tight text-foreground">Dependency Graph</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Interactive visualization of code relationships and dependencies
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsGraphExpanded(false)}
+                  className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
+                >
+                  <Minimize2 className="h-4 w-4 mr-2" />
+                  Minimize
+                </Button>
+              </div>
+            </div>
+
+            {/* Popup Content */}
+            <div className="flex-1 p-6 overflow-hidden">
+              <div className="h-full rounded-2xl overflow-hidden bg-muted/20 border border-border/30">
+                <ReagraphVisualization
+                  setParentActiveTab={setActiveTab}
+                  onError={(msg) => showToast.error(msg)}
+                />
               </div>
             </div>
           </div>
