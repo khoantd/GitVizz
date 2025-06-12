@@ -3,15 +3,15 @@ import re
 import tempfile
 import shutil
 import zipfile
-import ast
+import json
+import uvicorn
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple, Union
+from typing import List, Optional, Dict, Any, Tuple
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import requests
-import json
 
 from graph_generator import GraphGenerator
 
@@ -431,23 +431,11 @@ async def generate_text_endpoint(
     branch: Optional[str] = Form(
         "main", description="Branch to use if repo_url is a GitHub repository link."
     ),
-    zip_file_form_param: Any = File(
-        None, alias="zip_file"
-    ),  # Changed to Any and aliased
+    zip_file: Optional[UploadFile] = File(
+        None, description="A ZIP file of the repository."
+    ),
 ) -> TextResponse:
-    actual_zip_file: Optional[UploadFile] = None
-    if isinstance(zip_file_form_param, UploadFile):
-        if zip_file_form_param.filename:  # Check if it's a real file upload
-            actual_zip_file = zip_file_form_param
-        # If UploadFile has no filename, it's likely an empty input, treat as None
-    elif (
-        isinstance(zip_file_form_param, str) and not zip_file_form_param
-    ):  # Handles empty string
-        # If an empty string was sent for the file, treat as None
-        actual_zip_file = None
-    # If zip_file_form_param is None or other non-UploadFile type, actual_zip_file remains None
-
-    if not repo_url and not actual_zip_file:
+    if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
@@ -457,7 +445,7 @@ async def generate_text_endpoint(
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
             repo_url,
             branch,
-            actual_zip_file,  # Use the processed actual_zip_file
+            zip_file,  # Use the zip_file parameter directly
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -483,10 +471,8 @@ async def generate_text_endpoint(
                 filename_base = (
                     f"{repo_info['owner']}_{repo_info['repo']}_{branch}_content"
                 )
-        elif actual_zip_file and actual_zip_file.filename:  # Use actual_zip_file
-            filename_base = (
-                f"{Path(actual_zip_file.filename).stem}_content"  # Use actual_zip_file
-            )
+        elif zip_file and zip_file.filename:  # Use zip_file
+            filename_base = f"{Path(zip_file.filename).stem}_content"  # Use zip_file
 
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return TextResponse(
