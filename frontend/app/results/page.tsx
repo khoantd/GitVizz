@@ -198,7 +198,7 @@ export default function ResultsPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => router.push("/")}
+            onClick={() => router.back()}
             className="h-10 w-10 rounded-2xl bg-background/90 backdrop-blur-xl border-border/60 shadow-md hover:bg-background hover:shadow-lg transition-all duration-300"
           >
             <ArrowLeft className="h-4 w-4" />

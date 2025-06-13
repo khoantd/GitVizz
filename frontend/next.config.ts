@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
+  images:{
+    domains: ["avatars.githubusercontent.com"],
+  },
   // Enable TypeScript module resolution
   typescript: {
     // !! WARN !!
@@ -25,7 +28,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
+        source: '/api/((?!auth|github).)*',
         destination: 'http://localhost:8003/api/:path*', // Proxy to backend
       },
       {

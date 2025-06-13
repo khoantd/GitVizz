@@ -2,7 +2,7 @@ import { Github,Globe } from "lucide-react";
 
 const Footer = () => {
     return (
-        <footer className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm mt-16">
+        <footer className="fixed w-full bottom-0 z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm mt-16">
             <div className="max-w-7xl mx-auto px-6 py-8">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* Left: Primary links */}
@@ -44,7 +44,7 @@ const Footer = () => {
                         (powered by <span className="font-semibold">omniparse</span>)
                     </div>
                 </div>
-                <p className="text-center text-sm text-muted-foreground mt-4">
+                <p className="text-center text-sm text-muted-foreground">
                     &copy; {new Date().getFullYear()} GitViz - From Repo to Reasoning — Instantly.
                 </p>
             </div>
