@@ -45,7 +45,7 @@ export default function RepositoriesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
-  const [processingRepos, setProcessingRepos] = useState<Number[]>([])
+  const [processingRepos, setProcessingRepos] = useState<number[]>([])
   const router = useRouter()
   const { setOutput, setSourceType, setSourceData } = useResultData()
 
