@@ -22,11 +22,13 @@ import {
   Minimize2,
   Maximize2,
   Menu,
+  Lock,
 } from "lucide-react"
 import { CodeViewer } from "@/components/CodeViewer"
 import { cn } from "@/lib/utils"
 import { useResultData } from "@/context/ResultDataContext"
 import { showToast } from "@/components/toaster"
+import { useSession } from "next-auth/react"
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -44,6 +46,18 @@ export default function ResultsPage() {
 
   const popupRef = useRef<HTMLDivElement>(null)
   const popupGraphRef = useRef<HTMLDivElement>(null)
+
+  const { data: session } = useSession()
+
+  // Handle restricted tab clicks
+  const handleTabChange = (value: string) => {
+    if ((value === "graph" || value === "explorer") && !session?.accessToken) {
+      // Redirect to sign in page for restricted tabs
+      router.push("/signin")
+      return
+    }
+    setActiveTab(value)
+  }
 
   // Handle click outside to close expanded view
   useEffect(() => {
@@ -198,7 +212,7 @@ export default function ResultsPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => router.push("/")}
+            onClick={() => router.back()}
             className="h-10 w-10 rounded-2xl bg-background/90 backdrop-blur-xl border-border/60 shadow-md hover:bg-background hover:shadow-lg transition-all duration-300"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -264,7 +278,7 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-8">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-8">
           {/* Mobile Tab Navigation */}
           <div className="lg:hidden">
             <TabsList className="grid w-full grid-cols-3 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
@@ -275,17 +289,27 @@ export default function ResultsPage() {
                 <FileText className="h-4 w-4" />
                 <span className="hidden xs:inline">Structure</span>
               </TabsTrigger>
+
               <TabsTrigger
                 value="graph"
-                className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
+                className={cn(
+                  "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
+                  !session?.accessToken && "opacity-60"
+                )}
               >
+                {!session?.accessToken && <Lock className="h-3 w-3" />}
                 <Network className="h-4 w-4" />
                 <span className="hidden xs:inline">Graph</span>
               </TabsTrigger>
+
               <TabsTrigger
                 value="explorer"
-                className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
+                className={cn(
+                  "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
+                  !session?.accessToken && "opacity-60"
+                )}
               >
+                {!session?.accessToken && <Lock className="h-3 w-3" />}
                 <Code2 className="h-4 w-4" />
                 <span className="hidden xs:inline">Explorer</span>
               </TabsTrigger>
@@ -303,17 +327,27 @@ export default function ResultsPage() {
                 <FileText className="h-5 w-5" />
                 <span>Structure</span>
               </TabsTrigger>
+
               <TabsTrigger
                 value="graph"
-                className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
+                className={cn(
+                  "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
+                  !session?.accessToken && "opacity-60"
+                )}
               >
+                {!session?.accessToken && <Lock className="h-4 w-4" />}
                 <Network className="h-5 w-5" />
                 <span>Graph</span>
               </TabsTrigger>
+
               <TabsTrigger
                 value="explorer"
-                className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
+                className={cn(
+                  "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
+                  !session?.accessToken && "opacity-60"
+                )}
               >
+                {!session?.accessToken && <Lock className="h-4 w-4" />}
                 <Code2 className="h-5 w-5" />
                 <span>Explorer</span>
               </TabsTrigger>
@@ -357,210 +391,219 @@ export default function ResultsPage() {
               </div>
             </TabsContent>
 
-            {/* Graph Tab */}
+            {/* Graph Tab - Only show content if authenticated */}
             <TabsContent value="graph" className="mt-0 animate-in fade-in-50 duration-300">
-              <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-2 sm:space-y-3">
+              {session?.accessToken ? (
+                <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="space-y-2 sm:space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
+                            <Network className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                          </div>
+                          <div>
+                            <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                              Dependency Graph
+                            </h2>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                              Interactive visualization of code relationships and dependencies
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="flex-1 sm:flex-none rounded-xl border-border/50 opacity-50"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          <span className="hidden xs:inline">Export</span>
+                        </Button>
+                        <Button
+                          onClick={() => setIsGraphExpanded(true)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 sm:flex-none rounded-xl border-border/50"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          <span className="hidden xs:inline">Expand</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
+                    {sourceType && sourceData ? (
+                      <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                        <div className="h-full w-full">
+                          <ReagraphVisualization
+                            setParentActiveTab={setActiveTab}
+                            onError={(msg) => showToast.error(msg)}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center space-y-4 p-8">
+                          <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
+                            <Network className="h-6 w-6 text-muted-foreground/50" />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="font-medium text-foreground">No Graph Data Available</h3>
+                            <p className="text-sm text-muted-foreground max-w-sm">
+                              Graph visualization requires processed source data to display relationships
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </TabsContent>
+
+            {/* Code Explorer Tab - Only show content if authenticated */}
+            <TabsContent value="explorer" className="mt-0 animate-in fade-in-50 duration-300">
+              {session?.accessToken ? (
+                <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+                  {/* Section Header */}
+                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                          <Network className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                          <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         </div>
                         <div>
                           <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                            Dependency Graph
+                            Code Explorer
                           </h2>
                           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            Interactive visualization of code relationships and dependencies
+                            Browse repository structure with syntax highlighting and file navigation
                           </p>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled
-                        className="flex-1 sm:flex-none rounded-xl border-border/50 opacity-50"
+                        onClick={() => setIsExpanded(true)}
+                        className="w-full sm:w-auto rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
                       >
-                        <Download className="h-4 w-4 mr-2" />
-                        <span className="hidden xs:inline">Export</span>
-                      </Button>
-                      <Button
-                        onClick={() => setIsGraphExpanded(true)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 sm:flex-none rounded-xl border-border/50"
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        <span className="hidden xs:inline">Expand</span>
+                        <Maximize2 className="h-4 w-4 mr-2" />
+                        Expand View
                       </Button>
                     </div>
                   </div>
-                </div>
-                <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
-                  {sourceType && sourceData ? (
+
+                  {/* Explorer Content */}
+                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
                     <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
-                        <ReagraphVisualization
-                          setParentActiveTab={setActiveTab}
-                          onError={(msg) => showToast.error(msg)}
-                        />
+                        <CodeViewer />
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center space-y-4 p-8">
-                        <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-                          <Network className="h-6 w-6 text-muted-foreground/50" />
-                        </div>
-                        <div className="space-y-2">
-                          <h3 className="font-medium text-foreground">No Graph Data Available</h3>
-                          <p className="text-sm text-muted-foreground max-w-sm">
-                            Graph visualization requires processed source data to display relationships
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </TabsContent>
+          </div>
+        </Tabs>
+      </main>
 
-            {/* Code Explorer Tab */}
-            <TabsContent value="explorer" className="mt-0 animate-in fade-in-50 duration-300">
-              <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                {/* Section Header */}
+      {/* Expanded Views - Only render if authenticated */}
+      {session?.accessToken && (
+        <>
+          {/* Expanded View Popup */}
+          {isExpanded && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
+              <div
+                ref={popupRef}
+                className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
+              >
+                {/* Popup Header */}
                 <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                         <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       </div>
                       <div>
-                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                          Code Explorer
-                        </h2>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          Browse repository structure with syntax highlighting and file navigation
-                        </p>
+                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">Code Explorer</h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">{getRepoName()}</p>
                       </div>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsExpanded(true)}
-                      className="w-full sm:w-auto rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
+                      onClick={() => setIsExpanded(false)}
+                      className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
                     >
-                      <Maximize2 className="h-4 w-4 mr-2" />
-                      Expand View
+                      <Minimize2 className="h-4 w-4 mr-2" />
+                      <span className="hidden sm:inline">Minimize</span>
                     </Button>
                   </div>
                 </div>
 
-                {/* Explorer Content */}
-                <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
-                  <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                {/* Popup Content */}
+                <div className="flex-1 p-3 sm:p-6 overflow-hidden">
+                  <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                     <div className="h-full w-full">
                       <CodeViewer />
                     </div>
                   </div>
                 </div>
               </div>
-            </TabsContent>
-          </div>
-        </Tabs>
-      </main>
+            </div>
+          )}
 
-      {/* Expanded View Popup */}
-      {isExpanded && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
-          <div
-            ref={popupRef}
-            className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
-          >
-            {/* Popup Header */}
-            <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                    <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">Code Explorer</h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">{getRepoName()}</p>
+          {/* Expanded Graph View Popup */}
+          {isGraphExpanded && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
+              <div
+                ref={popupGraphRef}
+                className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
+              >
+                {/* Popup Header */}
+                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
+                        <Network className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                          Dependency Graph
+                        </h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          Interactive visualization of code relationships and dependencies
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsGraphExpanded(false)}
+                      className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
+                    >
+                      <Minimize2 className="h-4 w-4 mr-2" />
+                      <span className="hidden sm:inline">Minimize</span>
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsExpanded(false)}
-                  className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                >
-                  <Minimize2 className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Minimize</span>
-                </Button>
-              </div>
-            </div>
 
-            {/* Popup Content */}
-            <div className="flex-1 p-3 sm:p-6 overflow-hidden">
-              <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
-                <div className="h-full w-full">
-                  <CodeViewer />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Expanded Graph View Popup */}
-      {isGraphExpanded && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
-          <div
-            ref={popupGraphRef}
-            className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
-          >
-            {/* Popup Header */}
-            <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                    <Network className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                {/* Popup Content */}
+                <div className="flex-1 p-3 sm:p-6 overflow-hidden">
+                  <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                    <div className="h-full w-full">
+                      <ReagraphVisualization setParentActiveTab={setActiveTab} onError={(msg) => showToast.error(msg)} />
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                      Dependency Graph
-                    </h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                      Interactive visualization of code relationships and dependencies
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsGraphExpanded(false)}
-                  className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                >
-                  <Minimize2 className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Minimize</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Popup Content */}
-            <div className="flex-1 p-3 sm:p-6 overflow-hidden">
-              <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
-                <div className="h-full w-full">
-                  <ReagraphVisualization setParentActiveTab={setActiveTab} onError={(msg) => showToast.error(msg)} />
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   )
