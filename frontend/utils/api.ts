@@ -27,7 +27,8 @@ export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<string>
   try {
     const body: BodyGenerateTextEndpointApiGenerateTextPost = {
       repo_url: repoRequest.repo_url,
-      branch: repoRequest.branch || 'main'
+      branch: repoRequest.branch || 'main',
+      access_token: repoRequest.access_token || ''
     };
 
     const response = await generateTextEndpointApiGenerateTextPost({
@@ -59,7 +60,8 @@ export async function generateGraphFromGithub(repoRequest: RepoRequest): Promise
   try {
     const body: BodyGenerateGraphEndpointApiGenerateGraphPost = {
       repo_url: repoRequest.repo_url,
-      branch: repoRequest.branch || 'main'
+      branch: repoRequest.branch || 'main',
+      access_token: repoRequest.access_token || ''
     };
 
     const response = await generateGraphEndpointApiGenerateGraphPost({
@@ -95,7 +97,8 @@ export async function generateStructureFromGithub(repoRequest: RepoRequest): Pro
   try {
     const body: BodyGenerateStructureEndpointApiGenerateStructurePost = {
       repo_url: repoRequest.repo_url,
-      branch: repoRequest.branch || 'main'
+      branch: repoRequest.branch || 'main',
+      access_token: repoRequest.access_token || ''
     };
 
     const response = await generateStructureEndpointApiGenerateStructurePost({
@@ -230,7 +233,8 @@ export async function getFilenameSuggestion(repoRequest: RepoRequest): Promise<s
   try {
     const body: BodyGenerateTextEndpointApiGenerateTextPost = {
       repo_url: repoRequest.repo_url,
-      branch: repoRequest.branch || 'main'
+      branch: repoRequest.branch || 'main',
+      access_token: repoRequest.access_token || ''
     };
 
     const response = await generateTextEndpointApiGenerateTextPost({

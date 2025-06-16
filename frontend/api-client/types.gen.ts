@@ -19,6 +19,11 @@ export type BodyGenerateGraphEndpointApiGenerateGraphPost = {
      * A ZIP file of the repository.
      */
     zip_file?: (Blob | File) | null;
+    /**
+     * Access Token
+     * Optional GitHub token for accessing private repositories.
+     */
+    access_token?: string | null;
 };
 
 /**
@@ -40,6 +45,11 @@ export type BodyGenerateStructureEndpointApiGenerateStructurePost = {
      * A ZIP file of the repository.
      */
     zip_file?: (Blob | File) | null;
+    /**
+     * Access Token
+     * Optional GitHub token for accessing private repositories.
+     */
+    access_token?: string | null;
 };
 
 /**
@@ -61,6 +71,11 @@ export type BodyGenerateTextEndpointApiGenerateTextPost = {
      * A ZIP file of the repository.
      */
     zip_file?: (Blob | File) | null;
+    /**
+     * Access Token
+     * Optional GitHub token for accessing private repositories.
+     */
+    access_token?: string | null;
 };
 
 /**
@@ -146,7 +161,7 @@ export type GraphResponse = {
     /**
      * Html Url
      */
-    html_url: string;
+    html_url?: string | null;
     /**
      * Nodes
      */

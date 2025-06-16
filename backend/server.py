@@ -104,54 +104,44 @@ def parse_repo_url(repo_url: str) -> Dict[str, str]:
 
 async def _process_input(
     repo_url: Optional[str],
-    branch: Optional[str],  # Now used if repo_url is a GitHub link
+    branch: Optional[str],
     zip_file: Optional[UploadFile],
-) -> Tuple[
-    List[Dict[str, Any]], str, List[str]
-]:  # Returns (files, extract_dir_path, list_of_dirs_to_rmtree)
-    """
-    Processes input from either a GitHub URL or an uploaded ZIP file.
-    Downloads from URL or saves uploaded file, then extracts ZIP.
-    Returns:
-        - List of extracted file details.
-        - Path to the root temporary directory where files were extracted.
-        - List of temporary directories created by this process that need cleanup via rmtree.
-    """
-    temp_zip_file_path: Optional[str] = None  # Path of the temporary ZIP file
-    created_dirs_for_rmtree: List[
-        str
-    ] = []  # Directories created by this function that need rmtree
+    access_token: Optional[str] = None,
+) -> Tuple[List[Dict[str, Any]], str, List[str]]:
+    temp_zip_file_path: Optional[str] = None
+    created_dirs_for_rmtree: List[str] = []
+    headers = {}
 
     try:
-        # Create a temporary file to store the zip.
-        # We are responsible for deleting this file using os.unlink().
         with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_zip_obj:
             temp_zip_file_path = temp_zip_obj.name
 
             if repo_url:
-                # Construct download URL, assuming it's a GitHub link if branch is relevant
-                actual_zip_url = repo_url  # Default if not GitHub or parse fails
-                if "github.com" in repo_url:  # Basic check
-                    repo_info = parse_repo_url(repo_url)
-                    owner, repo_name_from_url = (
-                        repo_info.get("owner"),
-                        repo_info.get("repo"),
-                    )
-                    if (
-                        owner and repo_name_from_url and owner != "unknown"
-                    ):  # Successfully parsed as GitHub
-                        actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/{branch}.zip"
-                    # else: actual_zip_url remains repo_url if non-GitHub or parse failed
-                # else: actual_zip_url remains repo_url if direct link to zip
+                actual_zip_url = repo_url  # fallback
 
-                r = requests.get(actual_zip_url, stream=True, timeout=60)
+                if "github.com" in repo_url:
+                    repo_info = parse_repo_url(repo_url)
+                    owner, repo_name_from_url = repo_info["owner"], repo_info["repo"]
+
+                    if owner != "unknown":
+                        # Use GitHub API zipball URL for better support
+                        actual_zip_url = f"https://api.github.com/repos/{owner}/{repo_name_from_url}/zipball/{branch or 'main'}"
+                        headers = {
+                            "Authorization": f"token {access_token}" if access_token else "",
+                            "Accept": "application/vnd.github.v3+json",
+                            "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
+                        }
+
+                r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
                 if r.status_code != 200:
                     raise HTTPException(
                         status_code=r.status_code,
-                        detail=f"Could not download ZIP from URL (status={r.status_code}). URL: {actual_zip_url}",
+                        detail=f"Could not download ZIP from GitHub API (status={r.status_code}). URL: {actual_zip_url}",
                     )
+
                 for chunk in r.iter_content(chunk_size=8192):
                     temp_zip_obj.write(chunk)
+
             elif zip_file:
                 content = await zip_file.read()
                 temp_zip_obj.write(content)
@@ -161,36 +151,22 @@ async def _process_input(
                     status_code=400,
                     detail="Either repo_url or zip_file must be provided.",
                 )
-        # temp_zip_obj is closed, content is in temp_zip_file_path
 
-        # extract_zip_contents creates its own temp dir using mkdtemp
-        extracted_files, temp_extract_dir_path = extract_zip_contents(
-            temp_zip_file_path
-        )
-        # This directory was created by mkdtemp and needs to be cleaned up via rmtree.
+        # Now extract
+        extracted_files, temp_extract_dir_path = extract_zip_contents(temp_zip_file_path)
         created_dirs_for_rmtree.append(temp_extract_dir_path)
 
-        # The temp_zip_file_path itself will be cleaned up in the finally block.
         return extracted_files, temp_extract_dir_path, created_dirs_for_rmtree
-    except Exception as e:
-        # If an exception occurs, created_dirs_for_rmtree might be partially populated.
-        # The caller's cleanup logic (via background_tasks or direct call in except block)
-        # will use what's in created_dirs_for_rmtree.
-        # The temp_zip_file_path is handled by the finally block here.
-        if isinstance(e, HTTPException):
-            raise
-        else:
-            # Consider logging the full traceback for unexpected errors
-            # import traceback
-            # print(f"Unexpected error in _process_input: {e}\n{traceback.format_exc()}")
-            raise HTTPException(
-                status_code=500, detail=f"Error processing input: {str(e)}"
-            )
-    finally:
-        # Always attempt to delete the temporary ZIP file if its path was set.
-        if temp_zip_file_path and os.path.exists(temp_zip_file_path):
-            os.unlink(temp_zip_file_path)
 
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing input: {str(e)}"
+        )
+    finally:
+        if temp_zip_file_path and os.path.exists(temp_zip_file_path):
+            os.unlink(temp_zip_file_path)  
+                     
 
 def extract_zip_contents(zip_file_path: str) -> tuple[List[dict], str]:
     """Extract files from a ZIP archive and return file list with paths."""
@@ -433,6 +409,11 @@ async def generate_text_endpoint(
     zip_file: Optional[UploadFile] = File(
         None, description="A ZIP file of the repository."
     ),
+    access_token: Optional[str] = Form(
+        None,
+        description="Optional GitHub token for accessing private repositories.",
+        example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    ),
 ) -> TextResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
@@ -445,6 +426,7 @@ async def generate_text_endpoint(
             repo_url,
             branch,
             zip_file,  # Use the zip_file parameter directly
+            access_token=access_token,  # Pass the GitHub token if provided
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -507,6 +489,11 @@ async def generate_graph_endpoint(
     zip_file: Optional[UploadFile] = File(
         None, description="A ZIP file of the repository."
     ),
+    access_token: Optional[str] = Form(
+        None,
+        description="Optional GitHub token for accessing private repositories.",
+        example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    ),
 ) -> GraphResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
@@ -516,7 +503,7 @@ async def generate_graph_endpoint(
     temp_dirs_to_cleanup = []
     try:
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
-            repo_url, branch, zip_file
+            repo_url, branch, zip_file, access_token=access_token
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -574,6 +561,11 @@ async def generate_structure_endpoint(
     zip_file: Optional[UploadFile] = File(
         None, description="A ZIP file of the repository."
     ),
+    access_token: Optional[str] = Form(
+        None,
+        description="Optional GitHub token for accessing private repositories.",
+        example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    ),
 ) -> StructureResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
@@ -583,7 +575,7 @@ async def generate_structure_endpoint(
     temp_dirs_to_cleanup = []
     try:
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
-            repo_url, branch, zip_file
+            repo_url, branch, zip_file, access_token=access_token
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
