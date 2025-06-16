@@ -1,8 +1,8 @@
-import { Github,Globe } from "lucide-react";
+import { Github, Globe } from "lucide-react";
 
 const Footer = () => {
     return (
-        <footer className="fixed w-full bottom-0 z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm mt-16">
+        <footer className="relative w-full bottom-0 z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm mt-16">
             <div className="max-w-7xl mx-auto px-6 py-8">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* Left: Primary links */}

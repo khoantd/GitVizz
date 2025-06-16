@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     siteName: "GitViz",
     images: [
       {
-        url: "../public/og-image.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "GitViz - From Repo to Reasoning Instantly",
