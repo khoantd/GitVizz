@@ -7,6 +7,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       authorization: { params: { scope: "read:user user:email" } }
     })
   ],
+  trustHost: true, 
   callbacks: {
     jwt: async ({ token, account }) => {
       console.log(account)
