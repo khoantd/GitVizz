@@ -28,14 +28,14 @@ export default function Home() {
   }, [outputMessage, setOutputMessage]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col justify-between bg-background text-foreground antialiased relative">
       {/* Visual Anchor - Top Gradient */}
       <div className="fixed top-0 left-0 right-0 h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
       
       {/* Header */}
       <Header />
 
-      <main className="flex items-center content-center min-h-[calc(100vh-15vh)] relative z-10 max-w-5xl mx-auto px-6 pb-16">
+      <main className="flex items-center content-center w-full relative z-10 max-w-5xl mx-auto px-6 pb-16">
         <RepoTabs />
       </main>
 
