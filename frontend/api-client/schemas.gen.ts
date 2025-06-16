@@ -39,6 +39,18 @@ export const Body_generate_graph_endpoint_api_generate_graph_postSchema = {
             ],
             title: 'Zip File',
             description: 'A ZIP file of the repository.'
+        },
+        access_token: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Access Token',
+            description: 'Optional GitHub token for accessing private repositories.'
         }
     },
     type: 'object',
@@ -84,6 +96,18 @@ export const Body_generate_structure_endpoint_api_generate_structure_postSchema 
             ],
             title: 'Zip File',
             description: 'A ZIP file of the repository.'
+        },
+        access_token: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Access Token',
+            description: 'Optional GitHub token for accessing private repositories.'
         }
     },
     type: 'object',
@@ -129,6 +153,18 @@ export const Body_generate_text_endpoint_api_generate_text_postSchema = {
             ],
             title: 'Zip File',
             description: 'A ZIP file of the repository.'
+        },
+        access_token: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Access Token',
+            description: 'Optional GitHub token for accessing private repositories.'
         }
     },
     type: 'object',
@@ -250,7 +286,14 @@ export const GraphNodeSchema = {
 export const GraphResponseSchema = {
     properties: {
         html_url: {
-            type: 'string',
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Html Url'
         },
         nodes: {
@@ -269,7 +312,7 @@ export const GraphResponseSchema = {
         }
     },
     type: 'object',
-    required: ['html_url', 'nodes', 'edges'],
+    required: ['nodes', 'edges'],
     title: 'GraphResponse'
 } as const;
 
