@@ -9,7 +9,6 @@ import { StructureTab } from "@/components/structure-tab"
 import ReagraphVisualization from "@/components/ReagraphVisualization"
 
 import {
-  Download,
   Network,
   Code2,
   FileText,
@@ -270,7 +269,7 @@ export default function ResultsPage() {
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 lg:py-8">
+      <main className="max-w-[95vw] mx-auto px-2 sm:px-4 py-2 sm:py-4 lg:py-6">
         {/* Page Title - Hidden on mobile, shown on desktop */}
         <div className="hidden lg:block text-center mb-6 lg:mb-8 space-y-4">
           <div className="inline-block bg-primary/5 backdrop-blur-sm px-6 py-2 rounded-2xl border border-primary/10">
@@ -294,7 +293,7 @@ export default function ResultsPage() {
                 value="graph"
                 className={cn(
                   "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
-                  !session?.accessToken && "opacity-60"
+                  !session?.accessToken && "opacity-60",
                 )}
               >
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
@@ -306,7 +305,7 @@ export default function ResultsPage() {
                 value="explorer"
                 className={cn(
                   "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
-                  !session?.accessToken && "opacity-60"
+                  !session?.accessToken && "opacity-60",
                 )}
               >
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
@@ -332,7 +331,7 @@ export default function ResultsPage() {
                 value="graph"
                 className={cn(
                   "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
-                  !session?.accessToken && "opacity-60"
+                  !session?.accessToken && "opacity-60",
                 )}
               >
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
@@ -344,7 +343,7 @@ export default function ResultsPage() {
                 value="explorer"
                 className={cn(
                   "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
-                  !session?.accessToken && "opacity-60"
+                  !session?.accessToken && "opacity-60",
                 )}
               >
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
@@ -414,15 +413,6 @@ export default function ResultsPage() {
                       </div>
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          className="flex-1 sm:flex-none rounded-xl border-border/50 opacity-50"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          <span className="hidden xs:inline">Export</span>
-                        </Button>
-                        <Button
                           onClick={() => setIsGraphExpanded(true)}
                           variant="outline"
                           size="sm"
@@ -434,15 +424,13 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
+                  <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh]">
                     {sourceType && sourceData ? (
-                      <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
-                        <div className="h-full w-full">
-                          <ReagraphVisualization
-                            setParentActiveTab={setActiveTab}
-                            onError={(msg) => showToast.error(msg)}
-                          />
-                        </div>
+                      <div className="h-full w-full min-h-[70vh] lg:min-h-[80vh] rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
+                        <ReagraphVisualization
+                          setParentActiveTab={setActiveTab}
+                          onError={(msg) => showToast.error(msg)}
+                        />
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -500,7 +488,7 @@ export default function ResultsPage() {
                   <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
                     <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
-                        <CodeViewer />
+                      <CodeViewer />
                       </div>
                     </div>
                   </div>
@@ -596,7 +584,10 @@ export default function ResultsPage() {
                 <div className="flex-1 p-3 sm:p-6 overflow-hidden">
                   <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                     <div className="h-full w-full">
-                      <ReagraphVisualization setParentActiveTab={setActiveTab} onError={(msg) => showToast.error(msg)} />
+                      <ReagraphVisualization
+                        setParentActiveTab={setActiveTab}
+                        onError={(msg) => showToast.error(msg)}
+                      />
                     </div>
                   </div>
                 </div>
