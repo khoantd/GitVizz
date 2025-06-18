@@ -11,7 +11,7 @@ from tree_sitter import Language  # For Tree-sitter
 import tree_sitter_javascript
 import tree_sitter_typescript
 
-from custom_ast_parser import CustomTreeSitterParser  # Import the new parser
+from graphing.custom_ast_parser import CustomTreeSitterParser  # Import the new parser
 
 # Graph Data Structures
 GraphNodeData = Dict[str, Any]  # Detailed below

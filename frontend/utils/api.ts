@@ -1,16 +1,16 @@
 // API utilities for interacting with the backend using Hey-API generated SDK
 
 import {
-  generateTextEndpointApiGenerateTextPost,
-  generateGraphEndpointApiGenerateGraphPost,
-  generateStructureEndpointApiGenerateStructurePost
+  generateTextEndpointApiRepoGenerateTextPost,
+  generateGraphEndpointApiRepoGenerateGraphPost,
+  generateStructureEndpointApiRepoGenerateStructurePost
 } from '../api-client/sdk.gen';
 import type {
   GraphResponse,
   StructureResponse,
-  BodyGenerateTextEndpointApiGenerateTextPost,
-  BodyGenerateGraphEndpointApiGenerateGraphPost,
-  BodyGenerateStructureEndpointApiGenerateStructurePost
+  BodyGenerateTextEndpointApiRepoGenerateTextPost,
+  BodyGenerateGraphEndpointApiRepoGenerateGraphPost,
+  BodyGenerateStructureEndpointApiRepoGenerateStructurePost
 } from '../api-client/types.gen';
 
 // Types for convenience
@@ -25,13 +25,13 @@ export interface RepoRequest {
  */
 export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<string> {
   try {
-    const body: BodyGenerateTextEndpointApiGenerateTextPost = {
+    const body: BodyGenerateTextEndpointApiRepoGenerateTextPost = {
       repo_url: repoRequest.repo_url,
       branch: repoRequest.branch || 'main',
       access_token: repoRequest.access_token || ''
     };
 
-    const response = await generateTextEndpointApiGenerateTextPost({
+    const response = await generateTextEndpointApiRepoGenerateTextPost({
       body
     });
 
@@ -58,13 +58,13 @@ export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<string>
  */
 export async function generateGraphFromGithub(repoRequest: RepoRequest): Promise<GraphResponse> {
   try {
-    const body: BodyGenerateGraphEndpointApiGenerateGraphPost = {
+    const body: BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
       repo_url: repoRequest.repo_url,
       branch: repoRequest.branch || 'main',
       access_token: repoRequest.access_token || ''
     };
 
-    const response = await generateGraphEndpointApiGenerateGraphPost({
+    const response = await generateGraphEndpointApiRepoGenerateGraphPost({
       body
     });
 
@@ -95,13 +95,13 @@ export async function generateGraphFromGithub(repoRequest: RepoRequest): Promise
  */
 export async function generateStructureFromGithub(repoRequest: RepoRequest): Promise<StructureResponse> {
   try {
-    const body: BodyGenerateStructureEndpointApiGenerateStructurePost = {
+    const body: BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
       repo_url: repoRequest.repo_url,
       branch: repoRequest.branch || 'main',
       access_token: repoRequest.access_token || ''
     };
 
-    const response = await generateStructureEndpointApiGenerateStructurePost({
+    const response = await generateStructureEndpointApiRepoGenerateStructurePost({
       body
     });
 
@@ -132,11 +132,11 @@ export async function generateStructureFromGithub(repoRequest: RepoRequest): Pro
  */
 export async function uploadLocalZip(file: File): Promise<{ text: string }> {
   try {
-    const body: BodyGenerateTextEndpointApiGenerateTextPost = {
+    const body: BodyGenerateTextEndpointApiRepoGenerateTextPost = {
       zip_file: file
     };
 
-    const response = await generateTextEndpointApiGenerateTextPost({
+    const response = await generateTextEndpointApiRepoGenerateTextPost({
       body
     });
 
@@ -163,11 +163,11 @@ export async function uploadLocalZip(file: File): Promise<{ text: string }> {
  */
 export async function generateGraphFromZip(file: File): Promise<GraphResponse> {
   try {
-    const body: BodyGenerateGraphEndpointApiGenerateGraphPost = {
+    const body: BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
       zip_file: file
     };
 
-    const response = await generateGraphEndpointApiGenerateGraphPost({
+    const response = await generateGraphEndpointApiRepoGenerateGraphPost({
       body
     });
 
@@ -198,11 +198,11 @@ export async function generateGraphFromZip(file: File): Promise<GraphResponse> {
  */
 export async function generateStructureFromZip(file: File): Promise<StructureResponse> {
   try {
-    const body: BodyGenerateStructureEndpointApiGenerateStructurePost = {
+    const body: BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
       zip_file: file
     };
 
-    const response = await generateStructureEndpointApiGenerateStructurePost({
+    const response = await generateStructureEndpointApiRepoGenerateStructurePost({
       body
     });
 
@@ -231,13 +231,13 @@ export async function generateStructureFromZip(file: File): Promise<StructureRes
 // Helper function to get filename suggestion from text response
 export async function getFilenameSuggestion(repoRequest: RepoRequest): Promise<string> {
   try {
-    const body: BodyGenerateTextEndpointApiGenerateTextPost = {
+    const body: BodyGenerateTextEndpointApiRepoGenerateTextPost = {
       repo_url: repoRequest.repo_url,
       branch: repoRequest.branch || 'main',
       access_token: repoRequest.access_token || ''
     };
 
-    const response = await generateTextEndpointApiGenerateTextPost({
+    const response = await generateTextEndpointApiRepoGenerateTextPost({
       body
     });
 
