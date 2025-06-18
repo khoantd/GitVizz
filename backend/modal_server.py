@@ -3,16 +3,11 @@ import modal
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .add_local_file("requirements.txt", "/root/requirements.txt", copy=True)
-    .add_local_file("custom_ast_parser.py", "/root/custom_ast_parser.py", copy=True)
-    .add_local_file("graph_generator.py", "/root/graph_generator.py", copy=True)
-    .add_local_file("server.py", "/root/server.py", copy=True)
+    .add_local_dir(".", "/root", copy=True)
     .run_commands(
         "pip install --upgrade pip",
         "pip install -r /root/requirements.txt",
     )
-    # .add_local_dir(".", "/root", copy=True)
-    # .run_commands("cd /root && pip install .")
 )
 vol = modal.Volume.from_name("omniparse_backend")
 
