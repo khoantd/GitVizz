@@ -2,8 +2,6 @@ from fastapi import BackgroundTasks, HTTPException, Form, File, UploadFile
 from typing import Optional, List
 from datetime import datetime
 import os
-import json
-import hashlib
 from pathlib import Path
 
 from schemas.response_schemas import (
@@ -21,8 +19,9 @@ from utils.repo_utils import (
     format_repo_structure
 )
 from utils.jwt_utils import get_current_user
+from utils.file_utils import save_repository_files, generate_repo_identifier, file_manager
 from graphing.graph_generator import GraphGenerator
-from models.repository import Repository, FilePaths
+from models.repository import Repository
 from models.user import User
 import requests
 
@@ -75,75 +74,12 @@ async def get_latest_commit_sha(repo_url: str, branch: str = "main", access_toke
         return None
 
 
-def generate_repo_identifier(repo_url: Optional[str], zip_filename: Optional[str], branch: str = "main") -> str:
-    """Generate a unique identifier for the repository."""
-    if repo_url:
-        repo_info = parse_repo_url(repo_url)
-        return f"{repo_info['owner']}_{repo_info['repo']}_{branch}"
-    elif zip_filename:
-        # Create a hash of the filename for consistency
-        return f"zip_{hashlib.md5(zip_filename.encode()).hexdigest()[:8]}"
-    return f"unknown_repo_{datetime.utcnow().timestamp()}"
-
-
 def is_valid_access_token(access_token: Optional[str]) -> bool:
     """Check if the access token is valid and not a placeholder."""
     return (access_token and 
             access_token.strip() and 
             access_token != "string" and 
             len(access_token.strip()) > 10)
-
-
-async def save_files_to_storage(
-    user_id: str, 
-    repo_identifier: str, 
-    formatted_text: str, 
-    graph_data: Optional[dict] = None, 
-    structure_data: Optional[dict] = None,
-    zip_content: Optional[bytes] = None
-) -> FilePaths:
-    """Save generated files to user-specific storage directories."""
-    
-    try:
-        # Create user directory structure: storage/users/{user_id}/{repo_identifier}/
-        base_dir = Path("storage") / "users" / user_id / repo_identifier
-        base_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Define file paths
-        zip_path = str(base_dir / "repository.zip")
-        text_path = str(base_dir / "content.txt")
-        json_path = str(base_dir / "data.json")
-        
-        file_paths = FilePaths(
-            zip=zip_path,
-            text=text_path,
-            json_file=json_path
-        )
-        
-        # Save text content
-        with open(text_path, "w", encoding="utf-8") as f:
-            f.write(formatted_text)
-        
-        # Save ZIP file if provided
-        if zip_content:
-            with open(zip_path, "wb") as f:
-                f.write(zip_content)
-        
-        # Save JSON data (graph or structure)
-        json_data = {}
-        if graph_data:
-            json_data["graph"] = graph_data
-        if structure_data:
-            json_data["structure"] = structure_data
-        
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(json_data, f, indent=2)
-        
-        return file_paths
-        
-    except Exception as e:
-        print(f"Error in save_files_to_storage: {e}")
-        raise
 
 
 async def check_existing_repository(
@@ -166,11 +102,9 @@ async def check_existing_repository(
         if commit_sha and existing_repo.commit_sha != commit_sha:
             return None
         
-        # Check if files still exist
-        text_path = existing_repo.file_paths.text
-        json_path = existing_repo.file_paths.json_file
-        
-        if (not os.path.exists(text_path) or not os.path.exists(json_path)):
+        # Validate that files still exist
+        validation_result = await file_manager.validate_file_paths(existing_repo.file_paths)
+        if not all(validation_result.values()):
             return None
         
         return existing_repo
@@ -222,6 +156,57 @@ async def get_zip_content_from_processing(
     return None
 
 
+async def save_and_cache_repository(
+    user: User,
+    repo_identifier: str,
+    branch: str,
+    commit_sha: Optional[str],
+    repo_url: Optional[str],
+    formatted_text: str,
+    graph_data: Optional[dict] = None,
+    structure_data: Optional[dict] = None,
+    zip_content: Optional[bytes] = None
+) -> None:
+    """Save repository data and create/update database record."""
+    
+    # Save files to storage
+    file_paths = await save_repository_files(
+        str(user.id), 
+        repo_identifier, 
+        formatted_text,
+        graph_data=graph_data,
+        structure_data=structure_data,
+        zip_content=zip_content
+    )
+    
+    # Create or update repository record
+    repo_data = {
+        "user": user,
+        "repo_name": repo_identifier,
+        "branch": branch,
+        "commit_sha": commit_sha,
+        "source": "github" if repo_url else "zip",
+        "github_url": repo_url,
+        "file_paths": file_paths,
+        "updated_at": datetime.utcnow()
+    }
+    
+    # Try to update existing or create new
+    existing_repo = await Repository.find_one(
+        Repository.user.id == user.id,
+        Repository.repo_name == repo_identifier
+    )
+    
+    if existing_repo:
+        for key, value in repo_data.items():
+            if key != "user":  # Don't update the user field
+                setattr(existing_repo, key, value)
+        await existing_repo.save()
+    else:
+        new_repo = Repository(**repo_data)
+        await new_repo.save()
+
+
 async def generate_text_endpoint(
     background_tasks: BackgroundTasks,
     repo_url: Optional[str] = Form(
@@ -251,7 +236,6 @@ async def generate_text_endpoint(
         )
     
     user = None
-    zip_content = None
     
     # Get user if JWT token provided
     if jwt_token:
@@ -278,21 +262,15 @@ async def generate_text_endpoint(
         existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
         if existing_repo:
             # Return cached content
-            with open(existing_repo.file_paths.text, "r", encoding="utf-8") as f:
-                cached_content = f.read()
-            
-            return TextResponse(
-                text_content=cached_content,
-                filename_suggestion=f"{repo_identifier}_content.txt"
-            )
+            cached_content = await file_manager.load_text_content(existing_repo.file_paths.text)
+            if cached_content:
+                return TextResponse(
+                    text_content=cached_content,
+                    filename_suggestion=f"{repo_identifier}_content.txt"
+                )
 
     temp_dirs_to_cleanup = []
     try:
-        # Get ZIP content for caching before processing
-        if user:
-            valid_token = access_token if is_valid_access_token(access_token) else None
-            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
-        
         # Only pass access_token if it's valid
         valid_token = access_token if is_valid_access_token(access_token) else None
         
@@ -321,39 +299,18 @@ async def generate_text_endpoint(
 
         # Save to database if user is authenticated
         if user:
-            file_paths = await save_files_to_storage(
-                str(user.id), 
-                repo_identifier, 
-                formatted_text,
+            # Get ZIP content for caching
+            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
+            
+            await save_and_cache_repository(
+                user=user,
+                repo_identifier=repo_identifier,
+                branch=branch,
+                commit_sha=commit_sha,
+                repo_url=repo_url,
+                formatted_text=formatted_text,
                 zip_content=zip_content
             )
-            
-            # Create or update repository record
-            repo_data = {
-                "user": user,
-                "repo_name": repo_identifier,
-                "branch": branch,
-                "commit_sha": commit_sha,
-                "source": "github" if repo_url else "zip",
-                "github_url": repo_url,
-                "file_paths": file_paths,
-                "updated_at": datetime.utcnow()
-            }
-            
-            # Try to update existing or create new
-            existing_repo = await Repository.find_one(
-                Repository.user.id == user.id,
-                Repository.repo_name == repo_identifier
-            )
-            
-            if existing_repo:
-                for key, value in repo_data.items():
-                    if key != "user":  # Don't update the user field
-                        setattr(existing_repo, key, value)
-                await existing_repo.save()
-            else:
-                new_repo = Repository(**repo_data)
-                await new_repo.save()
 
         filename_base = repo_identifier
         if repo_url:
@@ -403,7 +360,6 @@ async def generate_graph_endpoint(
         )
 
     user = None
-    zip_content = None
     
     # Get user if JWT token provided
     if jwt_token:
@@ -430,19 +386,12 @@ async def generate_graph_endpoint(
         existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
         if existing_repo:
             # Return cached graph data
-            with open(existing_repo.file_paths.json_file, "r", encoding="utf-8") as f:
-                cached_data = json.load(f)
-            
-            if "graph" in cached_data:
+            cached_data = await file_manager.load_json_data(existing_repo.file_paths.json_file)
+            if cached_data and "graph" in cached_data:
                 return GraphResponse(**cached_data["graph"])
 
     temp_dirs_to_cleanup = []
     try:
-        # Get ZIP content for caching before processing
-        if user:
-            valid_token = access_token if is_valid_access_token(access_token) else None
-            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
-        
         # Only pass access_token if it's valid
         valid_token = access_token if is_valid_access_token(access_token) else None
             
@@ -471,39 +420,18 @@ async def generate_graph_endpoint(
         # Save to database if user is authenticated
         if user:
             formatted_text = format_repo_contents(filtered_files)  # Also generate text for storage
-            file_paths = await save_files_to_storage(
-                str(user.id), 
-                repo_identifier, 
-                formatted_text,
+            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
+            
+            await save_and_cache_repository(
+                user=user,
+                repo_identifier=repo_identifier,
+                branch=branch,
+                commit_sha=commit_sha,
+                repo_url=repo_url,
+                formatted_text=formatted_text,
                 graph_data=graph_data,
                 zip_content=zip_content
             )
-            
-            # Create or update repository record
-            repo_data = {
-                "user": user,
-                "repo_name": repo_identifier,
-                "branch": branch,
-                "commit_sha": commit_sha,
-                "source": "github" if repo_url else "zip",
-                "github_url": repo_url,
-                "file_paths": file_paths,
-                "updated_at": datetime.utcnow()
-            }
-            
-            existing_repo = await Repository.find_one(
-                Repository.user.id == user.id,
-                Repository.repo_name == repo_identifier
-            )
-            
-            if existing_repo:
-                for key, value in repo_data.items():
-                    if key != "user":
-                        setattr(existing_repo, key, value)
-                await existing_repo.save()
-            else:
-                new_repo = Repository(**repo_data)
-                await new_repo.save()
 
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return GraphResponse(**graph_data)
@@ -542,7 +470,6 @@ async def generate_structure_endpoint(
         )
 
     user = None
-    zip_content = None
     
     # Get user if JWT token provided
     if jwt_token:
@@ -569,19 +496,12 @@ async def generate_structure_endpoint(
         existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
         if existing_repo:
             # Return cached structure data
-            with open(existing_repo.file_paths.json_file, "r", encoding="utf-8") as f:
-                cached_data = json.load(f)
-            
-            if "structure" in cached_data:
+            cached_data = await file_manager.load_json_data(existing_repo.file_paths.json_file)
+            if cached_data and "structure" in cached_data:
                 return StructureResponse(**cached_data["structure"])
 
     temp_dirs_to_cleanup = []
     try:
-        # Get ZIP content for caching before processing
-        if user:
-            valid_token = access_token if is_valid_access_token(access_token) else None
-            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
-        
         # Only pass access_token if it's valid
         valid_token = access_token if is_valid_access_token(access_token) else None
             
@@ -622,39 +542,18 @@ async def generate_structure_endpoint(
         # Save to database if user is authenticated
         if user:
             formatted_text = format_repo_contents(relevant_files_for_structure)
-            file_paths = await save_files_to_storage(
-                str(user.id), 
-                repo_identifier, 
-                formatted_text,
+            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
+            
+            await save_and_cache_repository(
+                user=user,
+                repo_identifier=repo_identifier,
+                branch=branch,
+                commit_sha=commit_sha,
+                repo_url=repo_url,
+                formatted_text=formatted_text,
                 structure_data=structure_data,
                 zip_content=zip_content
             )
-            
-            # Create or update repository record
-            repo_data = {
-                "user": user,
-                "repo_name": repo_identifier,
-                "branch": branch,
-                "commit_sha": commit_sha,
-                "source": "github" if repo_url else "zip",
-                "github_url": repo_url,
-                "file_paths": file_paths,
-                "updated_at": datetime.utcnow()
-            }
-            
-            existing_repo = await Repository.find_one(
-                Repository.user.id == user.id,
-                Repository.repo_name == repo_identifier
-            )
-            
-            if existing_repo:
-                for key, value in repo_data.items():
-                    if key != "user":
-                        setattr(existing_repo, key, value)
-                await existing_repo.save()
-            else:
-                new_repo = Repository(**repo_data)
-                await new_repo.save()
 
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return StructureResponse(
