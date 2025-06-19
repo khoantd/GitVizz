@@ -8,8 +8,6 @@ import { RepoTabs } from "@/components/repo-tabs";
 import { showToast } from "@/components/toaster";
 import Footer from "@/components/footer";
 import Header from "@/components/header"
-import { useAutoSignOut } from '@/hooks/useAutoSignOut'
-
 
 export default function Home() {
   const { error, outputMessage, setError, setOutputMessage } = useResultData();

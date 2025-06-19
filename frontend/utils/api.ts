@@ -12,7 +12,6 @@ import type {
   BodyGenerateTextEndpointApiRepoGenerateTextPost,
   BodyGenerateGraphEndpointApiRepoGenerateGraphPost,
   BodyGenerateStructureEndpointApiRepoGenerateStructurePost,
-  LoginUserApiBackendAuthLoginPostData,
   LoginResponse
 } from '../api-client/types.gen';
 
@@ -51,6 +50,9 @@ export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<string>
 
     return response.data?.text_content || '';
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -89,6 +91,9 @@ export async function generateGraphFromGithub(repoRequest: RepoRequest, jwt_toke
 
     return response.data;
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -127,6 +132,9 @@ export async function generateStructureFromGithub(repoRequest: RepoRequest): Pro
 
     return response.data;
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -161,6 +169,9 @@ export async function uploadLocalZip(file: File, jwt_token: string): Promise<{ t
 
     return { text: response.data?.text_content || '' };
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -199,6 +210,9 @@ export async function generateGraphFromZip(file: File, jwt_token: string): Promi
 
     return response.data;
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -237,6 +251,9 @@ export async function generateStructureFromZip(file: File, jwt_token: string): P
 
     return response.data;
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -268,6 +285,9 @@ export async function getJwtToken(access_token: string): Promise<LoginResponse> 
     return response.data as LoginResponse;
 
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -300,9 +320,31 @@ export async function getFilenameSuggestion(repoRequest: RepoRequest): Promise<s
 
     return response.data?.filename_suggestion || 'repository.txt';
   } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
     if (error instanceof Error) {
       throw error;
     }
     throw new Error('Failed to get filename suggestion');
   }
 }
+
+export class TokenExpiredError extends Error {
+  constructor(message = "Token expired") {
+    super(message);
+    this.name = "TokenExpiredError";
+  }
+}
+
+function isTokenExpiredError(error: any): boolean {
+  if (!error) return false;
+  const msg = typeof error === "string" ? error : error?.message || error?.toString();
+  return (
+    msg?.toLowerCase().includes("token has expired") ||
+    msg?.toLowerCase().includes("jwt expired") ||
+    msg?.toLowerCase().includes("expired token")
+  );
+}
+
+// All API functions already use repoRequest.jwt_token or jwt_token argument

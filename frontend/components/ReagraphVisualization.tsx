@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSession } from "next-auth/react"
+import { useApiWithAuth } from "@/hooks/useApiWithAuth"
 import {
   Network,
   FileText,
@@ -342,6 +343,9 @@ export default function EnhancedReagraphVisualization({
   const [isResizing, setIsResizing] = useState(false)
   const { data: session } = useSession()
 
+  const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub)
+  const generateGraphFromZipWithAuth = useApiWithAuth(generateGraphFromZip)
+
   const hasLoadedRef = useRef(false)
   const currentRequestKeyRef = useRef<string | null>(null)
 
@@ -385,9 +389,9 @@ export default function EnhancedReagraphVisualization({
       try {
         let data: GraphResponse
         if (sourceType === "github" && sourceData && isGitHubSourceData(sourceData)) {
-          data = await generateGraphFromGithub(sourceData, session?.jwt_token)
+          data = await generateGraphFromGithubWithAuth(sourceData, session?.jwt_token || "")
         } else if (sourceType === "zip" && sourceData instanceof File) {
-          data = await generateGraphFromZip(sourceData, session?.jwt_token || "")
+          data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || "")
         } else {
           throw new Error("Invalid source type or data")
         }
@@ -417,7 +421,7 @@ export default function EnhancedReagraphVisualization({
     return () => {
       isCancelled = true
     }
-  }, [requestKey, isClient, sourceType, sourceData, onError, isGitHubSourceData])
+  }, [requestKey, isClient, sourceType, sourceData, onError, isGitHubSourceData, generateGraphFromGithubWithAuth, generateGraphFromZipWithAuth, session?.jwt_token])
 
   const nodeCategories = useMemo(() => getDynamicNodeCategories(graphData?.nodes), [graphData?.nodes])
 

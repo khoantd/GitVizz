@@ -21,11 +21,16 @@ import { useResultData } from "@/context/ResultDataContext";
 
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useApiWithAuth } from "@/hooks/useApiWithAuth";
 
 export function RepoTabs() {
 
   // use session
   const { data: session } = useSession();
+
+  // custom function to handle API calls with authentication
+  const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo);
+  const uploadLocalZipWithAuth = useApiWithAuth(uploadLocalZip);
 
   // Form state
   const [repoUrl, setRepoUrl] = useState("");
@@ -70,7 +75,7 @@ export function RepoTabs() {
         branch: branch.trim() || "main",
         jwt_token: session?.jwt_token || undefined,
       };
-      const formattedText = await fetchGithubRepo(requestData);
+      const formattedText = await fetchGithubRepoWithAuth(requestData);
 
       setOutput(formattedText);
       setSourceType("github");
@@ -102,7 +107,7 @@ export function RepoTabs() {
     setOutputMessage(null);
 
     try {
-      const { text } = await uploadLocalZip(zipFile, session?.jwt_token || "");
+      const { text } = await uploadLocalZipWithAuth(zipFile, session?.jwt_token || "");
       setOutput(text);
       setSourceType("zip");
       setSourceData(zipFile);
