@@ -7,13 +7,17 @@ from pathlib import Path
 from datetime import datetime
 
 from models.repository import FilePaths
+from dotenv import load_dotenv
 
 
 class FileManager:
     """Utility class for managing file storage operations."""
     
-    def __init__(self, base_storage_dir: str = "storage"):
-        self.base_storage_dir = Path(base_storage_dir)
+    def __init__(self, base_storage_dir: Optional[str] = None):
+        load_dotenv()
+        env_base_dir = os.getenv("FILE_STORAGE_BASEPATH")
+        base_dir = base_storage_dir or env_base_dir or "storage"
+        self.base_storage_dir = Path(base_dir)
         self.base_storage_dir.mkdir(parents=True, exist_ok=True)
     
     def get_user_storage_path(self, user_id: str) -> Path:
