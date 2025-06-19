@@ -20,11 +20,16 @@ import {
 import { useResultData } from "@/context/ResultDataContext";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export function RepoTabs() {
+
+  // use session
+  const { data: session } = useSession();
+
   // Form state
   const [repoUrl, setRepoUrl] = useState("");
-  const [accessToken, setAccessToken] = useState("");
+  const [accessToken, setAccessToken] = useState(session?.accessToken || "");
   const [branch, setBranch] = useState("main");
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -63,6 +68,7 @@ export function RepoTabs() {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: branch.trim() || "main",
+        jwt_token: session?.jwt_token || undefined,
       };
       const formattedText = await fetchGithubRepo(requestData);
 
@@ -96,7 +102,7 @@ export function RepoTabs() {
     setOutputMessage(null);
 
     try {
-      const { text } = await uploadLocalZip(zipFile);
+      const { text } = await uploadLocalZip(zipFile, session?.jwt_token || "");
       setOutput(text);
       setSourceType("zip");
       setSourceData(zipFile);
@@ -227,7 +233,7 @@ export function RepoTabs() {
                           </Label>
                           <Input
                             id="access-token"
-                            type="password"
+                            type="text"
                             placeholder="ghp_xxxxxxxxxxxx"
                             value={accessToken}
                             onChange={(e) => setAccessToken(e.target.value)}

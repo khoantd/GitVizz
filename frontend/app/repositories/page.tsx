@@ -231,6 +231,7 @@ export default function RepositoriesPage() {
         repo_url: html_url,
         access_token: session?.accessToken || undefined,
         branch: branch || "main",
+        jwt_token: session?.jwt_token 
       };
 
       const formattedText = await fetchGithubRepo(requestData);

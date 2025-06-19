@@ -8,6 +8,7 @@ import { RepoTabs } from "@/components/repo-tabs";
 import { showToast } from "@/components/toaster";
 import Footer from "@/components/footer";
 import Header from "@/components/header"
+import { useAutoSignOut } from '@/hooks/useAutoSignOut'
 
 
 export default function Home() {
@@ -31,7 +32,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col justify-between bg-background text-foreground antialiased relative">
       {/* Visual Anchor - Top Gradient */}
       <div className="fixed top-0 left-0 right-0 h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-      
+
       {/* Header */}
       <Header />
 

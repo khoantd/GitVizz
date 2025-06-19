@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useSession } from "next-auth/react"
 import {
   Network,
   FileText,
@@ -339,6 +340,7 @@ export default function EnhancedReagraphVisualization({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
+  const { data: session } = useSession()
 
   const hasLoadedRef = useRef(false)
   const currentRequestKeyRef = useRef<string | null>(null)
@@ -383,9 +385,9 @@ export default function EnhancedReagraphVisualization({
       try {
         let data: GraphResponse
         if (sourceType === "github" && sourceData && isGitHubSourceData(sourceData)) {
-          data = await generateGraphFromGithub(sourceData)
+          data = await generateGraphFromGithub(sourceData, session?.jwt_token)
         } else if (sourceType === "zip" && sourceData instanceof File) {
-          data = await generateGraphFromZip(sourceData)
+          data = await generateGraphFromZip(sourceData, session?.jwt_token || "")
         } else {
           throw new Error("Invalid source type or data")
         }

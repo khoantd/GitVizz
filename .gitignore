@@ -9,6 +9,9 @@ __pycache__/
 # Mac
 .DS_Store
 
+# Repo Caching Storage
+storage/
+
 # Distribution / packaging
 .Python
 build/

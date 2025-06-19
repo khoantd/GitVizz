@@ -1,10 +1,37 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from routes.repo_routes import router as repo_router
+from routes.auth_routes import router as auth_router
+from utils.db import db_instance
+
+import os
+from dotenv import load_dotenv
+
+# =====================
+# Load environment variables
+# =====================
+load_dotenv()
+
+# =====================
+# Database connection
+# =====================
+
+# Initialize the database connection
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize the database connection
+    await db_instance.init_db()
+    
+    yield # Let the application run
+    
+    # Clean up resources if needed
+    await db_instance.close_db()
 
 app = FastAPI(
     title="GitViz API",
-    description="API for generating text, graphs, and structure from code repositories."
+    description="API for generating text, graphs, and structure from code repositories.",
+    lifespan=lifespan
 )
 
 # CORS middleware to allow cross-origin requests
@@ -18,7 +45,7 @@ app.add_middleware(
 
 # Include the repository routes
 app.include_router(repo_router, prefix="/api", tags=["Repository Operations"])
-
+app.include_router(auth_router, prefix="/api", tags=["Authentication"])
 
 # =====================
 # Main Entrypoint
@@ -26,4 +53,8 @@ app.include_router(repo_router, prefix="/api", tags=["Repository Operations"])
 if __name__ == "__main__":
     import uvicorn
     
-    uvicorn.run("server:app", host="0.0.0.0", port=8003, reload=True)
+    load_dotenv()
+    host = os.getenv("HOST", "0.0.0.0") # Default to all interfaces
+    port = int(os.getenv("PORT", 8003)) # Default port 8003
+
+    uvicorn.run("server:app", host=host, port=port, reload=True)

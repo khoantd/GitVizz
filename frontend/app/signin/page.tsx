@@ -25,7 +25,7 @@ export default function SignInPage() {
         }
     }
 
-    if(session){
+    if (session) {
         return redirect('/')
     }
 
