@@ -3,6 +3,8 @@ from typing import Optional, List
 from datetime import datetime
 import os
 from pathlib import Path
+import io
+from fastapi import UploadFile
 
 from schemas.response_schemas import (
     TextResponse,
@@ -202,9 +204,11 @@ async def save_and_cache_repository(
             if key != "user":  # Don't update the user field
                 setattr(existing_repo, key, value)
         await existing_repo.save()
+        return existing_repo
     else:
         new_repo = Repository(**repo_data)
         await new_repo.save()
+        return new_repo
 
 
 async def generate_text_endpoint(
@@ -266,18 +270,32 @@ async def generate_text_endpoint(
             if cached_content:
                 return TextResponse(
                     text_content=cached_content,
-                    filename_suggestion=f"{repo_identifier}_content.txt"
+                    filename_suggestion=f"{repo_identifier}_content.txt",
+                    repo_id=str(existing_repo.id)
                 )
 
     temp_dirs_to_cleanup = []
+    zip_content = None
+    processed_zip_file = None
+    
     try:
+        # Handle zip file by creating a copy we can read multiple times
+        if zip_file:
+            zip_content = await zip_file.read()
+            # Create a new UploadFile-like object from the bytes
+            processed_zip_file = UploadFile(
+                filename=zip_file.filename,
+                file=io.BytesIO(zip_content),
+                headers=zip_file.headers
+            )
+        
         # Only pass access_token if it's valid
         valid_token = access_token if is_valid_access_token(access_token) else None
         
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
             repo_url,
             branch,
-            zip_file,
+            processed_zip_file,  # Use our processed version
             access_token=valid_token,
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
@@ -299,10 +317,11 @@ async def generate_text_endpoint(
 
         # Save to database if user is authenticated
         if user:
-            # Get ZIP content for caching
-            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
+            # We already have zip_content from the uploaded file or can get it from URL
+            if not zip_content and repo_url:
+                zip_content = await get_zip_content_from_processing(repo_url, branch, None, valid_token)
             
-            await save_and_cache_repository(
+            saved_repo = await save_and_cache_repository(
                 user=user,
                 repo_identifier=repo_identifier,
                 branch=branch,
@@ -323,7 +342,8 @@ async def generate_text_endpoint(
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return TextResponse(
             text_content=formatted_text, 
-            filename_suggestion=f"{filename_base}.txt"
+            filename_suggestion=f"{filename_base}.txt",
+            repo_id=str(saved_repo.id)
         )
         
     except HTTPException as he:
@@ -332,6 +352,10 @@ async def generate_text_endpoint(
     except Exception as e:
         cleanup_temp_files(temp_dirs_to_cleanup)
         raise HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+    finally:
+        # Clean up the processed zip file
+        if processed_zip_file and hasattr(processed_zip_file.file, 'close'):
+            processed_zip_file.file.close()
 
 
 async def generate_graph_endpoint(
@@ -391,12 +415,25 @@ async def generate_graph_endpoint(
                 return GraphResponse(**cached_data["graph"])
 
     temp_dirs_to_cleanup = []
+    zip_content = None
+    processed_zip_file = None
+    
     try:
+        # Handle zip file by reading content first and creating a reusable copy
+        if zip_file:
+            zip_content = await zip_file.read()
+            # Create a new UploadFile-like object from the bytes
+            processed_zip_file = UploadFile(
+                filename=zip_file.filename,
+                file=io.BytesIO(zip_content),
+                headers=zip_file.headers
+            )
+        
         # Only pass access_token if it's valid
         valid_token = access_token if is_valid_access_token(access_token) else None
             
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
-            repo_url, branch, zip_file, access_token=valid_token
+            repo_url, branch, processed_zip_file, access_token=valid_token
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -420,7 +457,11 @@ async def generate_graph_endpoint(
         # Save to database if user is authenticated
         if user:
             formatted_text = format_repo_contents(filtered_files)  # Also generate text for storage
-            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
+            
+            # Use the zip_content we already read instead of calling get_zip_content_from_processing
+            if not zip_content and repo_url:
+                # Only fetch zip content if we don't have it and it's from a URL
+                zip_content = await get_zip_content_from_processing(repo_url, branch, None, valid_token)
             
             await save_and_cache_repository(
                 user=user,
@@ -442,7 +483,11 @@ async def generate_graph_endpoint(
     except Exception as e:
         cleanup_temp_files(temp_dirs_to_cleanup)
         raise HTTPException(status_code=500, detail=f"Error generating graph: {str(e)}")
-    
+    finally:
+        # Clean up the processed zip file
+        if processed_zip_file and hasattr(processed_zip_file.file, 'close'):
+            processed_zip_file.file.close() 
+
 
 async def generate_structure_endpoint(
     background_tasks: BackgroundTasks,

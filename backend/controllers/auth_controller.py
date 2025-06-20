@@ -50,7 +50,8 @@ async def login_user(request: LoginRequest) -> LoginResponse:
     github_email = github_user.get("email")
     github_username = github_user.get("username")
     github_profile_picture = github_user.get("avatar_url")
-        
+    
+    
     if not github_email or not github_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -69,7 +70,7 @@ async def login_user(request: LoginRequest) -> LoginResponse:
     # Step 3: If user doesn't exist, create a new one
     if not user:
         user = User(
-            fullname=github_fullname,
+            fullname=github_fullname or "",
             username=github_username,
             email=github_email,
             profile_picture=github_profile_picture,

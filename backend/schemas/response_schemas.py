@@ -46,3 +46,4 @@ class StructureResponse(BaseModel):
 class TextResponse(BaseModel):
     text_content: str
     filename_suggestion: str
+    repo_id: str

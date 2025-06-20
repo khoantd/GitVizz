@@ -7,6 +7,7 @@ import logging
 # import all your Beanie models here
 from models.user import User  
 from models.repository import Repository 
+from models.chat import Conversation, ChatSession, UserApiKey
 
 # Singleton for the database client
 client: AsyncIOMotorClient = None
@@ -32,7 +33,7 @@ class Database:
                 mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
                 db_name = os.getenv("MONGODB_DB_NAME", "default_db")
                 self.client = AsyncIOMotorClient(mongo_uri)
-                await init_beanie(database=self.client[db_name], document_models=[User, Repository])
+                await init_beanie(database=self.client[db_name], document_models=[User, Repository, Conversation, ChatSession, UserApiKey])
                 logger.info("✅ Connected to MongoDB and initialized Beanie.")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize database: {e}")

@@ -17,3 +17,4 @@ requests
 beanie
 fastapi-jwt-auth
 PyJwt
+cryptography
