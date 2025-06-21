@@ -31,7 +31,7 @@ import { useSession } from "next-auth/react"
 
 export default function ResultsPage() {
   const router = useRouter()
-  const { output, error, outputMessage, sourceType, sourceData, loading } = useResultData()
+  const { output, error, outputMessage, sourceType, sourceData, loading, currentRepoId } = useResultData()
 
   const [activeTab, setActiveTab] = useState("structure")
   const [showInfo, setShowInfo] = useState(false)
@@ -488,7 +488,7 @@ export default function ResultsPage() {
                   <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
                     <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
-                      <CodeViewer />
+                        <CodeViewer />
                       </div>
                     </div>
                   </div>
@@ -517,7 +517,9 @@ export default function ResultsPage() {
                         <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       </div>
                       <div>
-                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">Code Explorer</h2>
+                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                          Code Explorer
+                        </h2>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">{getRepoName()}</p>
                       </div>
                     </div>

@@ -48,7 +48,7 @@ export default function RepositoriesPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [processingRepos, setProcessingRepos] = useState<number[]>([])
   const router = useRouter()
-  const { setOutput, setSourceType, setSourceData } = useResultData()
+  const { setOutput, setSourceType, setSourceData, setCurrentRepoId } = useResultData()
 
   const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo)
 
@@ -237,10 +237,11 @@ export default function RepositoriesPage() {
         jwt_token: session?.jwt_token || undefined
       };
 
-      const formattedText = await fetchGithubRepoWithAuth(requestData);
+      const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
       setOutput(formattedText)
       setSourceType("github")
       setSourceData(requestData);
+      setCurrentRepoId(repo_id)
       setProcessingRepos((prev) => prev.filter((id) => id !== repoId))
       router.push("/results");
     } catch (error) {

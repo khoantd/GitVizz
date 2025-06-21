@@ -51,6 +51,7 @@ export function RepoTabs() {
     setSourceType,
     setSourceData,
     setOutputMessage,
+    setCurrentRepoId
   } = useResultData();
 
   // Router for navigation
@@ -75,8 +76,8 @@ export function RepoTabs() {
         branch: branch.trim() || "main",
         jwt_token: session?.jwt_token || undefined,
       };
-      const formattedText = await fetchGithubRepoWithAuth(requestData);
-
+        const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
+      setCurrentRepoId(repo_id)
       setOutput(formattedText);
       setSourceType("github");
       setSourceData(requestData);
@@ -107,7 +108,8 @@ export function RepoTabs() {
     setOutputMessage(null);
 
     try {
-      const { text } = await uploadLocalZipWithAuth(zipFile, session?.jwt_token || "");
+      const { text_content: text, repo_id } = await uploadLocalZipWithAuth(zipFile, session?.jwt_token || "");
+      setCurrentRepoId(repo_id)
       setOutput(text);
       setSourceType("zip");
       setSourceData(zipFile);

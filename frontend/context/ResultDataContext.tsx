@@ -13,12 +13,14 @@ type Action =
   | { type: "RESET" }
   | { type: "SET_SELECTED_FILE_PATH"; payload: string | null }
   | { type: "SET_SELECTED_FILE_LINE"; payload: number | null }
-  | { type: "SET_CODE_VIEWER_SHEET_OPEN"; payload: boolean };
+  | { type: "SET_CODE_VIEWER_SHEET_OPEN"; payload: boolean }
+  | { type: "SET_CURRENT_REPO_ID"; payload: string | null};
 
 const initialState: State & {
   selectedFilePath: string | null;
   selectedFileLine: number | null;
   codeViewerSheetOpen: boolean;
+  currentRepoId: string | null
 } = {
   output: null,
   outputMessage: null,
@@ -29,6 +31,7 @@ const initialState: State & {
   selectedFilePath: null,
   selectedFileLine: null,
   codeViewerSheetOpen: false,
+  currentRepoId: null
 };
 
 function reducer(
@@ -54,6 +57,8 @@ function reducer(
       return { ...state, selectedFileLine: action.payload };
     case "SET_CODE_VIEWER_SHEET_OPEN":
       return { ...state, codeViewerSheetOpen: action.payload };
+    case "SET_CURRENT_REPO_ID":
+      return {...state, currentRepoId: action.payload}
     case "RESET":
       return initialState;
     default:
@@ -75,6 +80,8 @@ interface ResultDataContextType extends State {
   setSelectedFilePath: (path: string | null) => void;
   setSelectedFileLine: (line: number | null) => void;
   setCodeViewerSheetOpen: (open: boolean) => void;
+  setCurrentRepoId: (repo_id: string | null) => void;
+  currentRepoId: string | null;
 }
 
 const ResultDataContext = createContext<ResultDataContextType | undefined>(undefined);
@@ -100,6 +107,7 @@ export function ResultDataProvider({ children }: { children: ReactNode }) {
   const setSelectedFilePath = (path: string | null) => dispatch({ type: "SET_SELECTED_FILE_PATH", payload: path });
   const setSelectedFileLine = (line: number | null) => dispatch({ type: "SET_SELECTED_FILE_LINE", payload: line });
   const setCodeViewerSheetOpen = (open: boolean) => dispatch({ type: "SET_CODE_VIEWER_SHEET_OPEN", payload: open });
+  const setCurrentRepoId = (repo_id: string | null) => dispatch({ type: "SET_CURRENT_REPO_ID", payload: repo_id });
 
   return (
     <ResultDataContext.Provider
@@ -118,6 +126,7 @@ export function ResultDataProvider({ children }: { children: ReactNode }) {
         setSelectedFilePath,
         setSelectedFileLine,
         setCodeViewerSheetOpen,
+        setCurrentRepoId
       }}
     >
       {children}

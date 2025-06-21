@@ -29,6 +29,7 @@ import type {
   TextResponse
 } from '../api-client/types.gen';
 
+
 // Types for convenience
 export interface RepoRequest {
   repo_url?: string;
@@ -37,6 +38,8 @@ export interface RepoRequest {
   jwt_token?: string;
   zip_file?: File;
 }
+
+export type { ConversationHistoryResponse, AvailableModelsResponse };
 
 export interface ChatRequest {
   token: string;
@@ -187,9 +190,13 @@ function handleApiError(error: any, operationType: OperationType, isZipFile?: Fi
 /**
  * Generate LLM-friendly text from a GitHub repository
  */
-export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<string> {
+export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<TextResponse> {
   const response = await executeOperation(OperationType.TEXT, repoRequest);
-  return response.text_content || '';
+  return {
+    text_content: response.text_content || '',
+    repo_id: response.repo_id || '',
+    filename_suggestion: response.filename_suggestion
+  };
 }
 
 /**
@@ -209,15 +216,16 @@ export async function generateStructureFromGithub(repoRequest: RepoRequest): Pro
 /**
  * Upload and process local ZIP file to generate text
  */
-export async function uploadLocalZip(file: File, jwt_token: string): Promise<{ text: string; repo_id: string }> {
+export async function uploadLocalZip(file: File, jwt_token: string): Promise<TextResponse> {
   const response = await executeOperation(OperationType.TEXT, {
     zip_file: file,
     jwt_token,
     branch: 'main'
   });
   return { 
-    text: response.text_content || '', 
-    repo_id: response.repo_id || ''
+    text_content: response.text_content || '', 
+    repo_id: response.repo_id || '',
+    filename_suggestion: response.filename_suggestion
   };
 }
 
