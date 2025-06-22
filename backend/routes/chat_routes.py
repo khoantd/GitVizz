@@ -163,33 +163,6 @@ async def get_conversation_history(
         conversation_id=conversation_id
     )
 
-# List user's chat sessions endpoint
-@router.post(
-    "/sessions",
-    response_model=List[ChatSessionResponse],
-    summary="List user's chat sessions",
-    description="Retrieve all chat sessions for the authenticated user",
-    response_description="List of user's chat sessions",
-    responses={
-        200: {
-            "model": List[ChatSessionResponse],
-            "description": "Successful retrieval of chat sessions"
-        },
-        401: {
-            "model": ErrorResponse,
-            "description": "Unauthorized - Invalid JWT token"
-        },
-        500: {
-            "model": ErrorResponse,
-            "description": "Internal server error"
-        }
-    }
-)
-async def list_user_chat_sessions(
-    token: Annotated[str, Form(description="JWT authentication token")]
-):
-    return await chat_controller.list_user_chat_sessions(token=token)
-
 # Chat session endpoint
 @router.post(
     "/sessions/{chat_id}",
