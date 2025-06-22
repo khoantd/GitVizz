@@ -67,6 +67,8 @@ class StreamChatResponse(BaseModel):
     usage: Optional[TokenUsage] = Field(None, description="Token usage for 'complete' events")
     provider: Optional[ModelProvider] = Field(None, description="Provider name for all events")
     model: Optional[str] = Field(None, description="Model name for all events")
+    chat_id: Optional[str] = Field(None, description="Chat session ID")
+    conversation_id: Optional[str] = Field(None, description="Conversation thread ID")
 
 
 # Chat Request Models

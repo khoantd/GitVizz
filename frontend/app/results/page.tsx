@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StructureTab } from "@/components/structure-tab"
 import ReagraphVisualization from "@/components/ReagraphVisualization"
+import { FloatingChatButton } from "@/components/floating-chat-button"
+import { ChatSidebar } from "@/components/chat-sidebar"
 
 import {
   Network,
@@ -36,6 +38,11 @@ export default function ResultsPage() {
   const [activeTab, setActiveTab] = useState("structure")
   const [showInfo, setShowInfo] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
+
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen)
+  }
 
   // popup state for full-screen code explorer
   const [isExpanded, setIsExpanded] = useState(false)
@@ -498,6 +505,19 @@ export default function ResultsPage() {
           </div>
         </Tabs>
       </main>
+
+      {currentRepoId && (
+        <>
+          <FloatingChatButton onClick={toggleChat} isOpen={isChatOpen} unreadCount={0} />
+
+          <ChatSidebar
+            isOpen={isChatOpen}
+            onClose={() => setIsChatOpen(false)}
+            repositoryId={currentRepoId}
+            repositoryName={getRepoName()}
+          />
+        </>
+      )}
 
       {/* Expanded Views - Only render if authenticated */}
       {session?.accessToken && (

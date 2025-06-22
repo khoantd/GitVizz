@@ -354,7 +354,7 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
     });
 
     // For streaming, we return the raw response
-    return response as unknown as Response;
+    return response as any
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
   }

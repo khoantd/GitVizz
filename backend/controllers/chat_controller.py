@@ -45,13 +45,17 @@ class ChatController:
             )
         
         if chat_id:
-            # Try to find existing chat session
+            # Try to find existing chat session with fetch_links to get full repository
             chat_session = await ChatSession.find_one(
                 ChatSession.chat_id == chat_id,
                 ChatSession.user.id == BeanieObjectId(user.id),
-                ChatSession.repository.id == BeanieObjectId(repository_id)
+                ChatSession.repository.id == BeanieObjectId(repository_id),
+                fetch_links=True  # This ensures repository is fully loaded
             )
             if chat_session:
+                # Additional safety check - if repository is still a Link, fetch it manually
+                if hasattr(chat_session.repository, 'id') and not hasattr(chat_session.repository, 'file_paths'):
+                    chat_session.repository = await Repository.get(chat_session.repository.id)
                 return chat_session
         
         # Create new chat session
@@ -73,6 +77,13 @@ class ChatController:
     ) -> str:
         """Get repository context for the conversation"""
         try:
+            # Ensure we have a full Repository object, not just a Link
+            if hasattr(repository, 'id') and not hasattr(repository, 'file_paths'):
+                # It's a Link object, fetch the full repository
+                repository = await Repository.get(repository.id)
+                if not repository:
+                    return "Repository not found."
+            
             # For now, always return the entire repository content
             # from the text file (as per requirements)
             full_content = await file_manager.load_text_content(repository.file_paths.text)
@@ -268,10 +279,11 @@ class ChatController:
             # Generate conversation ID if not provided
             conversation_id = conversation_id or str(uuid.uuid4())
             
-            # Get or create conversation
+            # Get or create conversation - fetch with links to ensure repository is loaded
             conversation = await Conversation.find_one(
                 Conversation.conversation_id == conversation_id,
-                Conversation.user.id == BeanieObjectId(user.id)
+                Conversation.user.id == BeanieObjectId(user.id),
+                fetch_links=True  # Ensure linked objects are fully loaded
             )
             
             if not conversation:
@@ -287,11 +299,15 @@ class ChatController:
                     max_tokens=max_tokens
                 )
                 await conversation.save()
+            else:
+                # Ensure repository is fully loaded if it's a Link
+                if hasattr(conversation.repository, 'id') and not hasattr(conversation.repository, 'file_paths'):
+                    conversation.repository = await Repository.get(conversation.repository.id)
             
             # Add user message to conversation
             conversation.add_message("user", message)
             
-            # Get repository context
+            # Get repository context - use the repository from chat_session which we know is fully loaded
             context = await self.get_repository_context(
                 chat_session.repository,
                 include_full_context,
@@ -304,7 +320,7 @@ class ChatController:
                 for msg in conversation.messages[-10:]  # Last 10 messages for context
             ]
             
-            # Generate streaming response - FIXED: properly await the generator
+            # Generate streaming response
             response_generator = await llm_service.generate_response(
                 user=user,
                 chat_session=chat_session,
@@ -321,39 +337,46 @@ class ChatController:
             if hasattr(response_generator, '__aiter__'):
                 # It's an async generator
                 response_content = ""
+                final_usage = None
+                
                 async for chunk in response_generator:
                     if chunk.get("type") == "token":
-                        token_content = chunk["token"]
+                        token_content = chunk.get("token", "")
                         response_content += token_content
                         
-                        # Yield JSON string
+                        # Yield token event with all required fields
                         yield json.dumps(StreamChatResponse(
                             event="token",
                             token=token_content,
-                            provider=chunk["provider"],
-                            model=chunk["model"]
+                            provider=chunk.get("provider", provider),
+                            model=chunk.get("model", model),
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
                         ).model_dump()) + "\n"
                         
                     elif chunk.get("type") == "complete":
+                        final_usage = chunk.get("usage", {})
+                        
                         # Add AI response to conversation
                         conversation.add_message(
                             "assistant", 
                             response_content,
                             context_used=context[:500] + "..." if len(context) > 500 else context,
-                            metadata=chunk.get("usage", {})
+                            metadata=final_usage
                         )
                         
                         # Update conversation metadata
-                        if chunk.get("usage"):
-                            conversation.total_tokens_used += chunk["usage"].get("total_tokens", 0)
+                        if final_usage:
+                            conversation.total_tokens_used += final_usage.get("total_tokens", 0)
                         
                         await conversation.save()
                         
+                        # Yield complete event with all required fields
                         yield json.dumps(StreamChatResponse(
                             event="complete",
-                            provider=chunk["provider"],
-                            model=chunk["model"],
-                            usage=chunk.get("usage"),
+                            provider=chunk.get("provider", provider),
+                            model=chunk.get("model", model),
+                            usage=final_usage,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id
                         ).model_dump()) + "\n"
@@ -361,28 +384,45 @@ class ChatController:
                     elif chunk.get("type") == "error":
                         yield json.dumps(StreamChatResponse(
                             event="error",
-                            error=chunk["error"],
-                            error_type=chunk["error_type"],
-                            provider=chunk["provider"],
-                            model=chunk["model"]
+                            error=chunk.get("error", "Unknown error"),
+                            error_type=chunk.get("error_type", "unknown"),
+                            provider=chunk.get("provider", provider),
+                            model=chunk.get("model", model),
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
                         ).model_dump()) + "\n"
                         break
+                        
             else:
                 # It's a regular response (error case)
                 if not response_generator.get("success", False):
                     yield json.dumps(StreamChatResponse(
                         event="error",
                         error=response_generator.get("error", "Unknown error"),
-                        error_type=response_generator.get("error_type", "unknown")
+                        error_type=response_generator.get("error_type", "unknown"),
+                        chat_id=chat_session.chat_id,
+                        conversation_id=conversation_id
                     ).model_dump()) + "\n"
                     
         except Exception as e:
-            yield json.dumps(StreamChatResponse(
+            # Include chat_id and conversation_id in error response if available
+            error_response = StreamChatResponse(
                 event="error",
                 error=str(e),
                 error_type="server_error"
-            ).model_dump()) + "\n"
-    
+            )
+            
+            # Try to include IDs if they exist
+            try:
+                if 'chat_session' in locals():
+                    error_response.chat_id = chat_session.chat_id
+                if 'conversation_id' in locals():
+                    error_response.conversation_id = conversation_id
+            except:
+                pass
+                
+            yield json.dumps(error_response.model_dump()) + "\n"
+        
     async def get_conversation_history(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
@@ -440,7 +480,7 @@ class ChatController:
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
-            # Option 1: Fetch with linked repository included
+            # Fetch with linked repository included
             chat_session = await ChatSession.find_one(
                 ChatSession.chat_id == chat_id,
                 ChatSession.user.id == BeanieObjectId(user.id),
@@ -450,8 +490,9 @@ class ChatController:
             if not chat_session:
                 raise HTTPException(status_code=404, detail="Chat session not found")
             
-            # Alternative Option 2: Fetch the repository link separately
-            # await chat_session.fetch_link(ChatSession.repository)
+            # Double-check that repository is fully loaded
+            if hasattr(chat_session.repository, 'id') and not hasattr(chat_session.repository, 'repo_name'):
+                chat_session.repository = await Repository.get(chat_session.repository.id)
             
             # Get conversations
             conversations = await Conversation.find(
