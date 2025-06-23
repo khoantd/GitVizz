@@ -34,7 +34,6 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       session.expires_in = token.exp
       session.user_id = token.user_id
       session.token_type = token.token_type
-      console.log(session)
       return session
     }
   },

@@ -115,9 +115,6 @@ class ChatResponse(BaseResponse):
     model_used: Optional[str] = None
     provider: Optional[ModelProvider] = None
     response_time: Optional[float] = Field(None, description="Response time in seconds")
-    
-    # Rate limiting info
-    daily_usage: Optional[DailyUsage] = None
 
 
 # Conversation Models
@@ -399,3 +396,14 @@ class HealthCheckResponse(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
+        
+class ChatSessionListItem(BaseModel):
+    """Basic chat session info for listing"""
+    chat_id: str
+    conversation_id: str
+    title: str
+
+class ChatSessionListResponse(BaseModel):
+    """Response for listing chat sessions"""
+    success: bool
+    sessions: List[ChatSessionListItem]

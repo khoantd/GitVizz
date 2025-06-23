@@ -240,6 +240,7 @@ async def generate_text_endpoint(
         )
     
     user = None
+    repo_url = repo_url.lower()
     
     # Get user if JWT token provided
     if jwt_token:
@@ -384,6 +385,7 @@ async def generate_graph_endpoint(
         )
 
     user = None
+    repo_url = repo_url.lower()
     
     # Get user if JWT token provided
     if jwt_token:
@@ -515,6 +517,7 @@ async def generate_structure_endpoint(
         )
 
     user = None
+    repo_url = repo_url.lower()
     
     # Get user if JWT token provided
     if jwt_token:

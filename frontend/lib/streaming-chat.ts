@@ -137,7 +137,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
             content: data.token,
           };
         }
-      } catch (e) {
+      } catch {
         console.warn("Failed to parse final buffer:", buffer);
       }
     }

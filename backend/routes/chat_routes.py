@@ -5,7 +5,7 @@ from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
     ChatSessionResponse, ApiKeyResponse,
     AvailableModelsResponse, ChatSettingsResponse,
-    ContextSearchResponse
+    ContextSearchResponse, ChatSessionListResponse
 )
 from controllers.chat_controller import chat_controller
 from schemas.response_schemas import ErrorResponse
@@ -162,6 +162,34 @@ async def get_conversation_history(
         token=token,
         conversation_id=conversation_id
     )
+
+# List user's chat sessions endpoint
+@router.post(
+    "/sessions",
+    response_model=ChatSessionListResponse,
+    summary="List user's chat sessions",
+    description="Retrieve all chat session IDs and titles for the authenticated user",
+    response_description="List of user's chat sessions with basic info",
+    responses={
+        200: {
+            "model": ChatSessionListResponse,
+            "description": "Successful retrieval of chat sessions"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized - Invalid JWT token"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error"
+        }
+    }
+)
+async def list_user_chat_sessions(
+    jwt_token: Annotated[str, Form(description="JWT authentication token")],
+    repo_id: Annotated[str,Form(description="Repository ID")]
+):
+    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repo_id=repo_id)
 
 # Chat session endpoint
 @router.post(

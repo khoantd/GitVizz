@@ -1,32 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-import { Search, MessageCircle, Calendar, ExternalLink } from "lucide-react"
-
-interface ConversationHistoryResponse {
-  chat_id: string
-  conversation_id: string
-  title?: string | null
-  messages: Array<{
-    role: "user" | "assistant" | "system"
-    content: string
-    timestamp: Date
-  }>
-  created_at: Date
-  updated_at: Date
-  total_tokens_used?: number
-  model_provider: string
-  model_name: string
-}
+import { Search, MessageCircle } from "lucide-react"
+import { ChatSessionListItem } from "@/api-client"
 
 interface ChatHistoryProps {
-  history: ConversationHistoryResponse[]
+  history: ChatSessionListItem[] // Change this line
   onLoadConversation: (conversationId: string) => void
-  onClose: () => void
+  onClose: () => void,
+  isLoading: unknown,
 }
 
 export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistoryProps) {
@@ -35,23 +19,12 @@ export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistor
   const filteredHistory = history.filter((conversation) => {
     const searchLower = searchQuery.toLowerCase()
     return (
-      conversation.title?.toLowerCase().includes(searchLower) ||
-      conversation.messages.some((msg) => msg.content.toLowerCase().includes(searchLower))
+      conversation.title?.toLowerCase().includes(searchLower)
     )
   })
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date)
-  }
-
-  const getConversationPreview = (conversation: ConversationHistoryResponse) => {
-    const firstUserMessage = conversation.messages.find((msg) => msg.role === "user")
-    return firstUserMessage?.content.slice(0, 100) + "..." || "No messages"
+  const getConversationPreview = (session: ChatSessionListItem) => {
+    return `Chat session: ${session.title}`
   }
 
   const handleLoadConversation = (conversationId: string) => {
@@ -88,46 +61,27 @@ export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistor
               </div>
             </div>
           ) : (
-            filteredHistory.map((conversation) => (
+            filteredHistory.map((session) => (
               <div
-                key={conversation.conversation_id}
+                key={session.conversation_id}
                 className="p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer group"
-                onClick={() => handleLoadConversation(conversation.conversation_id)}
+                onClick={() => handleLoadConversation(session.conversation_id)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium text-sm truncate">{conversation.title || "Untitled Conversation"}</h4>
-                      <Badge variant="secondary" className="text-xs">
-                        {conversation.model_provider}
-                      </Badge>
+                      <h4 className="font-medium text-sm truncate">{session.title || "Untitled Conversation"}</h4>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                      {getConversationPreview(conversation)}
+                      {getConversationPreview(session)}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>{formatDate(conversation.updated_at)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
                         <MessageCircle className="h-3 w-3" />
-                        <span>{conversation.messages.length} messages</span>
+                        <span>Chat ID: {session.chat_id}</span>
                       </div>
-                      {conversation.total_tokens_used && <span>{conversation.total_tokens_used} tokens</span>}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleLoadConversation(conversation.conversation_id)
-                    }}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
                 </div>
               </div>
             ))

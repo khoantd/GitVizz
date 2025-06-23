@@ -12,7 +12,8 @@ import {
   saveUserApiKeyApiBackendChatKeysSavePost,
   getAvailableModelsApiBackendChatModelsPost,
   updateChatSettingsApiBackendChatSettingsPost,
-  searchContextApiBackendChatContextSearchPost
+  searchContextApiBackendChatContextSearchPost,
+  listUserChatSessionsApiBackendChatSessionsPost
 } from '../api-client/sdk.gen';
 
 import type {
@@ -26,7 +27,9 @@ import type {
   AvailableModelsResponse,
   ChatSettingsResponse,
   ContextSearchResponse,
-  TextResponse
+  TextResponse,
+  ChatSessionListResponse,
+  ChatSessionListItem
 } from '../api-client/types.gen';
 
 
@@ -39,7 +42,7 @@ export interface RepoRequest {
   zip_file?: File;
 }
 
-export type { ConversationHistoryResponse, AvailableModelsResponse };
+export type { ConversationHistoryResponse, AvailableModelsResponse, ChatSessionListResponse, ChatSessionResponse, ChatSessionListItem};
 
 export interface ChatRequest {
   token: string;
@@ -359,6 +362,30 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
     handleApiError(error, OperationType.TEXT);
   }
 }
+
+/**
+ * Get list of user's chat sessions
+ */
+export async function getUserChatSessions(jwt_token: string,repo_id: string): Promise<ChatSessionListResponse> {
+  try {
+    const response = await listUserChatSessionsApiBackendChatSessionsPost({
+      body: { jwt_token, repo_id }
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No chat sessions data received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
 
 /**
  * Get conversation history

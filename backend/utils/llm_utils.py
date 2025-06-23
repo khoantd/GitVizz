@@ -38,36 +38,6 @@ class LLMService:
                     "rate_limit": "15 requests/minute",
                     "daily_limit": "1500 requests/day"
                 },
-                "gemini-1.5-pro": {
-                    "max_tokens": 2000000, 
-                    "cost_per_1k": 0.0,  # Free tier (limited)
-                    "rate_limit": "2 requests/minute", 
-                    "daily_limit": "50 requests/day"
-                }
-            },
-            "openai": {
-                "gpt-3.5-turbo": {
-                    "max_tokens": 4096, 
-                    "cost_per_1k": 0.001,
-                    "note": "Cheapest OpenAI option"
-                },
-                "gpt-4o-mini": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0001,
-                    "note": "Most affordable GPT-4 class model"
-                }
-            },
-            "anthropic": {
-                "claude-3-haiku": {
-                    "max_tokens": 200000, 
-                    "cost_per_1k": 0.0005,
-                    "note": "Fastest and most affordable Claude"
-                },
-                "claude-3-sonnet": {
-                    "max_tokens": 200000, 
-                    "cost_per_1k": 0.003,
-                    "note": "Balanced performance and cost"
-                }
             }
         }
     

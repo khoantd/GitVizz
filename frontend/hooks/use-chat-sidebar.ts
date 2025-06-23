@@ -5,8 +5,11 @@ import { useSession } from "next-auth/react"
 import {
   getConversationHistory,
   getAvailableModels,
+  getUserChatSessions,
   type ConversationHistoryResponse,
   type AvailableModelsResponse,
+  type ChatSessionListResponse,
+  type ChatSessionListItem,
 } from "@/utils/api"
 import { createStreamingChatRequest, parseStreamingResponse, type StreamingChatRequest } from "@/lib/streaming-chat"
 import { showToast } from "@/components/toaster"
@@ -48,7 +51,8 @@ export function useChatSidebar(repositoryId: string) {
     current_limits: {},
     user_has_keys: [],
   })
-  const [chatHistory, setChatHistory] = useState<ConversationHistoryResponse[]>([])
+  const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
   // Load available models and chat history on mount
   useEffect(() => {
@@ -86,12 +90,20 @@ export function useChatSidebar(repositoryId: string) {
   const loadChatHistory = async () => {
     if (!session?.jwt_token) return
 
+    setIsLoadingHistory(true)
     try {
-      // This would need to be implemented in your API utils
-      // For now, keeping it as empty array
-      setChatHistory([])
+      const chatSessions = await getUserChatSessions(session.jwt_token,repositoryId)
+      if (chatSessions.success) {
+        setChatHistory(chatSessions.sessions)
+      } else {
+        setChatHistory([])
+      }
     } catch (error) {
       console.error("Failed to load chat history:", error)
+      showToast.error("Failed to load chat history")
+      setChatHistory([])
+    } finally {
+      setIsLoadingHistory(false)
     }
   }
 
@@ -218,13 +230,15 @@ export function useChatSidebar(repositoryId: string) {
   const loadConversation = async (conversationId: string) => {
     if (!session?.jwt_token) return
 
+    setChatState(prev => ({ ...prev, isLoading: true }))
+
     try {
       const conversation = await getConversationHistory(session.jwt_token, conversationId)
 
       const messages: Message[] = conversation.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
-        timestamp: msg.timestamp,
+        timestamp: new Date(msg.timestamp), // Ensure proper Date object
         context_used: msg.context_used,
         metadata: msg.metadata,
       }))
@@ -238,8 +252,14 @@ export function useChatSidebar(repositoryId: string) {
 
       showToast.success("Conversation loaded")
     } catch (error) {
+      console.error("Failed to load conversation:", error)
       showToast.error("Failed to load conversation")
+      setChatState(prev => ({ ...prev, isLoading: false }))
     }
+  }
+
+  const loadConversationBySessionItem = async (sessionItem: ChatSessionListItem) => {
+    await loadConversation(sessionItem.conversation_id)
   }
 
   const clearCurrentChat = () => {
@@ -289,19 +309,26 @@ export function useChatSidebar(repositoryId: string) {
     await loadAvailableModels()
   }
 
+  const refreshChatHistory = async () => {
+    await loadChatHistory()
+  }
+
   return {
     messages: chatState.messages,
     isLoading: chatState.isLoading,
+    isLoadingHistory,
     currentModel: modelState,
     availableModels,
     chatHistory,
     sendMessage,
     loadConversation,
+    loadConversationBySessionItem, // New method specifically for session items
     clearCurrentChat,        // Creates completely new chat session
     startNewConversation,    // Starts new conversation in same chat session  
     startNewChatSession,     // Same as clearCurrentChat for backward compatibility
     setModel,
     refreshModels,
+    refreshChatHistory,      // New method to manually refresh chat history
     // Expose current session info for debugging
     currentChatId: chatState.currentChatId,
     currentConversationId: chatState.currentConversationId,

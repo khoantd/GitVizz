@@ -17,7 +17,7 @@ from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
     ChatSessionResponse, ApiKeyResponse,
     AvailableModelsResponse, ChatSettingsResponse,
-    ContextSearchResponse, MessageResponse, StreamChatResponse
+    ContextSearchResponse, MessageResponse, StreamChatResponse, ChatSessionListItem, ChatSessionListResponse
 )
 
 
@@ -95,15 +95,17 @@ class ChatController:
             return "Error loading repository context."
     
     def generate_conversation_title(self, message: str) -> str:
-        """Generate a title for a conversation based on the first message"""
-        # Extract first meaningful sentence
-        sentences = re.split(r'[.!?]', message)
-        first_sentence = sentences[0].strip() if sentences else message
-        
-        # Truncate to reasonable length
-        if len(first_sentence) > 50:
-            return first_sentence[:47] + "..."
-        return first_sentence
+        """Generate a meaningful and unique title for a conversation based on the user's query"""
+        # Use the user's query (message) as the base for the title
+        base_title = message.strip()
+
+        # Truncate to a reasonable length for display
+        if len(base_title) > 50:
+            base_title = base_title[:47] + "..."
+
+        # Add a short unique suffix using a portion of a UUID
+        unique_suffix = str(uuid.uuid4())[:8]
+        return f"{base_title} [{unique_suffix}]"
     
     async def process_chat_message(
         self,
@@ -422,6 +424,63 @@ class ChatController:
                 pass
                 
             yield json.dumps(error_response.model_dump()) + "\n"
+            
+    async def list_user_chat_sessions(
+        self,
+        jwt_token: Annotated[str, Form(description="JWT authentication token")],
+        repo_id: Annotated[str, Form(description="Repository ID")]
+    ) -> ChatSessionListResponse:
+        try:
+            user = await get_current_user(jwt_token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            user_object_id = BeanieObjectId(user.id)
+            
+            # Get all chat sessions
+            chat_sessions = await ChatSession.find(
+                ChatSession.user.id == user_object_id,
+                ChatSession.is_active == True,
+                ChatSession.repository.id == BeanieObjectId(repo_id)
+            ).sort(-ChatSession.updated_at).to_list()
+
+            # For each chat session, find the most recent conversation (if any)
+            conversation_map = {}
+            for session in chat_sessions:
+                conversations = await Conversation.find(
+                    Conversation.chat_id == session.chat_id,
+                    Conversation.user.id == user_object_id
+                ).sort(-Conversation.updated_at).limit(1).to_list()
+                
+                conversation = conversations[0] if conversations else None
+                if conversation:
+                    conversation_map[session.chat_id] = conversation.conversation_id
+            
+            # Only include sessions that have conversations (since conversation_id is required)
+            sessions = []
+            for session in chat_sessions:
+                conversation_id = conversation_map.get(session.chat_id)
+                if conversation_id:  # Only include if conversation exists
+                    sessions.append(ChatSessionListItem(
+                        chat_id=session.chat_id,
+                        conversation_id=conversation_id,
+                        title=session.title
+                    ))
+            
+            return ChatSessionListResponse(
+                success=True,
+                sessions=sessions
+            )
+            
+        except HTTPException:
+            # Re-raise HTTP exceptions as-is
+            raise
+        except ValueError as e:
+            # Handle invalid ObjectId or other value errors
+            raise HTTPException(status_code=400, detail=f"Invalid request data: {str(e)}")
+        except Exception as e:
+            # Log the actual error for debugging
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
         
     async def get_conversation_history(
         self,

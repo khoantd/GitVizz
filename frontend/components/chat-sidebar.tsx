@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Send, History, Key, Bot, Loader2, X, Plus, Settings, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ChatMessage } from "./chat-message"
 import { ChatHistory } from "./chat-history"
+import { ChatMessage } from "./chat-message"
 import { ApiKeyManager } from "./api-key-manager"
 import { ModelSelector } from "./model-selector"
 import { useChatSidebar } from "@/hooks/use-chat-sidebar"
@@ -35,12 +35,15 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
     clearCurrentChat,
     setModel,
     refreshModels,
+    isLoadingHistory,
   } = useChatSidebar(repositoryId)
 
   const [input, setInput] = useState("")
   const [showHistory, setShowHistory] = useState(false)
   const [showApiKeys, setShowApiKeys] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(420)
+  const [isResizing, setIsResizing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -74,6 +77,43 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
     }
   }
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsResizing(true)
+    e.preventDefault()
+  }, [])
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return
+      const newWidth = window.innerWidth - e.clientX
+      const minWidth = 320
+      const maxWidth = 800
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth)
+      }
+    },
+    [isResizing],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false)
+  }, [])
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      document.body.style.cursor = "col-resize"
+      document.body.style.userSelect = "none"
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseUp)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
+      }
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp])
+
   const hasActiveChat = messages.length > 0
 
   return (
@@ -84,10 +124,29 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed top-0 right-0 h-full w-full sm:w-[420px] bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl z-50 transition-all duration-300 ease-out flex flex-col",
+          "fixed top-0 right-0 h-full bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl z-50 transition-all duration-300 ease-out flex flex-col",
           isOpen ? "translate-x-0" : "translate-x-full",
         )}
+        style={{ width: `${sidebarWidth}px` }}
       >
+        {/* Resize Handle */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize group z-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
+          onMouseDown={handleMouseDown}
+        >
+          <div className="w-1 h-8 bg-border/40 rounded-full group-hover:bg-primary/60 transition-colors relative">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+              <div className="w-0.5 h-0.5 bg-muted-foreground/40 rounded-full group-hover:bg-primary-foreground/80 transition-colors"></div>
+              <div className="w-0.5 h-0.5 bg-muted-foreground/40 rounded-full group-hover:bg-primary-foreground/80 transition-colors"></div>
+              <div className="w-0.5 h-0.5 bg-muted-foreground/40 rounded-full group-hover:bg-primary-foreground/80 transition-colors"></div>
+            </div>
+          </div>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="bg-popover text-popover-foreground text-xs px-2 py-1 rounded-md shadow-md whitespace-nowrap">
+              Drag to resize
+            </div>
+          </div>
+        </div>
         {/* Header - Prominent and Clean */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent" />
@@ -169,11 +228,11 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
         </div>
 
         {/* Messages Area - Primary Focus */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-2" style={{ height: "calc(100vh - 280px)" }}>
-            <div className="space-y-6 pb-4">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ScrollArea ref={scrollAreaRef} className="flex-1" style={{ height: "calc(100vh - 280px)" }}>
+            <div className="px-3 py-2 space-y-4 pb-4 w-full">
               {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center space-y-6">
+                <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center space-y-6 px-4">
                   <div className="relative">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
                       <Sparkles className="h-8 w-8 text-primary" />
@@ -202,15 +261,17 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
               ) : (
                 <>
                   {messages.map((message, index) => (
-                    <ChatMessage key={`${index}-${message.timestamp.getTime()}`} message={message} />
+                    <div key={`${index}-${message.timestamp.getTime()}`} className="w-full">
+                      <ChatMessage message={message} />
+                    </div>
                   ))}
 
                   {isLoading && (
-                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-muted/30 border border-border/30">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/30 mx-1">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground">AI is thinking...</p>
                         <p className="text-xs text-muted-foreground">Analyzing your question</p>
                       </div>
@@ -270,6 +331,7 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
                   history={chatHistory}
                   onLoadConversation={loadConversation}
                   onClose={() => setShowHistory(false)}
+                  isLoading={isLoadingHistory} // Add this prop if needed
                 />
               </div>
             </div>
