@@ -298,9 +298,6 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
                   disabled={isLoading}
                   className="pr-12 h-11 rounded-xl border-border/50 focus:border-primary/50 focus:ring-primary/20"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                  {input.length > 0 && `${input.length}`}
-                </div>
               </div>
               <Button
                 onClick={handleSendMessage}
