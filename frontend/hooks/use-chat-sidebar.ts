@@ -92,7 +92,7 @@ export function useChatSidebar(repositoryId: string) {
 
     setIsLoadingHistory(true)
     try {
-      const chatSessions = await getUserChatSessions(session.jwt_token,repositoryId)
+      const chatSessions = await getUserChatSessions(session.jwt_token, repositoryId)
       if (chatSessions.success) {
         setChatHistory(chatSessions.sessions)
       } else {
@@ -142,6 +142,7 @@ export function useChatSidebar(repositoryId: string) {
       let conversationId = chatState.currentConversationId
       let hasStartedResponse = false
       let metadataReceived = false
+      let hasReceivedTokens = false
 
       // Add placeholder assistant message immediately
       setChatState((prev) => ({
@@ -153,70 +154,106 @@ export function useChatSidebar(repositoryId: string) {
         }],
       }))
 
-      // Process streaming response
-      for await (const chunk of parseStreamingResponse(response)) {
-        if (chunk.type === "metadata") {
-          // Extract chat and conversation IDs from first token's metadata
-          if (chunk.chat_id && chunk.conversation_id && !metadataReceived) {
-            chatId = chunk.chat_id
-            conversationId = chunk.conversation_id
-            metadataReceived = true
-            
-            // Update state with new IDs immediately
-            setChatState((prev) => ({
-              ...prev,
-              currentChatId: chatId,
-              currentConversationId: conversationId,
-            }))
+      try {
+        // Process streaming response
+        for await (const chunk of parseStreamingResponse(response)) {
+          console.log("Processing chunk:", chunk); // Debug log
+
+          if (chunk.type === "metadata") {
+            // Extract chat and conversation IDs from metadata
+            if (chunk.chat_id && chunk.conversation_id && !metadataReceived) {
+              chatId = chunk.chat_id
+              conversationId = chunk.conversation_id
+              metadataReceived = true
+
+              // Update state with new IDs immediately
+              setChatState((prev) => ({
+                ...prev,
+                currentChatId: chatId,
+                currentConversationId: conversationId,
+              }))
+            }
+          } else if (chunk.type === "token") {
+            hasReceivedTokens = true
+            hasStartedResponse = true
+
+            // Handle token content (can be empty string)
+            if (chunk.content !== undefined) {
+              assistantMessage += chunk.content
+
+              // Update the last assistant message with streaming content
+              setChatState((prev) => {
+                const newMessages = [...prev.messages]
+                const lastMessage = newMessages[newMessages.length - 1]
+
+                if (lastMessage?.role === "assistant") {
+                  newMessages[newMessages.length - 1] = {
+                    ...lastMessage,
+                    content: assistantMessage,
+                  }
+                }
+
+                return {
+                  ...prev,
+                  messages: newMessages,
+                  currentChatId: chatId || prev.currentChatId,
+                  currentConversationId: conversationId || prev.currentConversationId,
+                }
+              })
+            }
+          } else if (chunk.type === "complete") {
+            console.log("Stream completed successfully");
+            break
+          } else if (chunk.type === "error") {
+            const errorMessage = chunk.message || "Streaming error occurred"
+            console.error("Streaming error:", errorMessage);
+
+            // Check for specific error types
+            if (errorMessage.toLowerCase().includes("quota") ||
+              errorMessage.toLowerCase().includes("limit") ||
+              errorMessage.toLowerCase().includes("rate")) {
+              throw new Error("API quota limit reached. Please try again later or use your own API key.")
+            } else if (errorMessage.toLowerCase().includes("authentication")) {
+              throw new Error("Authentication failed. Please try logging in again.")
+            } else {
+              throw new Error(errorMessage)
+            }
+          } else if (chunk.type === "done") {
+            console.log("Stream done");
+            break
           }
-        } else if (chunk.type === "token" && chunk.content) {
-          assistantMessage += chunk.content
-          hasStartedResponse = true
-
-          // Update the last assistant message with streaming content
-          setChatState((prev) => {
-            const newMessages = [...prev.messages]
-            const lastMessage = newMessages[newMessages.length - 1]
-            
-            if (lastMessage?.role === "assistant") {
-              newMessages[newMessages.length - 1] = {
-                ...lastMessage,
-                content: assistantMessage,
-              }
-            }
-
-            return {
-              ...prev,
-              messages: newMessages,
-              currentChatId: chatId,
-              currentConversationId: conversationId,
-            }
-          })
-        } else if (chunk.type === "error") {
-          throw new Error(chunk.message || "Streaming error occurred")
-        } else if (chunk.type === "done") {
-          break
         }
+      } catch (streamError) {
+        console.error("Stream processing error:", streamError);
+        throw streamError; // Re-throw to be caught by outer try-catch
+      }
+
+      // Check if we actually received any response
+      if (!hasReceivedTokens && !hasStartedResponse) {
+        throw new Error("No response received from AI. This may be due to API quota limits or temporary service issues. Please try again later.")
       }
 
       // Final state update
       setChatState((prev) => ({
         ...prev,
-        currentChatId: chatId,
-        currentConversationId: conversationId,
+        currentChatId: chatId || prev.currentChatId,
+        currentConversationId: conversationId || prev.currentConversationId,
         isLoading: false,
       }))
 
-      if (!hasStartedResponse) {
-        throw new Error("No response received from AI")
-      }
-      
+      console.log("Message sent successfully, refreshing chat history");
       // Refresh chat history after successful message
       await loadChatHistory()
-      
+
     } catch (error) {
       console.error("Chat error:", error)
-      showToast.error(`Failed to send message: ${error instanceof Error ? error.message : "Unknown error"}`)
+
+      let errorMessage = "Failed to send message"
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+
+      showToast.error(errorMessage)
 
       // Remove both user and assistant messages if there was an error
       setChatState((prev) => ({
@@ -226,6 +263,7 @@ export function useChatSidebar(repositoryId: string) {
       }))
     }
   }
+
 
   const loadConversation = async (conversationId: string) => {
     if (!session?.jwt_token) return

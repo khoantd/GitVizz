@@ -24,7 +24,7 @@ class LLMService:
         
         # Daily limits for users without their own keys
         self.daily_limits = {
-            "free": 10,      # Free tier users
+            "free": 4,      # Free tier users
             "premium": 50,   # Premium users
             "unlimited": -1  # Users with their own keys
         }
@@ -111,21 +111,26 @@ class LLMService:
         }
         return model_mapping.get(provider, model)
     
-    async def check_rate_limit(self, chat_session: ChatSession, user_tier: str = "free") -> Tuple[bool, str]:
+    async def check_rate_limit(self, user: User, chat_session: ChatSession, user_tier: str = None) -> Tuple[bool, str]:
         """Check if user can make a request based on rate limits"""
         if chat_session.use_own_key:
             return True, "Using own API key"
+        
+        # Get user tier from user object if not provided
+        if user_tier is None:
+            user_tier = getattr(user, 'user_tier', 'free')
         
         daily_limit = self.daily_limits.get(user_tier, self.daily_limits["free"])
         if daily_limit == -1:  # Unlimited
             return True, "Unlimited usage"
         
-        chat_session.reset_daily_count_if_needed()
+        # Use user's rate limiting, not chat_session's
+        user.reset_daily_count_if_needed()
         
-        if chat_session.daily_requests_count >= daily_limit:
+        if user.daily_requests_count >= daily_limit:
             return False, f"Daily limit of {daily_limit} requests reached. Please upgrade or add your own API key."
-        
-        return True, f"Rate limit OK ({chat_session.daily_requests_count}/{daily_limit})"
+    
+        return True, f"Rate limit OK ({user.daily_requests_count}/{daily_limit})"
     
     def prepare_messages_for_llm(self, messages: List[Dict], context: Optional[str] = None) -> List[Dict]:
         """Prepare messages for LLM with context injection"""
@@ -175,7 +180,7 @@ Instructions:
         
         try:
             # Check rate limits
-            can_proceed, rate_limit_msg = await self.check_rate_limit(chat_session)
+            can_proceed, rate_limit_msg = await self.check_rate_limit(user, chat_session)
             if not can_proceed:
                 error_response = {
                     "success": False,
@@ -217,7 +222,8 @@ Instructions:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     provider=provider,
-                    chat_session=chat_session
+                    chat_session=chat_session,
+                    user=user
                 )
             else:
                 return await self._generate_non_streaming_response(
@@ -227,7 +233,8 @@ Instructions:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     provider=provider,
-                    chat_session=chat_session
+                    chat_session=chat_session,
+                    user=user
                 )
             
         except Exception as e:
@@ -251,7 +258,8 @@ Instructions:
         temperature: float,
         max_tokens: Optional[int],
         provider: str,
-        chat_session: ChatSession
+        chat_session: ChatSession,
+        user: User
     ) -> Dict[str, Any]:
         """Generate non-streaming response"""
         response = await litellm.acompletion(
@@ -267,9 +275,9 @@ Instructions:
         usage = response.usage
         
         # Update request count
-        chat_session.increment_request_count()
-        await chat_session.save()
-        
+        user.increment_request_count()
+        await user.save()
+
         return {
             "success": True,
             "content": response_content,
@@ -290,7 +298,8 @@ Instructions:
         temperature: float,
         max_tokens: Optional[int],
         provider: str,
-        chat_session: ChatSession
+        chat_session: ChatSession,
+        user: User
     ) -> AsyncGenerator[Dict, None]:
         """Generate streaming response"""
         request_attempted = False
@@ -325,8 +334,9 @@ Instructions:
             }
             
             # Update request count after successful stream
-            chat_session.increment_request_count()
-            await chat_session.save()
+            user.increment_request_count()
+            await user.save()
+
             
         except Exception as e:
             error_type = self._get_error_type(e)

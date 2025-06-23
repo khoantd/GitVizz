@@ -14,7 +14,7 @@ export interface StreamingChatRequest {
 }
 
 export interface StreamingChunk {
-  type: "token" | "metadata" | "error" | "done"
+  type: "token" | "metadata" | "error" | "done" | "complete"
   content?: string
   chat_id?: string
   conversation_id?: string
@@ -22,6 +22,9 @@ export interface StreamingChunk {
   delta?: {
     content?: string
   }
+  usage?: any
+  provider?: string
+  model?: string
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
@@ -51,7 +54,8 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   })
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+    const errorText = await response.text()
+    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
   }
 
   return response
@@ -63,12 +67,14 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let hasReceivedData = false;
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
+      hasReceivedData = true;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
 
@@ -81,6 +87,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
 
         try {
           const data = JSON.parse(trimmedLine);
+          console.log("Received streaming data:", data); // Debug log
           
           // Map backend events to our StreamingChunk format
           switch (data.event) {
@@ -91,58 +98,93 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
                   type: "metadata",
                   chat_id: data.chat_id,
                   conversation_id: data.conversation_id,
+                  provider: data.provider,
+                  model: data.model,
                 };
               }
               
               // Always yield the token content
-              if (data.token) {
+              if (data.token !== undefined) { // Check for undefined instead of truthy
                 yield {
                   type: "token",
-                  content: data.token,
+                  content: data.token, // Can be empty string
+                  chat_id: data.chat_id,
+                  conversation_id: data.conversation_id,
                 };
               }
               break;
               
             case "complete":
-              yield { type: "done" };
+              yield { 
+                type: "complete",
+                chat_id: data.chat_id,
+                conversation_id: data.conversation_id,
+                usage: data.usage,
+                provider: data.provider,
+                model: data.model,
+              };
+              yield { type: "done" }; // Signal end
               break;
               
             case "error":
               yield {
                 type: "error",
                 message: data.error || "Unknown error",
+                chat_id: data.chat_id,
+                conversation_id: data.conversation_id,
               };
-              break;
+              return; // Stop processing on error
               
             default:
-              console.warn("Unknown event type:", data.event);
+              console.warn("Unknown event type:", data.event, data);
           }
         } catch (parseError) {
           console.warn("Failed to parse JSON chunk:", trimmedLine, parseError);
-          yield {
-            type: "error",
-            message: `Parse error: ${parseError instanceof Error ? parseError.message : "Unknown"}`,
-          };
+          // Don't yield error for parse failures, just log and continue
         }
       }
     }
 
-    // Process any remaining data
+    // Process any remaining data in buffer
     if (buffer.trim()) {
       try {
         const data = JSON.parse(buffer);
-        if (data.event === "token" && data.token) {
+        console.log("Processing final buffer:", data);
+        
+        if (data.event === "token" && data.token !== undefined) {
           yield {
             type: "token",
             content: data.token,
+            chat_id: data.chat_id,
+            conversation_id: data.conversation_id,
+          };
+        } else if (data.event === "complete") {
+          yield { 
+            type: "complete",
+            chat_id: data.chat_id,
+            conversation_id: data.conversation_id,
+            usage: data.usage,
           };
         }
-      } catch {
-        console.warn("Failed to parse final buffer:", buffer);
+      } catch (parseError) {
+        console.warn("Failed to parse final buffer:", buffer, parseError);
       }
     }
     
-    yield { type: "done" };
+    // Only yield done if we haven't already
+    if (hasReceivedData) {
+      yield { type: "done" };
+    } else {
+      // If no data was received at all, this might indicate a quota limit or other issue
+      throw new Error("No data received from streaming response - this may indicate a quota limit or API issue");
+    }
+    
+  } catch (error) {
+    console.error("Streaming error:", error);
+    yield {
+      type: "error",
+      message: error instanceof Error ? error.message : "Streaming failed",
+    };
   } finally {
     reader.releaseLock();
   }
