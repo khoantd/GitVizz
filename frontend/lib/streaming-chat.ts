@@ -2,7 +2,8 @@
 export interface StreamingChatRequest {
   token: string
   message: string
-  repository_id: string
+  repository_id: string,
+  use_user: boolean,
   chat_id?: string
   conversation_id?: string
   provider?: string
@@ -35,6 +36,7 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   formData.append("token", request.token)
   formData.append("message", request.message)
   formData.append("repository_id", request.repository_id)
+  formData.append("use_user", request.use_user.toString())
 
   // Add optional fields
   if (request.chat_id) formData.append("chat_id", request.chat_id)
@@ -88,7 +90,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
         try {
           const data = JSON.parse(trimmedLine);
           console.log("Received streaming data:", data); // Debug log
-          
+
           // Map backend events to our StreamingChunk format
           switch (data.event) {
             case "token":
@@ -102,7 +104,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
                   model: data.model,
                 };
               }
-              
+
               // Always yield the token content
               if (data.token !== undefined) { // Check for undefined instead of truthy
                 yield {
@@ -113,9 +115,9 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
                 };
               }
               break;
-              
+
             case "complete":
-              yield { 
+              yield {
                 type: "complete",
                 chat_id: data.chat_id,
                 conversation_id: data.conversation_id,
@@ -125,7 +127,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
               };
               yield { type: "done" }; // Signal end
               break;
-              
+
             case "error":
               yield {
                 type: "error",
@@ -134,7 +136,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
                 conversation_id: data.conversation_id,
               };
               return; // Stop processing on error
-              
+
             default:
               console.warn("Unknown event type:", data.event, data);
           }
@@ -150,7 +152,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
       try {
         const data = JSON.parse(buffer);
         console.log("Processing final buffer:", data);
-        
+
         if (data.event === "token" && data.token !== undefined) {
           yield {
             type: "token",
@@ -159,7 +161,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
             conversation_id: data.conversation_id,
           };
         } else if (data.event === "complete") {
-          yield { 
+          yield {
             type: "complete",
             chat_id: data.chat_id,
             conversation_id: data.conversation_id,
@@ -170,7 +172,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
         console.warn("Failed to parse final buffer:", buffer, parseError);
       }
     }
-    
+
     // Only yield done if we haven't already
     if (hasReceivedData) {
       yield { type: "done" };
@@ -178,7 +180,7 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
       // If no data was received at all, this might indicate a quota limit or other issue
       throw new Error("No data received from streaming response - this may indicate a quota limit or API issue");
     }
-    
+
   } catch (error) {
     console.error("Streaming error:", error);
     yield {

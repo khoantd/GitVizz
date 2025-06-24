@@ -11,25 +11,40 @@ import { Key, Save, Eye, EyeOff, Check, AlertCircle } from "lucide-react"
 import { saveApiKey } from "@/utils/api"
 import { useSession } from "next-auth/react"
 import { showToast } from "@/components/toaster"
+import { AvailableModelsResponse } from "@/api-client/types.gen"
 
 interface ApiKeyManagerProps {
-  onClose: () => void
+  onClose: () => void,
+  avavailableModels: AvailableModelsResponse,
+  useUserKeys: Record<string, boolean>
+  onToggleUserKey: (keys: Record<string, boolean>) => void
 }
 
-export function ApiKeyManager({ onClose }: ApiKeyManagerProps) {
+export function ApiKeyManager({ onClose, avavailableModels, useUserKeys, onToggleUserKey }: ApiKeyManagerProps) {
   const { data: session } = useSession()
-  const [provider, setProvider] = useState<string>("openai")
+  const [provider, setProvider] = useState<string>("gemini")
   const [apiKey, setApiKey] = useState("")
   const [keyName, setKeyName] = useState("")
   const [showKey, setShowKey] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [savedKeys, setSavedKeys] = useState<string[]>([])
 
-  const providers = [
-    { value: "openai", label: "OpenAI", description: "GPT models" },
-    { value: "anthropic", label: "Anthropic", description: "Claude models" },
-    { value: "gemini", label: "Google Gemini", description: "Gemini models" },
-  ]
+  const [localUseUserKeys, setLocalUseUserKeys] = useState(useUserKeys)
+  const userHasKeys = avavailableModels.user_has_keys || []
+
+  const handleToggleUserKey = (provider: string, enabled: boolean) => {
+    const newPreferences = { ...localUseUserKeys, [provider]: enabled }
+    setLocalUseUserKeys(newPreferences)
+    onToggleUserKey(newPreferences)
+  }
+
+  // Transform providers object into an array of objects with value, label, and description
+  const providers = Object.entries(avavailableModels.providers).map(([key, arr]) => ({
+    value: key,
+    label: key.charAt(0).toUpperCase() + key.slice(1), // Better label formatting
+    description: `${arr.length} models available`,
+    hasUserKey: userHasKeys.includes(key)
+  }))
 
   const handleSaveKey = async () => {
     if (!apiKey.trim() || !session?.jwt_token) return
@@ -69,7 +84,46 @@ export function ApiKeyManager({ onClose }: ApiKeyManagerProps) {
 
   return (
     <div className="space-y-6">
+      {/* User Key Preferences Section */}
+      {userHasKeys.length > 0 && (
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Your API Keys</Label>
+          <div className="space-y-2">
+            {providers.filter(p => p.hasUserKey).map((provider) => (
+              <div key={provider.value} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Key className="h-4 w-4 text-green-500" />
+                  <div>
+                    <span className="font-medium">{provider.label}</span>
+                    <Badge variant="secondary" className="ml-2 text-xs">Connected</Badge>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`use-${provider.value}`} className="text-sm">Use your key</Label>
+                  <input
+                    id={`use-${provider.value}`}
+                    type="checkbox"
+                    checked={localUseUserKeys[provider.value] ?? true}
+                    onChange={(e) => handleToggleUserKey(provider.value, e.target.checked)}
+                    className="rounded"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              Toggle off to use system keys (subject to rate limits). Your keys provide unlimited usage.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Add New Key Section */}
       <div className="space-y-4">
+        <Label className="text-sm font-medium">Add New API Key</Label>
+
         <div>
           <Label htmlFor="provider">Provider</Label>
           <Select value={provider} onValueChange={setProvider}>
@@ -81,10 +135,8 @@ export function ApiKeyManager({ onClose }: ApiKeyManagerProps) {
                 <SelectItem key={p.value} value={p.value}>
                   <div className="flex items-center gap-2">
                     <span>{p.label}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {p.description}
-                    </Badge>
-                    {savedKeys.includes(p.value) && <Check className="h-3 w-3 text-green-500" />}
+                    {p.hasUserKey && <Check className="h-3 w-3 text-green-500" />}
+                    <span className="text-xs text-muted-foreground">({p.description})</span>
                   </div>
                 </SelectItem>
               ))}

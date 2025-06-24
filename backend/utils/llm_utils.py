@@ -92,14 +92,19 @@ class LLMService:
                 return None
         return None
     
-    async def get_api_key_for_request(self, user: User, provider: str) -> Optional[str]:
+    async def get_api_key_for_request(self, user: User, provider: str, use_user: bool) -> Optional[str]:
         """Get API key to use for the request (user's or default)"""
-        # First try to get user's API key
-        user_key = await self.get_user_api_key(user, provider)
-        if user_key:
-            return user_key
+        # First try check if use_user = true
+        if use_user:
+            user_key = await self.get_user_api_key(user, provider)
+            
+            if user_key:
+                return user_key
+            else:
+                # If use_user is True but no valid user key found, raise an error
+                raise Exception(f"No valid API key found for {provider}. Please add your API key or disable 'use own key' option.")
         
-        # Fall back to default key
+        # Fall back to default key only if use_user is False
         return self.default_keys.get(provider)
     
     def get_model_name_for_provider(self, provider: str, model: str) -> str:
@@ -167,6 +172,7 @@ Instructions:
     async def generate_response(
         self,
         user: User,
+        use_user: bool,
         chat_session: ChatSession, 
         messages: List[Dict],
         context: Optional[str] = None,
@@ -179,22 +185,23 @@ Instructions:
         """Generate response with optional streaming support"""
         
         try:
-            # Check rate limits
-            can_proceed, rate_limit_msg = await self.check_rate_limit(user, chat_session)
-            if not can_proceed:
-                error_response = {
-                    "success": False,
-                    "error": rate_limit_msg,
-                    "error_type": "rate_limit"
-                }
-                if stream:
-                    async def error_generator():
-                        yield error_response
-                    return error_generator()
-                return error_response
+            # Check rate limits only if use_user is False (i.e., using default/shared key)
+            if not use_user:
+                can_proceed, rate_limit_msg = await self.check_rate_limit(user, chat_session)
+                if not can_proceed:
+                    error_response = {
+                        "success": False,
+                        "error": rate_limit_msg,
+                        "error_type": "rate_limit"
+                    }
+                    if stream:
+                        async def error_generator():
+                            yield error_response
+                        return error_generator()
+                    return error_response
 
             # Get API key
-            api_key = await self.get_api_key_for_request(user, provider)
+            api_key = await self.get_api_key_for_request(user, provider, use_user=use_user)
             if not api_key:
                 error_response = {
                     "success": False,

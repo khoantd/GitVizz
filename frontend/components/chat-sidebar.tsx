@@ -36,6 +36,8 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
     setModel,
     refreshModels,
     isLoadingHistory,
+    useUserKeys,
+    setUseUserKeys
   } = useChatSidebar(repositoryId)
 
   const [input, setInput] = useState("")
@@ -347,7 +349,7 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
                 </div>
               </div>
               <div className="p-6">
-                <ApiKeyManager onClose={() => setShowApiKeys(false)} />
+              <ApiKeyManager avavailableModels={availableModels}  onClose={() => setShowApiKeys(false)} useUserKeys={useUserKeys} onToggleUserKey={setUseUserKeys}  />
               </div>
             </div>
           </div>

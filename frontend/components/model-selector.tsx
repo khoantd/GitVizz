@@ -114,11 +114,6 @@ export function ModelSelector({ currentModel, availableModels, onModelChange, on
               <div className="flex items-center gap-2">
                 {getProviderIcon(currentModel.provider)}
                 <span className="capitalize">{currentModel.provider}</span>
-                {hasUserKey(currentModel.provider) && (
-                  <Badge variant="secondary" className="text-xs">
-                    Your Key
-                  </Badge>
-                )}
               </div>
             </SelectValue>
           </SelectTrigger>

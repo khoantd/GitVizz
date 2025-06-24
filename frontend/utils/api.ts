@@ -42,12 +42,13 @@ export interface RepoRequest {
   zip_file?: File;
 }
 
-export type { ConversationHistoryResponse, AvailableModelsResponse, ChatSessionListResponse, ChatSessionResponse, ChatSessionListItem};
+export type { ConversationHistoryResponse, AvailableModelsResponse, ChatSessionListResponse, ChatSessionResponse, ChatSessionListItem };
 
 export interface ChatRequest {
   token: string;
   message: string;
   repository_id: string;
+  use_user?: boolean;
   chat_id?: string;
   conversation_id?: string;
   provider?: string;
@@ -129,7 +130,7 @@ async function executeOperation<T extends OperationType>(
 
     // Get the appropriate API function
     const apiFunction = API_FUNCTIONS[operationType];
-    
+
     // Execute the API call with proper options structure
     const response = await apiFunction({
       body: requestData
@@ -160,7 +161,7 @@ function extractErrorMessage(error: any, operationType: OperationType, isZipFile
   if (typeof error === 'string') {
     return error;
   }
-  
+
   if (error?.detail) {
     if (typeof error.detail === 'string') {
       return error.detail;
@@ -169,7 +170,7 @@ function extractErrorMessage(error: any, operationType: OperationType, isZipFile
       return error.detail.map((err: any) => err.msg || err.message || String(err)).join(', ');
     }
   }
-  
+
   return ERROR_MESSAGES[operationType][isZipFile ? 'zip' : 'repo'];
 }
 
@@ -225,8 +226,8 @@ export async function uploadLocalZip(file: File, jwt_token: string): Promise<Tex
     jwt_token,
     branch: 'main'
   });
-  return { 
-    text_content: response.text_content || '', 
+  return {
+    text_content: response.text_content || '',
     repo_id: response.repo_id || '',
     filename_suggestion: response.filename_suggestion
   };
@@ -310,6 +311,7 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
+        use_user: chatRequest.use_user || false,
         chat_id: chatRequest.chat_id || null,
         conversation_id: chatRequest.conversation_id || null,
         provider: chatRequest.provider || 'openai',
@@ -345,6 +347,7 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
+        use_user: chatRequest.use_user || false,
         chat_id: chatRequest.chat_id || null,
         conversation_id: chatRequest.conversation_id || null,
         provider: chatRequest.provider || 'openai',
@@ -366,7 +369,7 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
 /**
  * Get list of user's chat sessions
  */
-export async function getUserChatSessions(jwt_token: string,repo_id: string): Promise<ChatSessionListResponse> {
+export async function getUserChatSessions(jwt_token: string, repo_id: string): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
       body: { jwt_token, repo_id }

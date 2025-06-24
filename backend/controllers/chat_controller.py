@@ -112,6 +112,7 @@ class ChatController:
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
         repository_id: Annotated[str, Form(description="Repository ID to chat about")],
+        use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
         provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
@@ -180,6 +181,7 @@ class ChatController:
             # Generate AI response
             llm_response = await llm_service.generate_response(
                 user=user,
+                use_user=use_user,
                 chat_session=chat_session,
                 messages=messages,
                 context=context,
@@ -250,6 +252,7 @@ class ChatController:
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
         repository_id: Annotated[str, Form(description="Repository ID to chat about")],
+        use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
         provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
@@ -280,6 +283,33 @@ class ChatController:
             
             # Generate conversation ID if not provided
             conversation_id = conversation_id or str(uuid.uuid4())
+            
+            # EARLY API KEY VALIDATION - Check if user has valid API key when use_user=True
+            if use_user:
+                try:
+                    api_key = await llm_service.get_api_key_for_request(user, provider, use_user=True)
+                    if not api_key:
+                        yield json.dumps(StreamChatResponse(
+                            event="error",
+                            error=f"No valid API key found for {provider}. Please add your API key or disable 'use own key' option.",
+                            error_type="no_api_key",
+                            provider=provider,
+                            model=model,
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
+                        ).model_dump()) + "\n"
+                        return
+                except Exception as e:
+                    yield json.dumps(StreamChatResponse(
+                        event="error",
+                        error=str(e),
+                        error_type="invalid_api_key",
+                        provider=provider,
+                        model=model,
+                        chat_id=chat_session.chat_id,
+                        conversation_id=conversation_id
+                    ).model_dump()) + "\n"
+                    return
             
             # Get or create conversation - fetch with links to ensure repository is loaded
             conversation = await Conversation.find_one(
@@ -325,6 +355,7 @@ class ChatController:
             # Generate streaming response
             response_generator = await llm_service.generate_response(
                 user=user,
+                use_user=use_user,
                 chat_session=chat_session,
                 messages=messages,
                 context=context,

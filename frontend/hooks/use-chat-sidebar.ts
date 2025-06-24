@@ -6,9 +6,7 @@ import {
   getConversationHistory,
   getAvailableModels,
   getUserChatSessions,
-  type ConversationHistoryResponse,
   type AvailableModelsResponse,
-  type ChatSessionListResponse,
   type ChatSessionListItem,
 } from "@/utils/api"
 import { createStreamingChatRequest, parseStreamingResponse, type StreamingChatRequest } from "@/lib/streaming-chat"
@@ -53,6 +51,8 @@ export function useChatSidebar(repositoryId: string) {
   })
   const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+  const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>({})
 
   // Load available models and chat history on mount
   useEffect(() => {
@@ -106,6 +106,7 @@ export function useChatSidebar(repositoryId: string) {
       setIsLoadingHistory(false)
     }
   }
+  console.log(useUserKeys)
 
   const sendMessage = async (content: string) => {
     if (!session?.jwt_token || chatState.isLoading) return
@@ -127,6 +128,7 @@ export function useChatSidebar(repositoryId: string) {
         token: session.jwt_token,
         message: content,
         repository_id: repositoryId,
+        use_user: useUserKeys[modelState.provider] ?? false,
         chat_id: chatState.currentChatId,
         conversation_id: chatState.currentConversationId,
         provider: modelState.provider,
@@ -370,5 +372,7 @@ export function useChatSidebar(repositoryId: string) {
     // Expose current session info for debugging
     currentChatId: chatState.currentChatId,
     currentConversationId: chatState.currentConversationId,
+    useUserKeys,
+    setUseUserKeys,
   }
 }
