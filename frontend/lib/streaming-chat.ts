@@ -50,7 +50,7 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   if (request.context_search_query) formData.append("context_search_query", request.context_search_query)
 
   // Make the request to your backend
-  const response = await fetch("http://0.0.0.0:8003/api/backend-chat/chat/stream", {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-chat/chat/stream`, {
     method: "POST",
     body: formData,
   })
