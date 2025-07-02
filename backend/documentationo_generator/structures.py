@@ -9,17 +9,17 @@ class WikiPage:
     id: str
     title: str
     content: str = ""
-    file_paths: List[str] = field(default_factory=list)  # Fix: was None
+    file_paths: List[str] = field(default_factory=list) 
     importance: int = 1
-    related_pages: List[str] = field(default_factory=list)  # Fix: was None
-    mermaid_diagrams: List[str] = field(default_factory=list)  # Fix: was None
+    related_pages: List[str] = field(default_factory=list)  
+    mermaid_diagrams: List[str] = field(default_factory=list)  
 
 @dataclass
 class WikiSection:
     id: str
     title: str
-    pages: List[str] = field(default_factory=list)  # Fix: was None
-    subsections: List[str] = field(default_factory=list)  # Fix: was None
+    pages: List[str] = field(default_factory=list)  
+    subsections: List[str] = field(default_factory=list)  
 
 @dataclass
 class WikiStructure:
@@ -27,7 +27,7 @@ class WikiStructure:
     description: str = ""
     pages: List[WikiPage] = field(default_factory=list)
     sections: List[WikiSection] = field(default_factory=list)
-    root_sections: List[str] = field(default_factory=list)  # ADD this missing field
+    root_sections: List[str] = field(default_factory=list)  
 
 @dataclass 
 class RepositoryAnalysis:

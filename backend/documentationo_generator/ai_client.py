@@ -451,60 +451,6 @@ class GroqAIClient:
             temperature=0.3,
             max_tokens=4000
         )
-    # def _create_comprehensive_structure_prompt(self, repo_analysis, repo_info, language: str = "en") -> str:
-    #         """Create comprehensive structure prompt"""
-            
-    #         repo_name = f"{repo_info['owner']}/{repo_info['repo']}"
-    #         view_type = "comprehensive"
-    #         analysis = repo_analysis
-            
-    #         return f"""<role>
-    #         You are an expert software architect and technical documentation specialist analyzing the {repo_info['type']} repository: {repo_name}.
-    #         You have deep expertise in software architecture, design patterns, and creating professional-grade technical documentation.
-    #         You must create a sophisticated, well-structured wiki that serves as the definitive guide to this repository.
-    #         IMPORTANT: You MUST respond in {language} language for all content.
-    #         </role>
-
-    #         <repository_analysis>
-    #         Repository: {repo_name}
-    #         Domain Type: {analysis.domain_type}
-    #         Complexity Score: {analysis.complexity_score}/10
-    #         Languages Detected: {', '.join([f"{lang}({count})" for lang, count in list(analysis.languages.items())[:5]])}
-    #         Frameworks/Technologies: {', '.join(analysis.frameworks[:10])}
-    #         Architecture Patterns: {', '.join(analysis.architecture_patterns)}
-    #         Tech Stack: {', '.join(analysis.tech_stack[:8])}
-
-    #         Key Repository Structure:
-    #         Entry Points: {', '.join(analysis.entry_points[:5])}
-    #         Configuration Files: {', '.join(analysis.config_files[:5])}
-    #         Documentation: {', '.join(analysis.documentation_files[:3])}
-    #         Test Coverage: {len(analysis.test_files)} test files detected
-    #         </repository_analysis>
-
-    #         <comprehensive_requirements>
-    #         Create a {view_type} repository wiki with the following sophisticated structure:
-
-    #         1. STRATEGIC OVERVIEW PAGE (Highest Priority)
-    #         - Executive summary of the repository's purpose and value proposition
-    #         - Comprehensive architecture overview with multiple interconnected Mermaid diagrams
-    #         - Technology stack analysis and architectural decisions
-    #         - Repository metrics, complexity analysis, and quality indicators
-    #         - Strategic roadmap and development philosophy
-
-    #         2. TECHNICAL ARCHITECTURE DOCUMENTATION
-    #         - Detailed system architecture with layered Mermaid diagrams
-    #         - Design patterns and architectural principles implementation
-    #         - Component interaction flows with sequence diagrams
-    #         - Data flow architecture with detailed process diagrams
-    #         - Integration patterns and external dependencies mapping
-
-    #         3. COMPONENT-LEVEL DOCUMENTATION
-    #         - Detailed analysis of core components and modules
-    #         - Class diagrams and object relationship mapping
-    #         - Component lifecycle and state management
-    #         - Inter-component communication patterns
-    #         - API contracts and interface specifications
-    #         </comprehensive_requirements>"""
     
     def _validate_wiki_structure(self, structure: WikiStructure) -> WikiStructure:
         """Validate and fix common issues in parsed wiki structure"""

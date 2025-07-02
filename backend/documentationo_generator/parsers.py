@@ -55,6 +55,5 @@ class DocumentParser:
         print(f"YOOOO Semantic search ready!")
         print(f"Processed {len(chunked_docs)} document chunks")
         # no more relevent after refactoring: print(f"Analysis complete: {len(self.repo_analysis.languages)} languages, {len(self.repo_analysis.frameworks)} frameworks detected")
-        #no rag tho, only chunking of basic docs and stuff etc. 
         return chunked_docs
     #like a senior dev eh? 
