@@ -20,6 +20,8 @@ formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] - %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+load_dotenv()
+
 # Singleton for the database client
 client: AsyncIOMotorClient = None
 
@@ -30,7 +32,8 @@ class Database:
     async def init_db(self):
         if self.client is None:
             try:
-                mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+                mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+                print(f"Connecting to MongoDB at {mongo_uri}...")
                 db_name = os.getenv("MONGODB_DB_NAME", "default_db")
                 self.client = AsyncIOMotorClient(mongo_uri)
                 await init_beanie(database=self.client[db_name], document_models=[User, Repository, Conversation, ChatSession, UserApiKey])

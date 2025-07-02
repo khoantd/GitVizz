@@ -16,5 +16,5 @@ codetext
 requests
 beanie
 fastapi-jwt-auth
-PyJwt
+PyJWT
 cryptography
