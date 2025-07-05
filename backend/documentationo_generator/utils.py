@@ -3,6 +3,7 @@ import subprocess
 import glob
 from typing import List, Dict, Any
 from datetime import datetime
+from pathlib import Path
 
 # Use absolute imports to avoid relative import issues
 try:
@@ -21,14 +22,23 @@ def count_tokens(text: str) -> int:
         return len(text) // 4
 
 def download_repo(repo_url: str, local_path: str) -> str:
-    """Download repository from URL"""
-    if os.path.exists(local_path) and os.listdir(local_path):
-        return f"Using existing repo at {local_path}"
-    
-    os.makedirs(local_path, exist_ok=True)
-    result = subprocess.run(["git", "clone", repo_url, local_path], 
-                          capture_output=True, text=True, check=True)
-    return result.stdout
+    """Download repository from URL or use existing one"""
+
+    local_path = Path(local_path)
+
+    if local_path.exists() and any(local_path.iterdir()):
+        return f"Using existing repo at {local_path.resolve()}"
+
+    local_path.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result = subprocess.run(
+            ["git", "clone", repo_url, str(local_path)],
+            capture_output=True, text=True, check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        return f"Git clone failed:\n{e.stderr}"
 
 def read_documents(path: str, max_tokens: int = 8000) -> List[Document]:
     """Read documents from directory"""

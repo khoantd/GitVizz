@@ -9,6 +9,7 @@ class FilePaths(BaseModel):
     zip: str
     text: str
     json_file: str
+    documentation_base_path: str
 
 
 class Repository(Document):

@@ -36,10 +36,15 @@ class FileManager:
         """Generate file paths for a repository."""
         base_dir = self.get_repo_storage_path(user_id, repo_identifier)
         
+        # Ensure documentation directory exists
+        doc_dir = base_dir / "documentation"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        
         return FilePaths(
             zip=str(base_dir / "repository.zip"),
             text=str(base_dir / "content.txt"),
-            json_file=str(base_dir / "data.json")
+            json_file=str(base_dir / "data.json"),
+            documentation_base_path=str(doc_dir)
         )
     
     async def save_text_content(self, file_path: str, content: str) -> bool:
@@ -217,6 +222,9 @@ class FileManager:
         if file_paths.json_file:
             validation_result["json"] = self.file_exists(file_paths.json_file)
         
+        if file_paths.documentation_base_path:
+            validation_result["documentation"] = os.path.exists(file_paths.documentation_base_path)
+        
         return validation_result
     
     def cleanup_empty_directories(self, user_id: Optional[str] = None) -> int:
@@ -244,7 +252,58 @@ class FileManager:
         except Exception as e:
             print(f"Error cleaning up empty directories: {e}")
             return 0
+    
+    def get_documentation_storage_path(self, user_id: str, repo_identifier: str) -> Path:
+        """Get the documentation storage path for a specific repository."""
+        doc_path = self.get_repo_storage_path(user_id, repo_identifier) / "documentation"
+        doc_path.mkdir(parents=True, exist_ok=True)
+        return doc_path
 
+    async def save_documentation_files(self, documentation_base_path: str, pages: List[dict]) -> bool:
+        """Save documentation files to the specified path."""
+        try:
+            # Ensure the documentation directory exists
+            os.makedirs(documentation_base_path, exist_ok=True)
+            
+            # Save each documentation page
+            for page in pages:
+                page_file = os.path.join(documentation_base_path, f"{page['id']}.md")
+                with open(page_file, 'w', encoding='utf-8') as f:
+                    f.write(page.get('content', ''))
+            
+            return True
+        except Exception as e:
+            print(f"Error saving documentation files: {e}")
+            return False
+    
+    async def list_documentation_files(self, documentation_base_path: str) -> List[str]:
+        """List all documentation files in the base path."""
+        try:
+            if not os.path.exists(documentation_base_path):
+                return []
+            
+            doc_files = []
+            for file in os.listdir(documentation_base_path):
+                if file.endswith('.md'):
+                    doc_files.append(file)
+            
+            return sorted(doc_files)
+        except Exception as e:
+            print(f"Error listing documentation files: {e}")
+            return []
+    
+    async def get_documentation_file_content(self, documentation_base_path: str, file_name: str) -> Optional[str]:
+        """Get content of a specific documentation file."""
+        try:
+            file_path = os.path.join(documentation_base_path, file_name)
+            if not os.path.exists(file_path):
+                return None
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error reading documentation file {file_name}: {e}")
+            return None
 
 async def save_repository_files(
     user_id: str,

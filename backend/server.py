@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from routes.repo_routes import router as repo_router
 from routes.auth_routes import router as auth_router
 from routes.chat_routes import router as chat_router
+from routes.documentation_routes import router as documentation_router
 from utils.db import db_instance
 
 import os
@@ -48,6 +49,7 @@ app.add_middleware(
 app.include_router(repo_router, prefix="/api", tags=["Repository Operations"])
 app.include_router(auth_router, prefix="/api", tags=["Authentication"])
 app.include_router(chat_router, prefix="/api", tags=["Chat Operations"])
+app.include_router(documentation_router, prefix="/api", tags=["Documentation Generation"])
 
 # =====================
 # Main Entrypoint

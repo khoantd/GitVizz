@@ -23,3 +23,5 @@ cryptography
 python-jose[cryptography]
 litellm
 python-dotenv
+faiss-cpu
+sentence-transformers

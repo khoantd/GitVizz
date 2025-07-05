@@ -2,6 +2,13 @@ from typing import List, Dict, Any, Optional, Callable
 import os
 import time
 from datetime import datetime
+from dotenv import load_dotenv
+from pathlib import Path
+import shutil
+
+# Load environment variables
+load_dotenv()
+
 import re 
 try:
     from ai_client import GroqAIClient
@@ -49,9 +56,19 @@ class DocumentationGenerator:
         """Main generation method - COMPLETE VERSION"""
         print(f"Starting comprehensive wiki generation for: {repo_url_or_path}")
         
+        output_dir = Path(output_dir).resolve()  # Make it absolute
+        repo_root = output_dir.parent            # Go one level up
+        
+        # modified the repo_root to temp_repo
+        repo_root = repo_root / "temp_repo"
+
         # Step 1: Process repository
-        self.documents = self.parser.process_repository(repo_url_or_path)
+        self.documents = self.parser.process_repository(repo_url_or_path, repo_root)
         self.repo_info = self.parser.repo_info
+
+        # Step 1.2: Clean up existing documents
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
         
         if not self.documents:
             return {"status": "error", "message": "No documents found"}
@@ -79,6 +96,8 @@ class DocumentationGenerator:
             generated_pages.append(generated_page)
         
         # Step 6: Save files
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
         result = save_wiki_files(generated_pages, structure, output_dir, self.repo_analysis)
         
         # Add comprehensive summary
@@ -93,7 +112,13 @@ class DocumentationGenerator:
             }
         })
         
-        print(f"Wiki generation completed! Generated {len(generated_pages)} pages")
+        # Step 7: Cleanup temporary files
+        self.progress_callback(f"      Cleaning up temporary files...")
+
+        if repo_root.exists():
+            shutil.rmtree(repo_root)
+
+        self.progress_callback(f"      Cleanup complete. Wiki generated successfully!")
         return result
         
     def _build_semantic_index(self):
