@@ -11,6 +11,7 @@ from utils.jwt_utils import get_current_user
 from models.repository import Repository
 from beanie.operators import Or
 from beanie import PydanticObjectId
+import datetime
 import re
 # from utils.file_utils import get_user
 
@@ -241,8 +242,8 @@ def _run_wiki_generation(repo_url: str, output_dir: str, language: str, comprehe
     except Exception as e:
         raise e
 
-@router.get(
-    "/wiki-status/{task_id}",
+@router.post(
+    "/wiki-status",
     response_model=TaskStatus,
     summary="Get wiki generation status",
     description="Retrieves the current status of a wiki generation task using the provided task ID.",
@@ -259,7 +260,9 @@ def _run_wiki_generation(repo_url: str, output_dir: str, language: str, comprehe
         }
     }
 )
-async def get_wiki_status(task_id: str, token: str = Form(..., description="Authentication token for the request")):
+async def get_wiki_status(
+    task_id: str = Form(..., description="ID of the wiki generation task to check status for"),
+    token: str = Form(..., description="Authentication token for the request")):
     """Get the status of a wiki generation task"""
     try:
         if task_id not in task_results:
@@ -272,278 +275,178 @@ async def get_wiki_status(task_id: str, token: str = Form(..., description="Auth
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get(
-    "/wiki-tasks",
-    summary="List all wiki generation tasks",
-    description="Retrieves a list of all wiki generation tasks and their current status.",
-    response_description="List of all wiki generation tasks.",
+
+@router.post(
+    "/repository-docs",
+    summary="List repository documentation files",
+    description="Lists all documentation files for a specific repository with parsed content.",
+    response_description="Structured documentation data for the repository.",
 )
-async def list_wiki_tasks(
+async def list_repository_docs(
+    repo_id: str = Form(..., description="ID of the repository to list documentation files for"),
     token: str = Form(..., description="Authentication token for the request")
 ):
-    """List all wiki generation tasks"""
-    try:
-        return {"tasks": list(task_results.values())}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.delete(
-    "/wiki-tasks/{task_id}",
-    summary="Delete a wiki generation task",
-    description="Deletes a completed or failed wiki generation task from memory.",
-    response_description="Confirmation of task deletion.",
-)
-async def delete_wiki_task(task_id: str, token: str = Form(..., description="Authentication token for the request")):
-    """Delete a wiki generation task"""
-    try:
-        if task_id not in task_results:
-            raise HTTPException(status_code=404, detail="Task ID not found")
-        
-        # Only allow deletion of completed or failed tasks
-        if task_results[task_id]["status"] in ["running", "pending"]:
-            raise HTTPException(status_code=400, detail="Cannot delete running or pending tasks")
-        
-        del task_results[task_id]
-        return {"message": "Task deleted successfully"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get(
-    "/wiki-files/{task_id}",
-    summary="List generated wiki files",
-    description="Lists all generated wiki files for a specific repository.",
-    response_description="List of generated wiki files.",
-)
-async def list_wiki_files(
-    task_id: str,
-    token: str = Form(..., description="Authentication token for the request")
-):
-    """List all generated wiki files for a repository"""
+    """List all documentation files for a repository with parsed README content"""
     try:
         # Authenticate user
         user = await get_current_user(token)
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
         
-        # Check if task exists and is completed
-        if task_id not in task_results:
-            raise HTTPException(status_code=404, detail="Task ID not found")
+        # Find the repository
+        repo = await Repository.find_one(
+            Repository.id == PydanticObjectId(repo_id),
+            Repository.user.id == PydanticObjectId(user.id)
+        )
         
-        task = task_results[task_id]
-        if task["status"] != "completed":
-            raise HTTPException(status_code=400, detail="Task is not completed yet")
+        if not repo:
+            raise HTTPException(status_code=404, detail="Repository not found")
         
-        # Get the documentation directory from task result
-        result = task.get("result", {})
-        output_dir = result.get("output_directory")
+        # Get documentation directory
+        doc_dir = repo.file_paths.documentation_base_path
+        if not os.path.exists(doc_dir):
+            return {
+                "success": False,
+                "data": {
+                    "repository": {
+                        "id": repo_id,
+                        "name": repo.repo_name,
+                        "directory": doc_dir
+                    },
+                    "analysis": {},
+                    "navigation": {
+                        "sidebar": [],
+                        "total_pages": 0
+                    },
+                    "content": {}
+                },
+                "message": "No documentation generated yet"
+            }
         
-        if not output_dir or not os.path.exists(output_dir):
-            raise HTTPException(status_code=404, detail="Documentation directory not found")
+        # Parse README.md file
+        readme_path = os.path.join(doc_dir, "readme.md")
+        sidebar = []
+        repo_analysis = {}
         
-        # List all markdown files in the directory
-        files = []
-        for file in os.listdir(output_dir):
+        if os.path.exists(readme_path):
+            with open(readme_path, 'r', encoding='utf-8') as f:
+                readme_content = f.read()
+            
+            # Parse repository analysis section
+            repo_analysis = parse_repository_analysis(readme_content)
+            
+            # Parse documentation pages (sidebar)
+            sidebar = parse_documentation_pages(readme_content)
+        
+        # List all markdown files in the directory with their content
+        files = {}
+        for file in os.listdir(doc_dir):
             if file.endswith('.md'):
-                file_path = os.path.join(output_dir, file)
+                file_path = os.path.join(doc_dir, file)
                 file_size = os.path.getsize(file_path)
-                file_modified = os.path.getmtime(file_path)
+                file_modified = datetime.fromtimestamp(os.path.getmtime(file_path))
                 
-                files.append({
-                    "filename": file,
-                    "size": file_size,
-                    "modified": file_modified
-                })
+                # Read file content
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Use filename (without extension) as key
+                file_key = file.replace('.md', '')
+                files[file_key] = {
+                    "metadata": {
+                        "filename": file,
+                        "size": file_size,
+                        "modified": file_modified.isoformat(),
+                        "type": "markdown"
+                    },
+                    "content": content,
+                    "preview": content[:200] + "..." if len(content) > 200 else content,
+                    "word_count": len(content.split()),
+                    "read_time": max(1, len(content.split()) // 200)  # Estimated reading time in minutes
+                }
         
         return {
-            "task_id": task_id,
-            "output_directory": output_dir,
-            "files": files,
-            "total_files": len(files)
+            "success": True,
+            "data": {
+                "repository": {
+                    "id": repo_id,
+                    "name": repo.repo_name,
+                    "directory": doc_dir
+                },
+                "analysis": repo_analysis,
+                "navigation": {
+                    "sidebar": sidebar,
+                    "total_pages": len(files)
+                },
+                "content": files
+            },
+            "message": "Documentation loaded successfully"
         }
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def parse_repository_analysis(readme_content: str) -> dict:
+    """Parse the repository analysis section from README content"""
+    analysis = {}
     
+    # Extract Repository Analysis section
+    analysis_match = re.search(r'## 📊 Repository Analysis\n\n(.*?)(?=\n##|\n---|\Z)', readme_content, re.DOTALL)
+    if analysis_match:
+        analysis_content = analysis_match.group(1)
+        
+        # Extract individual metrics
+        domain_match = re.search(r'- \*\*Domain Type\*\*: (.+)', analysis_content)
+        complexity_match = re.search(r'- \*\*Complexity Score\*\*: (.+)', analysis_content)
+        languages_match = re.search(r'- \*\*Languages\*\*: (.+)', analysis_content)
+        frameworks_match = re.search(r'- \*\*Frameworks\*\*: (.+)', analysis_content)
+        pages_match = re.search(r'- \*\*Total Pages\*\*: (.+)', analysis_content)
+        
+        if domain_match:
+            analysis['domain_type'] = domain_match.group(1).strip()
+        if complexity_match:
+            analysis['complexity_score'] = complexity_match.group(1).strip()
+        if languages_match:
+            analysis['languages'] = languages_match.group(1).strip()
+        if frameworks_match:
+            analysis['frameworks'] = frameworks_match.group(1).strip()
+        if pages_match:
+            analysis['total_pages'] = pages_match.group(1).strip()
+    
+    return analysis
 
-# @router.get(
-#     "/wiki-content/{task_id}/{filename}",
-#     summary="Get wiki file content",
-#     description="Retrieves the content of a specific wiki file.",
-#     response_description="Content of the wiki file.",
-# )
-# async def get_wiki_file_content(
-#     task_id: str,
-#     filename: str,
-#     token: str = Form(..., description="Authentication token for the request")
-# ):
-#     """Get content of a specific wiki file"""
-#     try:
-#         # Authenticate user
-#         user = await get_current_user(token)
-#         if not user:
-#             raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
-        
-#         # Check if task exists and is completed
-#         if task_id not in task_results:
-#             raise HTTPException(status_code=404, detail="Task ID not found")
-        
-#         task = task_results[task_id]
-#         if task["status"] != "completed":
-#             raise HTTPException(status_code=400, detail="Task is not completed yet")
-        
-#         # Get the documentation directory from task result
-#         result = task.get("result", {})
-#         output_dir = result.get("output_directory")
-        
-#         if not output_dir or not os.path.exists(output_dir):
-#             raise HTTPException(status_code=404, detail="Documentation directory not found")
-        
-#         # Validate filename (security check)
-#         if not filename.endswith('.md') or '/' in filename or '\\' in filename:
-#             raise HTTPException(status_code=400, detail="Invalid filename")
-        
-#         file_path = os.path.join(output_dir, filename)
-#         if not os.path.exists(file_path):
-#             raise HTTPException(status_code=404, detail="File not found")
-        
-#         # Read and return file content
-#         with open(file_path, 'r', encoding='utf-8') as f:
-#             content = f.read()
-        
-#         return {
-#             "task_id": task_id,
-#             "filename": filename,
-#             "content": content,
-#             "size": len(content)
-#         }
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
 
-# @router.get(
-#     "/repository-docs/{repo_id}",
-#     summary="List repository documentation files",
-#     description="Lists all documentation files for a specific repository.",
-#     response_description="List of documentation files for the repository.",
-# )
-# async def list_repository_docs(
-#     repo_id: str,
-#     token: str = Form(..., description="Authentication token for the request")
-# ):
-#     """List all documentation files for a repository"""
-#     try:
-#         # Authenticate user
-#         user = await get_current_user(token)
-#         if not user:
-#             raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
+def parse_documentation_pages(readme_content: str) -> list:
+    """Parse the documentation pages section to create sidebar navigation"""
+    sidebar = []
+    
+    # Extract Documentation Pages section
+    pages_match = re.search(r'## 📖 Documentation Pages\n\n(.*?)(?=\n##|\n---|\Z)', readme_content, re.DOTALL)
+    if pages_match:
+        pages_content = pages_match.group(1)
         
-#         # Find the repository
-#         repo = await Repository.find_one({
-#             "_id": PydanticObjectId(repo_id),
-#             "user_id": PydanticObjectId(user.id)
-#         })
+        # Find all markdown links
+        link_pattern = r'- \[([^\]]+)\]\(([^)]+)\)'
+        matches = re.findall(link_pattern, pages_content)
         
-#         if not repo:
-#             raise HTTPException(status_code=404, detail="Repository not found")
-        
-#         # Get documentation directory
-#         doc_dir = repo.file_paths.documentation_base_path
-#         if not os.path.exists(doc_dir):
-#             return {
-#                 "repository_id": repo_id,
-#                 "documentation_directory": doc_dir,
-#                 "files": [],
-#                 "total_files": 0,
-#                 "message": "No documentation generated yet"
-#             }
-        
-#         # List all markdown files in the directory
-#         files = []
-#         for file in os.listdir(doc_dir):
-#             if file.endswith('.md'):
-#                 file_path = os.path.join(doc_dir, file)
-#                 file_size = os.path.getsize(file_path)
-#                 file_modified = os.path.getmtime(file_path)
-                
-#                 files.append({
-#                     "filename": file,
-#                     "size": file_size,
-#                     "modified": file_modified
-#                 })
-        
-#         return {
-#             "repository_id": repo_id,
-#             "repository_name": repo.repo_name,
-#             "documentation_directory": doc_dir,
-#             "files": files,
-#             "total_files": len(files)
-#         }
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# @router.get(
-#     "/repository-docs/{repo_id}/{filename}",
-#     summary="Get repository documentation file content",
-#     description="Retrieves the content of a specific documentation file for a repository.",
-#     response_description="Content of the documentation file.",
-# )
-# async def get_repository_doc_content(
-#     repo_id: str,
-#     filename: str,
-#     token: str = Form(..., description="Authentication token for the request")
-# ):
-#     """Get content of a specific documentation file for a repository"""
-#     try:
-#         # Authenticate user
-#         user = await get_current_user(token)
-#         if not user:
-#             raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
-        
-#         # Find the repository
-#         repo = await Repository.find_one({
-#             "_id": PydanticObjectId(repo_id),
-#             "user_id": PydanticObjectId(user.id)
-#         })
-        
-#         if not repo:
-#             raise HTTPException(status_code=404, detail="Repository not found")
-        
-#         # Get documentation directory
-#         doc_dir = repo.file_paths.documentation_base_path
-#         if not os.path.exists(doc_dir):
-#             raise HTTPException(status_code=404, detail="Documentation directory not found")
-        
-#         # Validate filename (security check)
-#         if not filename.endswith('.md') or '/' in filename or '\\' in filename:
-#             raise HTTPException(status_code=400, detail="Invalid filename")
-        
-#         file_path = os.path.join(doc_dir, filename)
-#         if not os.path.exists(file_path):
-#             raise HTTPException(status_code=404, detail="File not found")
-        
-#         # Read and return file content
-#         with open(file_path, 'r', encoding='utf-8') as f:
-#             content = f.read()
-        
-#         return {
-#             "repository_id": repo_id,
-#             "repository_name": repo.repo_name,
-#             "filename": filename,
-#             "content": content,
-#             "size": len(content)
-#         }
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+        for title, filename in matches:
+            # Extract emoji and clean title
+            emoji_match = re.match(r'([^\w\s]+)\s*(.+)', title)
+            if emoji_match:
+                emoji = emoji_match.group(1).strip()
+                clean_title = emoji_match.group(2).strip()
+            else:
+                emoji = "📄"
+                clean_title = title.strip()
+            
+            sidebar.append({
+                "title": clean_title,
+                "filename": filename,
+                "emoji": emoji,
+                "url": f"/docs/{filename}"
+            })
+    
+    return sidebar
