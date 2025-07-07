@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Form
 from huggingface_hub import User
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Dict, Any, Optional
 import time
 import asyncio
 import os
@@ -11,35 +10,16 @@ from utils.jwt_utils import get_current_user
 from models.repository import Repository
 from beanie.operators import Or
 from beanie import PydanticObjectId
-import datetime
+from datetime import datetime
 import re
 # from utils.file_utils import get_user
+
+from schemas.documentation_schemas import WikiGenerationResponse, TaskStatus, RepositoryDocsResponse
 
 router = APIRouter(prefix="/documentation")
 
 #FIXME: Global storage for task results (in production, use Redis or a database)
 task_results: Dict[str, Dict[str, Any]] = {}
-
-class WikiGenerationRequest(BaseModel):
-    repository_url: str
-    output_dir: Optional[str] = "./wiki_output"
-    language: Optional[str] = "en"
-    comprehensive: Optional[bool] = True
-
-class WikiGenerationResponse(BaseModel):
-    status: str
-    message: str
-    task_id: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
-
-class TaskStatus(BaseModel):
-    task_id: str
-    status: str  # "pending", "running", "completed", "failed"
-    message: str
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    created_at: float
-    completed_at: Optional[float] = None
 
 # Thread pool for CPU-bound tasks
 executor = ThreadPoolExecutor(max_workers=4)
@@ -281,6 +261,7 @@ async def get_wiki_status(
     summary="List repository documentation files",
     description="Lists all documentation files for a specific repository with parsed content.",
     response_description="Structured documentation data for the repository.",
+    response_model=RepositoryDocsResponse
 )
 async def list_repository_docs(
     repo_id: str = Form(..., description="ID of the repository to list documentation files for"),
