@@ -13,7 +13,11 @@ import {
   getAvailableModelsApiBackendChatModelsPost,
   updateChatSettingsApiBackendChatSettingsPost,
   searchContextApiBackendChatContextSearchPost,
-  listUserChatSessionsApiBackendChatSessionsPost
+  listUserChatSessionsApiBackendChatSessionsPost,
+  generateWikiApiDocumentationGenerateWikiPost,
+  getWikiStatusApiDocumentationWikiStatusPost,
+  listRepositoryDocsApiDocumentationRepositoryDocsPost,
+  isWikiGeneratedApiDocumentationIsWikiGeneratedPost
 } from '../api-client/sdk.gen';
 
 import type {
@@ -29,7 +33,8 @@ import type {
   ContextSearchResponse,
   TextResponse,
   ChatSessionListResponse,
-  ChatSessionListItem
+  ChatSessionListItem,
+  IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse
 } from '../api-client/types.gen';
 
 
@@ -593,6 +598,132 @@ function isTokenExpiredError(error: any): boolean {
     msg?.toLowerCase().includes("expired token") ||
     msg?.toLowerCase().includes("unauthorized")
   );
+}
+
+
+// =============================================================================
+// WIKI DOCUMENTATION OPERATIONS
+// =============================================================================
+/**
+ * Generate wiki documentation for a repository
+ * Starts the process of generating wiki documentation. The task runs in the background.
+ */
+export async function generateWikiDocumentation(
+  jwt_token: string,
+  repository_url: string,
+  language: string = 'en',
+  comprehensive: boolean = true
+): Promise<any> {
+  try {
+    const response = await generateWikiApiDocumentationGenerateWikiPost({
+      body: {
+        jwt_token,
+        repository_url,
+        language,
+        comprehensive
+      }
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No wiki generation response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get wiki generation status
+ * Retrieves the current status of a wiki generation task using the provided task ID.
+ */
+export async function getWikiGenerationStatus(
+  jwt_token: string,
+  repo_id: string
+): Promise<any> {
+  try {
+    const response = await getWikiStatusApiDocumentationWikiStatusPost({
+      body: {
+        jwt_token,
+        repo_id
+      }
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No wiki status response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * List repository documentation files
+ * Lists all documentation files for a specific repository with parsed content.
+ */
+export async function getRepositoryDocumentation(
+  jwt_token: string,
+  repo_id: string
+): Promise<any> {
+  try {
+    const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
+      body: {
+        jwt_token,
+        repo_id
+      }
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No repository documentation response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Is wiki documentation generated?
+ * Checks if wiki documentation has been generated for a specific repository.
+ */
+export async function isWikiGenerated(jwt_token: string, repo_id: string): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
+  console.log(jwt_token)
+  try {
+    const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
+      body: {
+        jwt_token,
+        repo_id
+      }
+    });
+    
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No wiki generation status response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
 }
 
 // =============================================================================

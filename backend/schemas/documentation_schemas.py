@@ -17,7 +17,6 @@ class TaskStatus(BaseModel):
     task_id: str
     status: str  # "pending", "running", "completed", "failed"
     message: str
-    result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     created_at: float
     completed_at: Optional[float] = None
@@ -71,3 +70,13 @@ class RepositoryDocsResponse(BaseModel):
     success: bool
     data: RepositoryDocsData
     message: str
+    
+class IsWikiGeneratedRequest(BaseModel):
+    repository_url: str
+    token: str
+    
+class IsWikiGeneratedResponse(BaseModel):
+    is_generated: bool
+    status: str  # "pending", "running", "completed", "failed",
+    message: str = "Wiki documentation generation status checked successfully"
+    error: Optional[str] = None

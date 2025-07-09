@@ -14,11 +14,11 @@ from datetime import datetime
 import re
 # from utils.file_utils import get_user
 
-from schemas.documentation_schemas import WikiGenerationResponse, TaskStatus, RepositoryDocsResponse
+from schemas.documentation_schemas import WikiGenerationResponse, TaskStatus, RepositoryDocsResponse, IsWikiGeneratedRequest, IsWikiGeneratedResponse
 
 router = APIRouter(prefix="/documentation")
 
-#FIXME: Global storage for task results (in production, use Redis or a database)
+#TODO: Global storage for task results (in production, use Redis or a database)
 task_results: Dict[str, Dict[str, Any]] = {}
 
 # Thread pool for CPU-bound tasks
@@ -95,7 +95,7 @@ def parse_github_url(url: str) -> tuple[str, str]:
     }
 )
 async def generate_wiki(
-    token: str = Form(..., description="Authentication token for the request"),
+    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
     repository_url: str = Form(..., description="URL of the repository to generate documentation for"),
     language: Optional[str] = Form("en", description="Language for the documentation"),
     comprehensive: Optional[bool] = Form(True, description="Whether to generate comprehensive documentation")
@@ -103,10 +103,10 @@ async def generate_wiki(
     """Generate wiki documentation for a repository"""
     
     # Authenticate user
-    user = await get_current_user(token)
+    user = await get_current_user(jwt_token)
         
     if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
     
     # Extract and validate repository information
     try:
@@ -137,6 +137,7 @@ async def generate_wiki(
         # Initialize task status
         task_results[task_id] = {
             "task_id": task_id,
+            "repo_id": repo.id,
             "status": "pending",
             "message": "Wiki generation task queued",
             "result": None,
@@ -193,7 +194,6 @@ async def _generate_wiki_background(
         task_results[task_id].update({
             "status": "completed",
             "message": "Wiki generation completed successfully",
-            "result": result,
             "completed_at": time.time()
         })
         
@@ -222,6 +222,13 @@ def _run_wiki_generation(repo_url: str, output_dir: str, language: str, comprehe
     except Exception as e:
         raise e
 
+
+def find_task_by_repo_id(repo_id: str):
+    for task in task_results.values():
+        if task.get("repo_id") == repo_id:
+            return task
+    return None
+
 @router.post(
     "/wiki-status",
     response_model=TaskStatus,
@@ -241,19 +248,105 @@ def _run_wiki_generation(repo_url: str, output_dir: str, language: str, comprehe
     }
 )
 async def get_wiki_status(
-    task_id: str = Form(..., description="ID of the wiki generation task to check status for"),
-    token: str = Form(..., description="Authentication token for the request")):
+    repo_id: str = Form(..., description="ID of the repository to check wiki generation status for"),
+    jwt_token: str = Form(..., description="Authentication jwt_token for the request")):
     """Get the status of a wiki generation task"""
     try:
-        if task_id not in task_results:
-            raise HTTPException(status_code=404, detail="Task ID not found")
+        # Authenticate user
+        user = await get_current_user(jwt_token)
         
-        return TaskStatus(**task_results[task_id])
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
+        
+        
+        # Find task by repo_id
+        task = find_task_by_repo_id(PydanticObjectId(repo_id))
+        if not task:
+            raise HTTPException(status_code=404, detail="No task found for the given repo_id")
+
+        return TaskStatus(**task)
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/is-wiki-generated",
+    summary="Check if wiki documentation is generated",
+    description="Checks if wiki documentation has been generated for a specific repository.",
+    response_description="Boolean indicating if wiki documentation is generated.",
+    response_model=IsWikiGeneratedResponse,
+)
+async def is_wiki_generated(
+    repo_id: str = Form(..., description="ID of the repository to check wiki generation status for"),
+    jwt_token: str = Form(..., description="Authentication jwt_token for the request")
+):
+    """Check if wiki documentation has been generated for a repository"""
+    try:
+        # Authenticate user
+        user = await get_current_user(jwt_token)
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
+        
+        # Find the repository
+        repo = await Repository.find_one(
+            Repository.id == PydanticObjectId(repo_id),
+            Repository.user.id == PydanticObjectId(user.id)
+        )
+        
+        if not repo:
+            raise HTTPException(status_code=404, detail="Repository not found")
+        
+        doc_dir = repo.file_paths.documentation_base_path
+        
+        # Check if there's any documentation generation under process
+        task = find_task_by_repo_id(repo.id)
+        if task and task['status'] in ['running', 'pending']:
+            return IsWikiGeneratedResponse(
+                is_generated=False,
+                status=task['status'],
+                message="Wiki generation is currently in progress"
+            )
+        
+        # Check if there's a failed task
+        if task and task['status'] == 'failed':
+            return IsWikiGeneratedResponse(
+                is_generated=False,
+                status='failed',
+                message="Wiki generation failed",
+                error=task.get('error', 'Unknown error occurred during generation')
+            )
+        
+        # Check if documentation directory exists and has content
+        if os.path.exists(doc_dir):
+            # Check if readme.md file exists
+            readme_path = os.path.join(doc_dir, "readme.md")
+            if os.path.exists(readme_path):
+                return IsWikiGeneratedResponse(
+                    is_generated=True,
+                    status="completed",
+                    message="Wiki documentation has been generated"
+                )
+        
+        # If no documentation found and no active/failed tasks
+        return IsWikiGeneratedResponse(
+            is_generated=False,
+            status="not_started",
+            message="Wiki documentation has not been generated yet"
+        )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        return IsWikiGeneratedResponse(
+            is_generated=False,
+            status="error",
+            message="Error checking wiki generation status",
+            error=str(e)
+        )
 
 
 @router.post(
@@ -265,14 +358,14 @@ async def get_wiki_status(
 )
 async def list_repository_docs(
     repo_id: str = Form(..., description="ID of the repository to list documentation files for"),
-    token: str = Form(..., description="Authentication token for the request")
+    jwt_token: str = Form(..., description="Authentication jwt_token for the request")
 ):
     """List all documentation files for a repository with parsed README content"""
     try:
         # Authenticate user
-        user = await get_current_user(token)
+        user = await get_current_user(jwt_token)
         if not user:
-            raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
         
         # Find the repository
         repo = await Repository.find_one(

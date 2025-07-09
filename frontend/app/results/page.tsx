@@ -9,6 +9,7 @@ import { StructureTab } from "@/components/structure-tab"
 import ReagraphVisualization from "@/components/ReagraphVisualization"
 import { FloatingChatButton } from "@/components/floating-chat-button"
 import { ChatSidebar } from "@/components/chat-sidebar"
+import DocumentationButton from "@/components/documentation-button"
 
 import {
   Network,
@@ -35,7 +36,12 @@ export default function ResultsPage() {
   const router = useRouter()
   const { output, error, outputMessage, sourceType, sourceData, loading, currentRepoId } = useResultData()
 
-  const [activeTab, setActiveTab] = useState("structure")
+  const { data: session } = useSession()
+
+  // Set default active tab based on authentication
+  const defaultTab = session?.accessToken ? "graph" : "structure"
+  const [activeTab, setActiveTab] = useState(defaultTab)
+
   const [showInfo, setShowInfo] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
@@ -52,8 +58,6 @@ export default function ResultsPage() {
 
   const popupRef = useRef<HTMLDivElement>(null)
   const popupGraphRef = useRef<HTMLDivElement>(null)
-
-  const { data: session } = useSession()
 
   // Handle restricted tab clicks
   const handleTabChange = (value: string) => {
@@ -285,17 +289,10 @@ export default function ResultsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-8">
+
           {/* Mobile Tab Navigation */}
           <div className="lg:hidden">
             <TabsList className="grid w-full grid-cols-3 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
-              <TabsTrigger
-                value="structure"
-                className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="hidden xs:inline">Structure</span>
-              </TabsTrigger>
-
               <TabsTrigger
                 value="graph"
                 className={cn(
@@ -319,21 +316,22 @@ export default function ResultsPage() {
                 <Code2 className="h-4 w-4" />
                 <span className="hidden xs:inline">Explorer</span>
               </TabsTrigger>
+
+              <TabsTrigger
+                value="structure"
+                className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden xs:inline">Structure</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
           {/* Desktop Tab Navigation */}
-          <div className="hidden lg:flex justify-center relative">
+          <div className="hidden lg:flex justify-center items-center gap-4 relative">
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-muted/30 -z-10"></div>
-            <TabsList className="bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-2 shadow-lg min-h-[60px] relative z-10">
-              <TabsTrigger
-                value="structure"
-                className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
-              >
-                <FileText className="h-5 w-5" />
-                <span>Structure</span>
-              </TabsTrigger>
 
+            <TabsList className="bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-2 shadow-lg min-h-[60px] relative z-10">
               <TabsTrigger
                 value="graph"
                 className={cn(
@@ -345,7 +343,6 @@ export default function ResultsPage() {
                 <Network className="h-5 w-5" />
                 <span>Graph</span>
               </TabsTrigger>
-
               <TabsTrigger
                 value="explorer"
                 className={cn(
@@ -357,21 +354,27 @@ export default function ResultsPage() {
                 <Code2 className="h-5 w-5" />
                 <span>Explorer</span>
               </TabsTrigger>
+
+              <TabsTrigger
+                value="structure"
+                className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
+              >
+                <FileText className="h-5 w-5" />
+                <span>Structure</span>
+              </TabsTrigger>
             </TabsList>
+
+            {currentRepoId && (
+              <DocumentationButton
+                currentRepoId={currentRepoId}
+                sourceData={sourceData}
+                sourceType={sourceType || ""} // Ensure sourceType is defined
+              />
+            )}
+
           </div>
 
           <div className="relative">
-            {/* Desktop Tab Indicator */}
-            <div
-              className={cn(
-                "hidden lg:block absolute top-0 left-1/2 w-[2px] h-4 bg-primary transition-all duration-300",
-                activeTab === "structure"
-                  ? "-translate-x-[140px]"
-                  : activeTab === "graph"
-                    ? "translate-x-0"
-                    : "translate-x-[140px]",
-              )}
-            />
 
             {/* Enhanced Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">

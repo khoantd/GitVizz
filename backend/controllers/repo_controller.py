@@ -240,7 +240,8 @@ async def generate_text_endpoint(
         )
     
     user = None
-    repo_url = repo_url.lower()
+    if repo_url:
+        repo_url = repo_url.lower()
     
     # Get user if JWT token provided
     if jwt_token:
@@ -249,7 +250,7 @@ async def generate_text_endpoint(
             raise HTTPException(
                 status_code=401, detail="Invalid or expired JWT token."
             )
-    
+        
     # Generate repository identifier
     repo_identifier = generate_repo_identifier(
         repo_url, 
@@ -261,7 +262,7 @@ async def generate_text_endpoint(
     commit_sha = None
     if repo_url and "github.com" in repo_url and is_valid_access_token(access_token):
         commit_sha = await get_latest_commit_sha(repo_url, branch, access_token)
-    
+            
     # Check if user has this repository cached
     if user:
         existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
@@ -344,7 +345,7 @@ async def generate_text_endpoint(
         return TextResponse(
             text_content=formatted_text, 
             filename_suggestion=f"{filename_base}.txt",
-            repo_id=str(saved_repo.id)
+            repo_id=str(saved_repo.id) if user else ""
         )
         
     except HTTPException as he:
@@ -352,6 +353,7 @@ async def generate_text_endpoint(
         raise he
     except Exception as e:
         cleanup_temp_files(temp_dirs_to_cleanup)
+        print(f"Error in generate_text_endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
     finally:
         # Clean up the processed zip file
@@ -385,7 +387,9 @@ async def generate_graph_endpoint(
         )
 
     user = None
-    repo_url = repo_url.lower()
+    
+    if repo_url:
+        repo_url = repo_url.lower()
     
     # Get user if JWT token provided
     if jwt_token:
