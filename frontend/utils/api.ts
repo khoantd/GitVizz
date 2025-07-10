@@ -1,5 +1,6 @@
 // API utilities for interacting with the backend using Hey-API generated SDK
 
+import { auth_client } from '@/api-client/client.gen';
 import {
   generateTextEndpointApiRepoGenerateTextPost,
   generateGraphEndpointApiRepoGenerateGraphPost,
@@ -278,6 +279,7 @@ export async function getFilenameSuggestion(repoRequest: RepoRequest): Promise<s
 export async function getJwtToken(access_token: string): Promise<LoginResponse> {
   try {
     const response = await loginUserApiBackendAuthLoginPost({
+      client: auth_client,
       body: { access_token }
     });
 

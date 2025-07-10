@@ -26,14 +26,15 @@ const nextConfig: NextConfig = {
   // Disable static exports for dynamic imports
   output: 'standalone',
   async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     return [
       {
-        source: '/api/((?!auth|github).)*',
-        destination: 'http://localhost:8003/api/:path*', // Proxy to backend
+      source: '/api/((?!auth|github).)*',
+      destination: `${backendUrl}/api/:path*`, // Proxy to backend
       },
       {
-        source: '/static/:path*',
-        destination: 'http://localhost:8003/static/:path*', // Proxy to backend static files
+      source: '/static/:path*',
+      destination: `${backendUrl}/static/:path*`, // Proxy to backend static files
       },
     ];
   },
