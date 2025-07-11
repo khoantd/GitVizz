@@ -15,7 +15,9 @@ import {
 interface DocumentationButtonProps {
   currentRepoId: string,
   token?: string,
-  sourceData: any
+  sourceData: {
+    repo_url?: string
+  },
   sourceType: string
 }
 

@@ -23,7 +23,11 @@ export interface StreamingChunk {
   delta?: {
     content?: string
   }
-  usage?: any
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
   provider?: string
   model?: string
 }

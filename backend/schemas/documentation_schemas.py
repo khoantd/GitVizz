@@ -64,6 +64,7 @@ class RepositoryDocsData(BaseModel):
     repository: RepositoryInfo
     analysis: RepositoryAnalysis
     navigation: NavigationData
+    folder_structure: Any
     content: Dict[str, DocumentationFile]
 
 class RepositoryDocsResponse(BaseModel):
