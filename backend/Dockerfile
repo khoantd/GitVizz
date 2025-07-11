@@ -1,5 +1,5 @@
 # Use official Python image as base
-FROM python:3.11-slim AS base
+FROM python:3.11-slim-bookworm
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -12,12 +12,17 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+RUN pip install uv
+
 # Create working directory
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies globally (no venv)
+RUN uv pip install --system -r pyproject.toml
 
 # Copy application code
 COPY . .
@@ -26,4 +31,4 @@ COPY . .
 EXPOSE 8003
 
 # Set default command to run the application
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["python", "server.py"]
