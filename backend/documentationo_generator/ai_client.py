@@ -1,8 +1,10 @@
 import time
 import json
 import requests
+import re
 from typing import Callable, Optional
 from typing import List
+import google.generativeai as genai
 
 # Use absolute imports to avoid relative import issues when running directly
 try:
@@ -17,25 +19,29 @@ try:
 except ImportError:
     LITELLM_AVAILABLE = False
 
-#need multiple clients as user wants, groq, or openai etc. etc. 
-class GroqAIClient:
-    """Groq AI client for dynamic content generation using Llama models"""
+#need multiple clients as user wants, gemini, groq, or openai etc. etc. 
+class GeminiAIClient:
+    """AI client for dynamic content generation using Gemini models"""
 
-    def __init__(self, api_key: str, base_url: str = "https://api.groq.com/openai/v1"):
+    def __init__(self, api_key: str, base_url: str = "https://generativelanguage.googleapis.com/v1beta"):
         self.api_key = api_key
         self.base_url = base_url
         self.use_litellm = LITELLM_AVAILABLE
 
-        # Multiple models for fallback and rate limit management (using only active models)
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        
+        # Available Gemini models
         self.models = [
-            "llama-3.1-8b-instant",
-            "llama3-8b-8192",
-            "gemma2-9b-it"
+            "models/gemini-2.0-flash-exp",
+            "models/gemini-2.5-pro", 
+            "models/gemini-2.5-flash"
         ]
         self.current_model_index = 0
+        self.default_model = "models/gemini-2.0-flash-exp"
 
         if self.use_litellm:
-            # Configure LiteLLM for Groq
+            # Configure LiteLLM for Gemini
             if LITELLM_AVAILABLE:
                 litellm.set_verbose = False
                 litellm.api_key = api_key
@@ -50,12 +56,97 @@ class GroqAIClient:
     def generate_content(self, prompt: str, model: str = None,
                         temperature: float = 0.7, max_tokens: int = 4000,
                         progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using AI models with rate limiting and fallback support"""
+        """Generate content using Gemini models"""
+        
+        max_retries = 3
+        retry_delays = [15, 30, 60]  # Longer delays for 2.5 Pro limits
+        
+        for attempt in range(max_retries):
+            try:
+                if progress_callback:
+                    progress_callback(f"  AI request (attempt {attempt + 1}/{max_retries})")
 
-        if self.use_litellm:
-            return self._generate_with_litellm(prompt, model, temperature, max_tokens, progress_callback)
-        else:
-            return self._generate_with_requests(prompt, model, temperature, max_tokens, progress_callback)
+                model_name = model or self.default_model
+                
+                if progress_callback:
+                    progress_callback(f"  Using model: {model_name}")
+                
+                # Create the model instance with safety settings
+                safety_settings = [
+                    {
+                        "category": "HARM_CATEGORY_HARASSMENT",
+                        "threshold": "BLOCK_ONLY_HIGH"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_HATE_SPEECH", 
+                        "threshold": "BLOCK_ONLY_HIGH"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        "threshold": "BLOCK_ONLY_HIGH"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "threshold": "BLOCK_ONLY_HIGH"
+                    }
+                ]
+                
+                gemini_model = genai.GenerativeModel(
+                    model_name,
+                    safety_settings=safety_settings
+                )
+                
+                # Configure generation settings
+                generation_config = genai.types.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=min(max_tokens, 8000),
+                )
+
+                start_time = time.time()
+
+                # Add delay for 2.5 Pro rate limiting (5 RPM = 12 seconds between requests)
+                time.sleep(12)  # Respect 5 RPM limit
+                
+                # Generate content
+                response = gemini_model.generate_content(
+                    prompt,
+                    generation_config=generation_config
+                )
+
+                # Check if response was blocked by safety filters
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 2:
+                        # Safety filter blocked
+                        error_msg = "🚫 GEMINI SAFETY FILTER BLOCKED THIS CONTENT"
+                        if progress_callback:
+                            progress_callback(f"  {error_msg}")
+                        raise Exception(error_msg)
+
+                content = response.text
+
+                if progress_callback:
+                    progress_callback(f"  Generated ({len(content)} chars)")
+
+                return content
+
+            except Exception as e:
+                elapsed = time.time() - start_time
+                error_msg = str(e).lower()
+                
+                if ("rate_limit" in error_msg or "429" in error_msg or "quota" in error_msg):
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delays[attempt]
+                        if progress_callback:
+                            progress_callback(f"  Rate limited (2.5 Pro: 5 RPM limit). Waiting {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise TimeoutError(f"Failed after {max_retries} attempts due to rate limits: {str(e)}")
+                else:
+                    raise Exception(f"AI generation failed: {str(e)}")
+
+        raise Exception("Should not reach here")
 
     def _generate_with_litellm(self, prompt: str, model: str = None,
                               temperature: float = 0.7, max_tokens: int = 4000,
@@ -70,13 +161,13 @@ class GroqAIClient:
                 if progress_callback:
                     progress_callback(f"  AI request (attempt {attempt + 1}/{max_retries})")
 
-                model_name = model or "llama-3.1-8b-instant"  # Use the faster model
+                model_name = model or "models/gemini-2.0-flash-exp"  # Use the faster Gemini model
                 timeout_seconds = 120  # Reduced from 180s to 120s
 
                 start_time = time.time()
 
                 response = litellm.completion(
-                    model=f"groq/{model_name}",
+                    model=f"gemini/{model_name}",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -126,11 +217,11 @@ class GroqAIClient:
         if progress_callback:
             progress_callback("ing fallback method...")
 
-        model_name = "llama-3.1-8b-instant"
+        model_name = "models/gemini-2.0-flash-exp"
         timeout_seconds = 90 
 
         if progress_callback:
-            progress_callback(f"  Connecting to Groq AI with {model_name} (timeout: {timeout_seconds}s)...")
+            progress_callback(f"  Connecting to Gemini AI with {model_name} (timeout: {timeout_seconds}s)...")
 
         start_time = time.time()
 
@@ -151,7 +242,7 @@ class GroqAIClient:
             )
 
             if not response.ok:
-                error_msg = f"Groq API error: {response.status_code} - {response.text}"
+                error_msg = f"Gemini API error: {response.status_code} - {response.text}"
                 if "rate_limit" in response.text.lower():
                     if progress_callback:
                         progress_callback(f"  Rate limited, moving to next page...")
