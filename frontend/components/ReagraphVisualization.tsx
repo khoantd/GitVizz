@@ -663,7 +663,7 @@ export default function EnhancedReagraphVisualization({
             <div className="flex-1 overflow-hidden">
               <Tabs
                 value={activeTab}
-                onValueChange={(v) => setActiveTab(v as "overview" | "analysis" | "map")}
+                onValueChange={(v) => setActiveTab(v as "overview" | "analysis")}
                 className="flex-1 flex flex-col h-full"
               >
                 <div className="p-3 border-b border-border/30">
@@ -796,7 +796,7 @@ export default function EnhancedReagraphVisualization({
           >
             {/* Desktop Tab Navigation */}
             <div className="p-4 border-b border-border/30 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-3 bg-muted/30 backdrop-blur-sm rounded-xl">
+              <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
                 <TabsTrigger
                   value="overview"
                   className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"

@@ -75,19 +75,19 @@ class GeminiAIClient:
                 safety_settings = [
                     {
                         "category": "HARM_CATEGORY_HARASSMENT",
-                        "threshold": "BLOCK_ONLY_HIGH"
+                        "threshold": "BLOCK_NONE"
                     },
                     {
                         "category": "HARM_CATEGORY_HATE_SPEECH", 
-                        "threshold": "BLOCK_ONLY_HIGH"
+                        "threshold": "BLOCK_NONE"
                     },
                     {
                         "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                        "threshold": "BLOCK_ONLY_HIGH"
+                        "threshold": "BLOCK_NONE"
                     },
                     {
                         "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                        "threshold": "BLOCK_ONLY_HIGH"
+                        "threshold": "BLOCK_NONE"
                     }
                 ]
                 
@@ -439,7 +439,7 @@ class GeminiAIClient:
     </wiki_structure>
 
     IMPORTANT:
-    1. Create 8-12 pages that would make a {view_type} wiki for this repository
+    1. Create 6-8 pages that would make a {view_type} wiki for this repository
     2. Each page should focus on a specific aspect of the codebase
     3. The relevant_files should be actual files from the repository
     4. Return ONLY valid XML with the structure specified above

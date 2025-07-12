@@ -247,10 +247,23 @@ export default function ResultsPage() {
 
         {/* Status Badge */}
         <div className="fixed top-6 right-6 z-50">
-          <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-2xl px-4 py-2 backdrop-blur-xl shadow-md flex items-center gap-2">
-            <CheckCircle className="h-4 w-4" />
-            <span>Analysis Complete</span>
-          </Badge>
+          {currentRepoId && (
+            <DocumentationButton
+              currentRepoId={currentRepoId}
+              sourceData={sourceData}
+              sourceType={sourceType || ""} // Ensure sourceType is defined
+            />
+          )}
+
+          {
+            !currentRepoId && (
+              <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-2xl px-4 py-2 backdrop-blur-xl shadow-md flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                <span>Analysis Complete</span>
+              </Badge>
+            )
+          }
+          
         </div>
       </div>
 
@@ -363,14 +376,6 @@ export default function ResultsPage() {
                 <span>Structure</span>
               </TabsTrigger>
             </TabsList>
-
-            {currentRepoId && (
-              <DocumentationButton
-                currentRepoId={currentRepoId}
-                sourceData={sourceData}
-                sourceType={sourceType || ""} // Ensure sourceType is defined
-              />
-            )}
 
           </div>
 
