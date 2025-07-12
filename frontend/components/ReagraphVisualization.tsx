@@ -637,11 +637,18 @@ export default function EnhancedReagraphVisualization({
   }
 
   return (
-    <div className="flex h-full w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
+  <div className="flex h-full min-h-[70vh] w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-          <div className="h-full w-full max-w-sm bg-background border-r border-border/30 shadow-xl">
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          {/* Overlay background, click to close */}
+          <div
+            className="flex-1 bg-black/30 backdrop-blur-sm"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            style={{ minWidth: 0 }}
+          />
+          {/* Sidebar panel */}
+          <div className="w-80 max-w-full h-full bg-background border-l border-border/30 shadow-xl relative z-10 flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-border/30">
               <h3 className="font-semibold text-sm">Enhanced Analysis</h3>
               <Button
