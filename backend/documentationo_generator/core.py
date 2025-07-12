@@ -11,7 +11,7 @@ load_dotenv()
 
 import re 
 try:
-    from ai_client import GroqAIClient
+    from ai_client import GeminiAIClient
     from analyzers import RepositoryAnalyzer
     from parsers import DocumentParser
     from embedders import SemanticEmbedder
@@ -19,7 +19,7 @@ try:
     from utils import save_wiki_files, generate_index_page
 except ImportError:
     # Fallback for when running as part of a package
-    from .ai_client import GroqAIClient
+    from .ai_client import GeminiAIClient
     from .analyzers import RepositoryAnalyzer
     from .parsers import DocumentParser
     from .embedders import SemanticEmbedder
@@ -30,12 +30,12 @@ class DocumentationGenerator:
     """Main documentation generator - simplified like GraphGenerator"""
     
     def __init__(self, api_key: str = None, progress_callback: Callable[[str], None] = None):
-        self.api_key = api_key or os.getenv("GROQ_API_KEY")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         if not self.api_key:
-            raise ValueError("GROQ_API_KEY environment variable is required")
+            raise ValueError("GEMINI_API_KEY environment variable is required")
             
         # Initialize components (like graph_generator's parsers)
-        self.ai_client = GroqAIClient(self.api_key)
+        self.ai_client = GeminiAIClient(self.api_key)
         self.analyzer = RepositoryAnalyzer()
         self.parser = DocumentParser()
         self.embedder = SemanticEmbedder()
@@ -52,7 +52,7 @@ class DocumentationGenerator:
         print(f"[{timestamp}] {message}")
     
     def generate_complete_wiki(self, repo_url_or_path: str, output_dir: str = "./wiki_output", 
-                         language: str = "en") -> Dict[str, Any]:
+                         language: str = "en", github_token: str = None) -> Dict[str, Any]:
         """Main generation method - COMPLETE VERSION"""
         print(f"Starting comprehensive wiki generation for: {repo_url_or_path}")
         
