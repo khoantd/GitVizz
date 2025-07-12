@@ -25,3 +25,4 @@ litellm
 python-dotenv
 faiss-cpu
 sentence-transformers
+google-generativeai
