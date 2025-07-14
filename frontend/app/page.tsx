@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { RepoTabs } from "@/components/repo-tabs";
 import { showToast } from "@/components/toaster";
 import Footer from "@/components/footer";
-import Header from "@/components/header"
+import Header from "@/components/header";
 
 export default function Home() {
   const { error, outputMessage, setError, setOutputMessage } = useResultData();
