@@ -1002,7 +1002,8 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 theme={theme === "dark" ? "vs-dark" : "light"}
                 options={{
                   readOnly: true,
-                  minimap: { enabled: window.innerWidth > 768 }, // Disable minimap on mobile
+                  // minimap: { enabled: window.innerWidth > 768 }, // Disable minimap on mobile
+                  minimap: { enabled: false }, // Disable minimap on mobile
                   scrollBeyondLastLine: false,
                   fontSize: window.innerWidth > 768 ? 14 : 12, // Smaller font on mobile
                   lineNumbers: "on",

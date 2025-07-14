@@ -13,19 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSession } from "next-auth/react"
 import { useApiWithAuth } from "@/hooks/useApiWithAuth"
-import {
-  Network,
-  FileText,
-  Code,
-  ActivityIcon as Function,
-  Variable,
-  Package,
-  Layers,
-  Eye,
-  EyeOff,
-  Menu,
-  X,
-} from "lucide-react"
+import { Network, FileText, Code, ActivityIcon as Function, Variable, Package, Layers, Eye, EyeOff, Menu, X } from 'lucide-react'
 import { CodeReferenceAnalyzer } from "@/components/code-reference-analyzer"
 import type { CodeReference, GraphData } from "@/types/code-analysis"
 
@@ -261,11 +249,11 @@ function isCacheValid(entry: CacheEntry): boolean {
   return Date.now() - entry.timestamp < CACHE_DURATION
 }
 
-// Overview Tab Component
+// Overview Tab Component with improved scroll
 const OverviewTab = memo(
   ({ categoryData }: { categoryData: Array<{ key: string; config: CategoryConfig; count: number }> }) => (
-    <div className="h-full overflow-hidden">
-      <ScrollArea className="h-full">
+    <div className="h-full flex flex-col">
+      <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-4 sm:space-y-6">
           <div className="space-y-3">
             <h3 className="text-xs sm:text-sm font-semibold text-foreground">Node Types</h3>
@@ -323,7 +311,6 @@ const OverviewTab = memo(
 )
 OverviewTab.displayName = "OverviewTab"
 
-
 // Main Component
 export default function EnhancedReagraphVisualization({
   setParentActiveTab,
@@ -348,6 +335,7 @@ export default function EnhancedReagraphVisualization({
 
   const hasLoadedRef = useRef(false)
   const currentRequestKeyRef = useRef<string | null>(null)
+  const analysisScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setIsClient(true)
@@ -482,6 +470,13 @@ export default function EnhancedReagraphVisualization({
         setActiveTab("analysis")
         setIsMobileSidebarOpen(true)
         onNodeClick?.(graphNode)
+        
+        // Scroll to top of analysis content after a brief delay
+        setTimeout(() => {
+          if (analysisScrollRef.current) {
+            analysisScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }, 100)
       }
     },
     [graphData?.nodes, onNodeClick],
@@ -637,7 +632,7 @@ export default function EnhancedReagraphVisualization({
   }
 
   return (
-  <div className="flex h-full min-h-[70vh] w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
+    <div className="flex h-full min-h-[70vh] w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -649,7 +644,7 @@ export default function EnhancedReagraphVisualization({
           />
           {/* Sidebar panel */}
           <div className="w-80 max-w-full h-full bg-background border-l border-border/30 shadow-xl relative z-10 flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-border/30">
+            <div className="flex items-center justify-between p-4 border-b border-border/30 flex-shrink-0">
               <h3 className="font-semibold text-sm">Enhanced Analysis</h3>
               <Button
                 variant="ghost"
@@ -666,7 +661,7 @@ export default function EnhancedReagraphVisualization({
                 onValueChange={(v) => setActiveTab(v as "overview" | "analysis")}
                 className="flex-1 flex flex-col h-full"
               >
-                <div className="p-3 border-b border-border/30">
+                <div className="p-3 border-b border-border/30 flex-shrink-0">
                   <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
                     <TabsTrigger
                       value="overview"
@@ -689,14 +684,16 @@ export default function EnhancedReagraphVisualization({
                     <OverviewTab categoryData={categoryData} />
                   </TabsContent>
                   <TabsContent value="analysis" className="h-full m-0 p-0">
-                    {selectedCodeReference && analysisGraphData && (
-                      <CodeReferenceAnalyzer
-                        selectedNode={selectedCodeReference}
-                        graphData={analysisGraphData}
-                        maxDepth={3}
-                        onOpenFile={handleOpenFile}
-                      />
-                    )}
+                    <div className="h-full" ref={analysisScrollRef}>
+                      {selectedCodeReference && analysisGraphData && (
+                        <CodeReferenceAnalyzer
+                          selectedNode={selectedCodeReference}
+                          graphData={analysisGraphData}
+                          maxDepth={3}
+                          onOpenFile={handleOpenFile}
+                        />
+                      )}
+                    </div>
                   </TabsContent>
                 </div>
               </Tabs>
@@ -821,14 +818,16 @@ export default function EnhancedReagraphVisualization({
               </TabsContent>
 
               <TabsContent value="analysis" className="h-full m-0 p-0">
-                {selectedCodeReference && analysisGraphData && (
-                  <CodeReferenceAnalyzer
-                    selectedNode={selectedCodeReference}
-                    graphData={analysisGraphData}
-                    maxDepth={3}
-                    onOpenFile={handleOpenFile}
-                  />
-                )}
+                <div className="h-full" ref={analysisScrollRef}>
+                  {selectedCodeReference && analysisGraphData && (
+                    <CodeReferenceAnalyzer
+                      selectedNode={selectedCodeReference}
+                      graphData={analysisGraphData}
+                      maxDepth={3}
+                      onOpenFile={handleOpenFile}
+                    />
+                  )}
+                </div>
               </TabsContent>
             </div>
           </Tabs>

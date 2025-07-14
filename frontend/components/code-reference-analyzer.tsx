@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, BarChart3, FileText, Loader2, AlertCircle, Check } from "lucide-react"
+import { Search, Filter, BarChart3, FileText, Loader2, AlertCircle, Check } from 'lucide-react'
 import { ReferenceFileCard } from "./reference-file-card"
 import { analyzeReferences } from "../utils/code-analyzer"
 import type { CodeReferenceProps } from "../types/code-analysis"
@@ -160,7 +160,7 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Header with Stats */}
+      {/* Header with Stats - Fixed */}
       <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20 bg-background/50 backdrop-blur-sm">
         <div className="space-y-2 sm:space-y-3">
           {/* Node Info */}
@@ -189,7 +189,7 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
         </div>
       </div>
 
-      {/* Filters and Search */}
+      {/* Filters and Search - Fixed */}
       <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20 space-y-2 sm:space-y-3 bg-background/30 backdrop-blur-sm">
         {/* Filter Tabs */}
         <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as "all" | "calls" | "imports" | "methods")}>
@@ -224,8 +224,8 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
         </div>
       </div>
 
-      {/* Reference Files List */}
-      <div className="flex-1 overflow-hidden">
+      {/* Reference Files List - Scrollable */}
+      <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
           <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
             {filteredReferences.map((referenceFile, index) => (

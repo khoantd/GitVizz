@@ -439,7 +439,7 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh]">
+                  <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh] h-[500px] sm:h-[600px] lg:h-[700px]">
                     {sourceType && sourceData ? (
                       <div className="h-full w-full min-h-[70vh] lg:min-h-[80vh] rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
                         <ReagraphVisualization

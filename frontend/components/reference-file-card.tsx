@@ -42,7 +42,7 @@ export function ReferenceFileCard({ referenceFile, functionName, onOpenFile, onC
 
             <div className="flex-1 min-w-0">
               <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{referenceFile.fileName}</h3>
-              <p className="text-xs text-muted-foreground font-mono truncate">{referenceFile.relativePath}</p>
+              {/* <p className="text-xs text-muted-foreground font-mono truncate">{referenceFile.relativePath}</p> */}
             </div>
           </div>
 
