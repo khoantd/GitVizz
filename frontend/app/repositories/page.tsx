@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { showToast } from "@/components/toaster"
 import { useResultData } from "@/context/ResultDataContext"
 import { fetchGithubRepo } from "@/utils/api"
+import { useApiWithAuth } from "@/hooks/useApiWithAuth"
 
 interface Repository {
   id: number;
@@ -47,7 +48,9 @@ export default function RepositoriesPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [processingRepos, setProcessingRepos] = useState<number[]>([])
   const router = useRouter()
-  const { setOutput, setSourceType, setSourceData } = useResultData()
+  const { setOutput, setSourceType, setSourceData, setCurrentRepoId } = useResultData()
+
+  const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo)
 
   // Stable callback functions to prevent infinite loops
   const handleError = useCallback((message: string) => {
@@ -226,17 +229,19 @@ export default function RepositoriesPage() {
   const handleVizify = async ({ id: repoId, html_url, branch }: Repository) => {
     try {
       setProcessingRepos((prev) => [...prev, repoId])
-        console.log(html_url)
-        const requestData = {
+      console.log(html_url)
+      const requestData = {
         repo_url: html_url,
         access_token: session?.accessToken || undefined,
         branch: branch || "main",
+        jwt_token: session?.jwt_token || undefined
       };
 
-      const formattedText = await fetchGithubRepo(requestData);
+      const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
       setOutput(formattedText)
       setSourceType("github")
       setSourceData(requestData);
+      setCurrentRepoId(repo_id)
       setProcessingRepos((prev) => prev.filter((id) => id !== repoId))
       router.push("/results");
     } catch (error) {

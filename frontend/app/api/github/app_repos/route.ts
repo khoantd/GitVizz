@@ -1,12 +1,8 @@
-// app/api/github/installations/route.ts
+// app/api/github/app_repos/route.ts
 
 import { NextRequest } from 'next/server';
 import { Octokit } from 'octokit';
 import { createAppAuth } from '@octokit/auth-app';
-import type { Endpoints } from '@octokit/types';
-
-type ListReposResponse =
-  Endpoints['GET /installation/repositories']['response'];
 
 export async function GET(req: NextRequest): Promise<Response> {
   const { searchParams } = new URL(req.url);
@@ -33,10 +29,25 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     const octokit = new Octokit({ auth: installationAuth.token });
 
-    const { data }: ListReposResponse =
-      await octokit.rest.apps.listReposAccessibleToInstallation();
+    console.log(`[DEBUG] Installation ID: ${installationId}`);
+    
+    // Fetch all repositories with pagination using iterator
+    const allRepositories = [];
+    
+    for await (const response of octokit.paginate.iterator(
+      octokit.rest.apps.listReposAccessibleToInstallation,
+      { per_page: 500 }
+    )) {
+      console.log(`[DEBUG] Fetched ${response.data.length} repositories in this page`);
+      allRepositories.push(...response.data);
+    }
+    
+    console.log(`[DEBUG] Total repositories fetched: ${allRepositories.length}`);
 
-    return new Response(JSON.stringify({ repositories: data.repositories }), {
+    return new Response(JSON.stringify({ 
+      repositories: allRepositories,
+      total_count: allRepositories.length 
+    }), {
       status: 200,
     });
   } catch (error: unknown) {

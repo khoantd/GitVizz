@@ -1,5 +1,11 @@
 from fastapi import BackgroundTasks, HTTPException, Form, File, UploadFile
 from typing import Optional, List
+from datetime import datetime
+import os
+from pathlib import Path
+import io
+from fastapi import UploadFile
+
 from schemas.response_schemas import (
     TextResponse,
     GraphResponse,
@@ -14,8 +20,12 @@ from utils.repo_utils import (
     parse_repo_url,
     format_repo_structure
 )
-from pathlib import Path
+from utils.jwt_utils import get_current_user
+from utils.file_utils import save_repository_files, generate_repo_identifier, file_manager
 from graphing.graph_generator import GraphGenerator
+from models.repository import Repository
+from models.user import User
+import requests
 
 
 """
@@ -28,9 +38,177 @@ Includes endpoints for:
 
 These endpoints process uploaded ZIP files or remote GitHub/repo URLs,
 extract code content, and return structured output suitable for further analysis.
+Supports user-based caching when JWT token is provided.
 
 Used by: routes/repo_routes.py
 """
+
+
+async def get_latest_commit_sha(repo_url: str, branch: str = "main", access_token: Optional[str] = None) -> Optional[str]:
+    """Get the latest commit SHA for a GitHub repository."""
+    try:
+        repo_info = parse_repo_url(repo_url)
+        if repo_info["owner"] == "unknown":
+            return None
+            
+        api_url = f"https://api.github.com/repos/{repo_info['owner']}/{repo_info['repo']}/branches/{branch}"
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
+        }
+        
+        # Only add authorization header if we have a valid access token
+        if access_token and access_token.strip() and access_token != "string":
+            headers["Authorization"] = f"token {access_token}"
+            
+        response = requests.get(api_url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return response.json()["commit"]["sha"]
+        elif response.status_code == 401 and access_token:
+            # If we got 401 with a token, the token might be invalid
+            print(f"Warning: GitHub API returned 401 with provided token for {repo_url}")
+            return None
+        # For public repos without token, we might still get commit info from other sources
+        # but for now, we'll return None and let the system work without commit tracking
+        return None
+    except Exception as e:
+        print(f"Error getting commit SHA for {repo_url}: {str(e)}")
+        return None
+
+
+def is_valid_access_token(access_token: Optional[str]) -> bool:
+    """Check if the access token is valid and not a placeholder."""
+    return (access_token and 
+            access_token.strip() and 
+            access_token != "string" and 
+            len(access_token.strip()) > 10)
+
+
+async def check_existing_repository(
+    user: User, 
+    repo_identifier: str, 
+    commit_sha: Optional[str] = None
+) -> Optional[Repository]:
+    """Check if repository already exists for user and if it's up to date."""
+    
+    try:
+        existing_repo = await Repository.find_one(
+            Repository.user.id == user.id,
+            Repository.repo_name == repo_identifier
+        )
+        
+        if not existing_repo:
+            return None
+        
+        # If we have a commit SHA and it's different, repo is outdated
+        if commit_sha and existing_repo.commit_sha != commit_sha:
+            return None
+        
+        # Validate that files still exist
+        validation_result = await file_manager.validate_file_paths(existing_repo.file_paths)
+        if not all(validation_result.values()):
+            return None
+        
+        return existing_repo
+        
+    except Exception as e:
+        print(f"Error in check_existing_repository: {e}")
+        return None
+
+
+async def get_zip_content_from_processing(
+    repo_url: Optional[str],
+    branch: str,
+    zip_file: Optional[UploadFile],
+    access_token: Optional[str]
+) -> Optional[bytes]:
+    """Extract ZIP content during processing for caching."""
+    if zip_file:
+        # If uploaded ZIP file, read its content
+        zip_content = await zip_file.read()
+        await zip_file.seek(0)  # Reset file pointer for later use
+        return zip_content
+    
+    elif repo_url:
+        # If GitHub URL, download the ZIP content
+        try:
+            actual_zip_url = repo_url  # fallback
+            headers = {}
+
+            if "github.com" in repo_url:
+                repo_info = parse_repo_url(repo_url)
+                owner, repo_name_from_url = repo_info["owner"], repo_info["repo"]
+
+                if owner != "unknown":
+                    # Use GitHub API zipball URL
+                    actual_zip_url = f"https://api.github.com/repos/{owner}/{repo_name_from_url}/zipball/{branch or 'main'}"
+                    headers = {
+                        "Authorization": f"token {access_token}" if access_token else "",
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
+                    }
+
+            response = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
+            if response.status_code == 200:
+                return response.content
+                
+        except Exception as e:
+            print(f"Error downloading ZIP content for caching: {e}")
+    
+    return None
+
+
+async def save_and_cache_repository(
+    user: User,
+    repo_identifier: str,
+    branch: str,
+    commit_sha: Optional[str],
+    repo_url: Optional[str],
+    formatted_text: str,
+    graph_data: Optional[dict] = None,
+    structure_data: Optional[dict] = None,
+    zip_content: Optional[bytes] = None
+) -> None:
+    """Save repository data and create/update database record."""
+    
+    # Save files to storage
+    file_paths = await save_repository_files(
+        str(user.id), 
+        repo_identifier, 
+        formatted_text,
+        graph_data=graph_data,
+        structure_data=structure_data,
+        zip_content=zip_content
+    )
+    
+    # Create or update repository record
+    repo_data = {
+        "user": user,
+        "repo_name": repo_identifier,
+        "branch": branch,
+        "commit_sha": commit_sha,
+        "source": "github" if repo_url else "zip",
+        "github_url": repo_url,
+        "file_paths": file_paths,
+        "updated_at": datetime.utcnow()
+    }
+    
+    # Try to update existing or create new
+    existing_repo = await Repository.find_one(
+        Repository.user.id == user.id,
+        Repository.repo_name == repo_identifier
+    )
+    
+    if existing_repo:
+        for key, value in repo_data.items():
+            if key != "user":  # Don't update the user field
+                setattr(existing_repo, key, value)
+        await existing_repo.save()
+        return existing_repo
+    else:
+        new_repo = Repository(**repo_data)
+        await new_repo.save()
+        return new_repo
 
 
 async def generate_text_endpoint(
@@ -50,19 +228,77 @@ async def generate_text_endpoint(
         description="Optional GitHub token for accessing private repositories.",
         example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     ),
+    jwt_token: Optional[str] = Form(
+        None,
+        description="Optional JWT token for user authentication.",
+        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    ),
 ) -> TextResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
+    
+    user = None
+    if repo_url:
+        repo_url = repo_url.lower()
+    
+    # Get user if JWT token provided
+    if jwt_token:
+        user = await get_current_user(jwt_token)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired JWT token."
+            )
+        
+    # Generate repository identifier
+    repo_identifier = generate_repo_identifier(
+        repo_url, 
+        zip_file.filename if zip_file else None, 
+        branch
+    )
+    
+    # Get commit SHA if it's a GitHub repo AND we have a valid access token
+    commit_sha = None
+    if repo_url and "github.com" in repo_url and is_valid_access_token(access_token):
+        commit_sha = await get_latest_commit_sha(repo_url, branch, access_token)
+            
+    # Check if user has this repository cached
+    if user:
+        existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
+        if existing_repo:
+            # Return cached content
+            cached_content = await file_manager.load_text_content(existing_repo.file_paths.text)
+            if cached_content:
+                return TextResponse(
+                    text_content=cached_content,
+                    filename_suggestion=f"{repo_identifier}_content.txt",
+                    repo_id=str(existing_repo.id)
+                )
 
     temp_dirs_to_cleanup = []
+    zip_content = None
+    processed_zip_file = None
+    
     try:
+        # Handle zip file by creating a copy we can read multiple times
+        if zip_file:
+            zip_content = await zip_file.read()
+            # Create a new UploadFile-like object from the bytes
+            processed_zip_file = UploadFile(
+                filename=zip_file.filename,
+                file=io.BytesIO(zip_content),
+                headers=zip_file.headers
+            )
+        
+        # Only pass access_token if it's valid
+        valid_token = access_token if is_valid_access_token(access_token) else None
+        
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
             repo_url,
             branch,
-            zip_file,  # Use the zip_file parameter directly
-            access_token=access_token,  # Pass the GitHub token if provided
+            processed_zip_file,  # Use our processed version
+            access_token=valid_token,
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -81,28 +317,48 @@ async def generate_text_endpoint(
 
         formatted_text = format_repo_contents(filtered_files)
 
-        filename_base = "repository_content"
+        # Save to database if user is authenticated
+        if user:
+            # We already have zip_content from the uploaded file or can get it from URL
+            if not zip_content and repo_url:
+                zip_content = await get_zip_content_from_processing(repo_url, branch, None, valid_token)
+            
+            saved_repo = await save_and_cache_repository(
+                user=user,
+                repo_identifier=repo_identifier,
+                branch=branch,
+                commit_sha=commit_sha,
+                repo_url=repo_url,
+                formatted_text=formatted_text,
+                zip_content=zip_content
+            )
+
+        filename_base = repo_identifier
         if repo_url:
             repo_info = parse_repo_url(repo_url)
             if repo_info.get("repo") and repo_info["repo"] != "repository":
-                filename_base = (
-                    f"{repo_info['owner']}_{repo_info['repo']}_{branch}_content"
-                )
-        elif zip_file and zip_file.filename:  # Use zip_file
-            filename_base = f"{Path(zip_file.filename).stem}_content"  # Use zip_file
+                filename_base = f"{repo_info['owner']}_{repo_info['repo']}_{branch}_content"
+        elif zip_file and zip_file.filename:
+            filename_base = f"{Path(zip_file.filename).stem}_content"
 
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return TextResponse(
-            text_content=formatted_text, filename_suggestion=f"{filename_base}.txt"
+            text_content=formatted_text, 
+            filename_suggestion=f"{filename_base}.txt",
+            repo_id=str(saved_repo.id) if user else ""
         )
+        
     except HTTPException as he:
-        cleanup_temp_files(
-            temp_dirs_to_cleanup
-        )  # Attempt cleanup on known HTTP errors too
+        cleanup_temp_files(temp_dirs_to_cleanup)
         raise he
     except Exception as e:
         cleanup_temp_files(temp_dirs_to_cleanup)
+        print(f"Error in generate_text_endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+    finally:
+        # Clean up the processed zip file
+        if processed_zip_file and hasattr(processed_zip_file.file, 'close'):
+            processed_zip_file.file.close()
 
 
 async def generate_graph_endpoint(
@@ -119,16 +375,71 @@ async def generate_graph_endpoint(
         description="Optional GitHub token for accessing private repositories.",
         example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     ),
+    jwt_token: Optional[str] = Form(
+        None,
+        description="Optional JWT token for user authentication.",
+        example="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    ),
 ) -> GraphResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
 
+    user = None
+    
+    if repo_url:
+        repo_url = repo_url.lower()
+    
+    # Get user if JWT token provided
+    if jwt_token:
+        user = await get_current_user(jwt_token)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired JWT token."
+            )
+    
+    # Generate repository identifier
+    repo_identifier = generate_repo_identifier(
+        repo_url, 
+        zip_file.filename if zip_file else None, 
+        branch
+    )
+    
+    # Get commit SHA if it's a GitHub repo AND we have a valid access token
+    commit_sha = None
+    if repo_url and "github.com" in repo_url and is_valid_access_token(access_token):
+        commit_sha = await get_latest_commit_sha(repo_url, branch, access_token)
+    
+    # Check if user has this repository cached
+    if user:
+        existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
+        if existing_repo:
+            # Return cached graph data
+            cached_data = await file_manager.load_json_data(existing_repo.file_paths.json_file)
+            if cached_data and "graph" in cached_data:
+                return GraphResponse(**cached_data["graph"])
+
     temp_dirs_to_cleanup = []
+    zip_content = None
+    processed_zip_file = None
+    
     try:
+        # Handle zip file by reading content first and creating a reusable copy
+        if zip_file:
+            zip_content = await zip_file.read()
+            # Create a new UploadFile-like object from the bytes
+            processed_zip_file = UploadFile(
+                filename=zip_file.filename,
+                file=io.BytesIO(zip_content),
+                headers=zip_file.headers
+            )
+        
+        # Only pass access_token if it's valid
+        valid_token = access_token if is_valid_access_token(access_token) else None
+            
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
-            repo_url, branch, zip_file, access_token=access_token
+            repo_url, branch, processed_zip_file, access_token=valid_token
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
@@ -145,22 +456,44 @@ async def generate_graph_endpoint(
                 detail="No suitable files for graph generation after filtering.",
             )
 
-        # Pass the original relative paths and content to GraphGenerator
+        # Generate graph data
         generator = GraphGenerator(files=filtered_files, output_html_path=None)
         graph_data = generator.generate()
 
+        # Save to database if user is authenticated
+        if user:
+            formatted_text = format_repo_contents(filtered_files)  # Also generate text for storage
+            
+            # Use the zip_content we already read instead of calling get_zip_content_from_processing
+            if not zip_content and repo_url:
+                # Only fetch zip content if we don't have it and it's from a URL
+                zip_content = await get_zip_content_from_processing(repo_url, branch, None, valid_token)
+            
+            await save_and_cache_repository(
+                user=user,
+                repo_identifier=repo_identifier,
+                branch=branch,
+                commit_sha=commit_sha,
+                repo_url=repo_url,
+                formatted_text=formatted_text,
+                graph_data=graph_data,
+                zip_content=zip_content
+            )
+
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return GraphResponse(**graph_data)
+        
     except HTTPException as he:
         cleanup_temp_files(temp_dirs_to_cleanup)
         raise he
     except Exception as e:
         cleanup_temp_files(temp_dirs_to_cleanup)
-        # Log the full error server-side for debugging
-        # import traceback
-        # print(f"Error in generate_graph_endpoint: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error generating graph: {str(e)}")
-    
+    finally:
+        # Clean up the processed zip file
+        if processed_zip_file and hasattr(processed_zip_file.file, 'close'):
+            processed_zip_file.file.close() 
+
 
 async def generate_structure_endpoint(
     background_tasks: BackgroundTasks,
@@ -176,32 +509,65 @@ async def generate_structure_endpoint(
         description="Optional GitHub token for accessing private repositories.",
         example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     ),
+    jwt_token: Optional[str] = Form(
+        None,
+        description="Optional JWT token for user authentication.",
+        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    ),
 ) -> StructureResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
 
+    user = None
+    repo_url = repo_url.lower()
+    
+    # Get user if JWT token provided
+    if jwt_token:
+        user = await get_current_user(jwt_token)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired JWT token."
+            )
+    
+    # Generate repository identifier
+    repo_identifier = generate_repo_identifier(
+        repo_url, 
+        zip_file.filename if zip_file else None, 
+        branch
+    )
+    
+    # Get commit SHA if it's a GitHub repo AND we have a valid access token
+    commit_sha = None
+    if repo_url and "github.com" in repo_url and is_valid_access_token(access_token):
+        commit_sha = await get_latest_commit_sha(repo_url, branch, access_token)
+    
+    # Check if user has this repository cached
+    if user:
+        existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
+        if existing_repo:
+            # Return cached structure data
+            cached_data = await file_manager.load_json_data(existing_repo.file_paths.json_file)
+            if cached_data and "structure" in cached_data:
+                return StructureResponse(**cached_data["structure"])
+
     temp_dirs_to_cleanup = []
     try:
+        # Only pass access_token if it's valid
+        valid_token = access_token if is_valid_access_token(access_token) else None
+            
         extracted_files, temp_extract_dir, temp_dirs_created = await _process_input(
-            repo_url, branch, zip_file, access_token=access_token
+            repo_url, branch, zip_file, access_token=valid_token
         )
         temp_dirs_to_cleanup.extend(temp_dirs_created)
 
-        if (
-            not extracted_files
-        ):  # These are all files before filtering by smart_filter_files
+        if not extracted_files:
             raise HTTPException(
                 status_code=404,
                 detail="No files found in the provided repository source.",
             )
 
-        # For structure, we might want to show all files, not just "source" files.
-        # However, smart_filter_files also handles .ipynb parsing and size limits.
-        # Let's use smart_filter_files to get a sensible list for structure too.
-        # If the goal is to show *all* files, then smart_filter_files would need adjustment or bypass.
-        # For now, assume structure of "relevant" files is desired.
         relevant_files_for_structure = smart_filter_files(
             extracted_files, temp_extract_dir
         )
@@ -218,12 +584,35 @@ async def generate_structure_endpoint(
         for file_info in relevant_files_for_structure:
             files_data_list.append(
                 FileData(path=file_info["path"], content=file_info.get("content", ""))
-            )  # Ensure content is present
+            )
+
+        structure_data = {
+            "directory_tree": directory_tree_string,
+            "files": [{"path": f.path, "content": f.content} for f in files_data_list]
+        }
+
+        # Save to database if user is authenticated
+        if user:
+            formatted_text = format_repo_contents(relevant_files_for_structure)
+            zip_content = await get_zip_content_from_processing(repo_url, branch, zip_file, valid_token)
+            
+            await save_and_cache_repository(
+                user=user,
+                repo_identifier=repo_identifier,
+                branch=branch,
+                commit_sha=commit_sha,
+                repo_url=repo_url,
+                formatted_text=formatted_text,
+                structure_data=structure_data,
+                zip_content=zip_content
+            )
 
         background_tasks.add_task(cleanup_temp_files, temp_dirs_to_cleanup)
         return StructureResponse(
-            directory_tree=directory_tree_string, files=files_data_list
+            directory_tree=directory_tree_string, 
+            files=files_data_list
         )
+        
     except HTTPException as he:
         cleanup_temp_files(temp_dirs_to_cleanup)
         raise he

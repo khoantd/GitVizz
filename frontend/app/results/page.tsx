@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StructureTab } from "@/components/structure-tab"
 import ReagraphVisualization from "@/components/ReagraphVisualization"
+import { FloatingChatButton } from "@/components/floating-chat-button"
+import { ChatSidebar } from "@/components/chat-sidebar"
+import DocumentationButton from "@/components/documentation-button"
 
 import {
   Network,
@@ -31,11 +34,21 @@ import { useSession } from "next-auth/react"
 
 export default function ResultsPage() {
   const router = useRouter()
-  const { output, error, outputMessage, sourceType, sourceData, loading } = useResultData()
+  const { output, error, outputMessage, sourceType, sourceData, loading, currentRepoId } = useResultData()
 
-  const [activeTab, setActiveTab] = useState("structure")
+  const { data: session } = useSession()
+
+  // Set default active tab based on authentication
+  const defaultTab = session?.accessToken ? "graph" : "structure"
+  const [activeTab, setActiveTab] = useState(defaultTab)
+
   const [showInfo, setShowInfo] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
+
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen)
+  }
 
   // popup state for full-screen code explorer
   const [isExpanded, setIsExpanded] = useState(false)
@@ -45,8 +58,6 @@ export default function ResultsPage() {
 
   const popupRef = useRef<HTMLDivElement>(null)
   const popupGraphRef = useRef<HTMLDivElement>(null)
-
-  const { data: session } = useSession()
 
   // Handle restricted tab clicks
   const handleTabChange = (value: string) => {
@@ -236,10 +247,23 @@ export default function ResultsPage() {
 
         {/* Status Badge */}
         <div className="fixed top-6 right-6 z-50">
-          <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-2xl px-4 py-2 backdrop-blur-xl shadow-md flex items-center gap-2">
-            <CheckCircle className="h-4 w-4" />
-            <span>Analysis Complete</span>
-          </Badge>
+          {currentRepoId && (
+            <DocumentationButton
+              currentRepoId={currentRepoId}
+              sourceData={sourceData}
+              sourceType={sourceType || ""} // Ensure sourceType is defined
+            />
+          )}
+
+          {
+            !currentRepoId && (
+              <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-2xl px-4 py-2 backdrop-blur-xl shadow-md flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                <span>Analysis Complete</span>
+              </Badge>
+            )
+          }
+          
         </div>
       </div>
 
@@ -278,17 +302,10 @@ export default function ResultsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-8">
+
           {/* Mobile Tab Navigation */}
           <div className="lg:hidden">
             <TabsList className="grid w-full grid-cols-3 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
-              <TabsTrigger
-                value="structure"
-                className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="hidden xs:inline">Structure</span>
-              </TabsTrigger>
-
               <TabsTrigger
                 value="graph"
                 className={cn(
@@ -312,21 +329,22 @@ export default function ResultsPage() {
                 <Code2 className="h-4 w-4" />
                 <span className="hidden xs:inline">Explorer</span>
               </TabsTrigger>
+
+              <TabsTrigger
+                value="structure"
+                className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden xs:inline">Structure</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
           {/* Desktop Tab Navigation */}
-          <div className="hidden lg:flex justify-center relative">
+          <div className="hidden lg:flex justify-center items-center gap-4 relative">
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-muted/30 -z-10"></div>
-            <TabsList className="bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-2 shadow-lg min-h-[60px] relative z-10">
-              <TabsTrigger
-                value="structure"
-                className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
-              >
-                <FileText className="h-5 w-5" />
-                <span>Structure</span>
-              </TabsTrigger>
 
+            <TabsList className="bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-2 shadow-lg min-h-[60px] relative z-10">
               <TabsTrigger
                 value="graph"
                 className={cn(
@@ -338,7 +356,6 @@ export default function ResultsPage() {
                 <Network className="h-5 w-5" />
                 <span>Graph</span>
               </TabsTrigger>
-
               <TabsTrigger
                 value="explorer"
                 className={cn(
@@ -350,21 +367,19 @@ export default function ResultsPage() {
                 <Code2 className="h-5 w-5" />
                 <span>Explorer</span>
               </TabsTrigger>
+
+              <TabsTrigger
+                value="structure"
+                className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
+              >
+                <FileText className="h-5 w-5" />
+                <span>Structure</span>
+              </TabsTrigger>
             </TabsList>
+
           </div>
 
           <div className="relative">
-            {/* Desktop Tab Indicator */}
-            <div
-              className={cn(
-                "hidden lg:block absolute top-0 left-1/2 w-[2px] h-4 bg-primary transition-all duration-300",
-                activeTab === "structure"
-                  ? "-translate-x-[140px]"
-                  : activeTab === "graph"
-                    ? "translate-x-0"
-                    : "translate-x-[140px]",
-              )}
-            />
 
             {/* Enhanced Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">
@@ -488,7 +503,7 @@ export default function ResultsPage() {
                   <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
                     <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
-                      <CodeViewer />
+                        <CodeViewer />
                       </div>
                     </div>
                   </div>
@@ -498,6 +513,19 @@ export default function ResultsPage() {
           </div>
         </Tabs>
       </main>
+
+      {currentRepoId && (
+        <>
+          <FloatingChatButton onClick={toggleChat} isOpen={isChatOpen} unreadCount={0} />
+
+          <ChatSidebar
+            isOpen={isChatOpen}
+            onClose={() => setIsChatOpen(false)}
+            repositoryId={currentRepoId}
+            repositoryName={getRepoName()}
+          />
+        </>
+      )}
 
       {/* Expanded Views - Only render if authenticated */}
       {session?.accessToken && (
@@ -517,7 +545,9 @@ export default function ResultsPage() {
                         <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       </div>
                       <div>
-                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">Code Explorer</h2>
+                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                          Code Explorer
+                        </h2>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">{getRepoName()}</p>
                       </div>
                     </div>

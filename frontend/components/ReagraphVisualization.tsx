@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useSession } from "next-auth/react"
+import { useApiWithAuth } from "@/hooks/useApiWithAuth"
 import {
   Network,
   FileText,
@@ -339,6 +341,10 @@ export default function EnhancedReagraphVisualization({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
+  const { data: session } = useSession()
+
+  const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub)
+  const generateGraphFromZipWithAuth = useApiWithAuth(generateGraphFromZip)
 
   const hasLoadedRef = useRef(false)
   const currentRequestKeyRef = useRef<string | null>(null)
@@ -383,9 +389,9 @@ export default function EnhancedReagraphVisualization({
       try {
         let data: GraphResponse
         if (sourceType === "github" && sourceData && isGitHubSourceData(sourceData)) {
-          data = await generateGraphFromGithub(sourceData)
+          data = await generateGraphFromGithubWithAuth(sourceData, session?.jwt_token || "")
         } else if (sourceType === "zip" && sourceData instanceof File) {
-          data = await generateGraphFromZip(sourceData)
+          data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || "")
         } else {
           throw new Error("Invalid source type or data")
         }
@@ -415,7 +421,7 @@ export default function EnhancedReagraphVisualization({
     return () => {
       isCancelled = true
     }
-  }, [requestKey, isClient, sourceType, sourceData, onError, isGitHubSourceData])
+  }, [requestKey, isClient, sourceType, sourceData, onError, isGitHubSourceData, generateGraphFromGithubWithAuth, generateGraphFromZipWithAuth, session?.jwt_token])
 
   const nodeCategories = useMemo(() => getDynamicNodeCategories(graphData?.nodes), [graphData?.nodes])
 
@@ -631,11 +637,18 @@ export default function EnhancedReagraphVisualization({
   }
 
   return (
-    <div className="flex h-full w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
+  <div className="flex h-full min-h-[70vh] w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-          <div className="h-full w-full max-w-sm bg-background border-r border-border/30 shadow-xl">
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          {/* Overlay background, click to close */}
+          <div
+            className="flex-1 bg-black/30 backdrop-blur-sm"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            style={{ minWidth: 0 }}
+          />
+          {/* Sidebar panel */}
+          <div className="w-80 max-w-full h-full bg-background border-l border-border/30 shadow-xl relative z-10 flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-border/30">
               <h3 className="font-semibold text-sm">Enhanced Analysis</h3>
               <Button
@@ -650,7 +663,7 @@ export default function EnhancedReagraphVisualization({
             <div className="flex-1 overflow-hidden">
               <Tabs
                 value={activeTab}
-                onValueChange={(v) => setActiveTab(v as "overview" | "analysis" | "map")}
+                onValueChange={(v) => setActiveTab(v as "overview" | "analysis")}
                 className="flex-1 flex flex-col h-full"
               >
                 <div className="p-3 border-b border-border/30">
@@ -783,7 +796,7 @@ export default function EnhancedReagraphVisualization({
           >
             {/* Desktop Tab Navigation */}
             <div className="p-4 border-b border-border/30 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-3 bg-muted/30 backdrop-blur-sm rounded-xl">
+              <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
                 <TabsTrigger
                   value="overview"
                   className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"

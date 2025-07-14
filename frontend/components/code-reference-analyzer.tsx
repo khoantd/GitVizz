@@ -100,14 +100,14 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
 
   if (!selectedNode) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center">
-            <FileText className="h-6 w-6 text-muted-foreground/50" />
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 min-h-[200px]">
+        <div className="text-center space-y-4 max-w-xs">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center">
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
           </div>
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Select a Node</h3>
-            <p className="text-xs text-muted-foreground max-w-xs">
+            <p className="text-xs text-muted-foreground">
               Click on any node in the graph to analyze its code references and usage patterns
             </p>
           </div>
@@ -118,9 +118,9 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
 
   if (isAnalyzing) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 min-h-[200px]">
         <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary" />
+          <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 mx-auto animate-spin text-primary" />
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Analyzing References</h3>
             <p className="text-xs text-muted-foreground">Scanning code for usage patterns...</p>
@@ -132,18 +132,18 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
 
   if (referenceFiles.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center">
-            <AlertCircle className="h-6 w-6 text-muted-foreground/50" />
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 min-h-[200px]">
+        <div className="text-center space-y-4 max-w-xs">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center">
+            <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
           </div>
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Analyzing Connections</h3>
-            <p className="text-xs text-muted-foreground max-w-xs">
+            <p className="text-xs text-muted-foreground">
               Found {graphData.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}{" "}
-              graph connections for <code className="bg-muted px-1 rounded">{selectedNode.name}</code>
+              graph connections for <code className="bg-muted px-1 rounded text-xs">{selectedNode.name}</code>
             </p>
-            <div className="text-xs text-muted-foreground space-y-1">
+            <div className="text-xs text-muted-foreground space-y-1 pt-2">
               <p>
                 Connected to:{" "}
                 {graphData.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}{" "}
@@ -159,9 +159,9 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header with Stats */}
-      <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20">
+      <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20 bg-background/50 backdrop-blur-sm">
         <div className="space-y-2 sm:space-y-3">
           {/* Node Info */}
           <div className="flex items-center gap-2 min-w-0">
@@ -190,21 +190,21 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
       </div>
 
       {/* Filters and Search */}
-      <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20 space-y-2 sm:space-y-3">
+      <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20 space-y-2 sm:space-y-3 bg-background/30 backdrop-blur-sm">
         {/* Filter Tabs */}
         <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as "all" | "calls" | "imports" | "methods")}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-muted/30 h-8 sm:h-10">
-            <TabsTrigger value="all" className="text-xs px-1 sm:px-3">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-muted/30 h-8 sm:h-9">
+            <TabsTrigger value="all" className="text-xs px-1 sm:px-2">
               <span className="hidden sm:inline">All </span>({stats.totalUsages})
             </TabsTrigger>
-            <TabsTrigger value="calls" className="text-xs px-1 sm:px-3">
+            <TabsTrigger value="calls" className="text-xs px-1 sm:px-2">
               <span className="hidden sm:inline">Calls </span>({stats.usageTypes.call || 0})
             </TabsTrigger>
-            <TabsTrigger value="imports" className="text-xs px-1 sm:px-3">
+            <TabsTrigger value="imports" className="text-xs px-1 sm:px-2">
               <span className="hidden sm:inline">Imports </span>(
               {(stats.usageTypes.import || 0) + (stats.usageTypes.export || 0)})
             </TabsTrigger>
-            <TabsTrigger value="methods" className="text-xs px-1 sm:px-3">
+            <TabsTrigger value="methods" className="text-xs px-1 sm:px-2">
               <span className="hidden sm:inline">Methods </span>(
               {(stats.usageTypes.method || 0) + (stats.usageTypes.property || 0)})
             </TabsTrigger>
@@ -213,13 +213,13 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
+          <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             placeholder="Search files or usage context..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm bg-background/80 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
           />
         </div>
       </div>
@@ -248,7 +248,7 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="mt-3 text-xs sm:text-sm"
+                  className="mt-3 text-xs sm:text-sm h-8"
                   onClick={() => {
                     setSearchTerm("")
                     setActiveFilter("all")
@@ -264,7 +264,7 @@ export function CodeReferenceAnalyzer({ selectedNode, graphData, maxDepth = 3, o
 
       {/* Copy Success Toast */}
       {copySuccess && (
-        <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-md shadow-lg flex items-center gap-2 text-sm">
+        <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm z-50">
           <Check className="w-4 h-4" />
           Code copied to clipboard
         </div>

@@ -20,11 +20,21 @@ import {
 import { useResultData } from "@/context/ResultDataContext";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useApiWithAuth } from "@/hooks/useApiWithAuth";
 
 export function RepoTabs() {
+
+  // use session
+  const { data: session } = useSession();
+
+  // custom function to handle API calls with authentication
+  const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo);
+  const uploadLocalZipWithAuth = useApiWithAuth(uploadLocalZip);
+
   // Form state
   const [repoUrl, setRepoUrl] = useState("");
-  const [accessToken, setAccessToken] = useState("");
+  const [accessToken, setAccessToken] = useState(session?.accessToken || "");
   const [branch, setBranch] = useState("main");
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -41,6 +51,7 @@ export function RepoTabs() {
     setSourceType,
     setSourceData,
     setOutputMessage,
+    setCurrentRepoId
   } = useResultData();
 
   // Router for navigation
@@ -63,9 +74,10 @@ export function RepoTabs() {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: branch.trim() || "main",
+        jwt_token: session?.jwt_token || undefined,
       };
-      const formattedText = await fetchGithubRepo(requestData);
-
+        const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
+      setCurrentRepoId(repo_id)
       setOutput(formattedText);
       setSourceType("github");
       setSourceData(requestData);
@@ -96,7 +108,8 @@ export function RepoTabs() {
     setOutputMessage(null);
 
     try {
-      const { text } = await uploadLocalZip(zipFile);
+      const { text_content: text, repo_id } = await uploadLocalZipWithAuth(zipFile, session?.jwt_token || "");
+      setCurrentRepoId(repo_id)
       setOutput(text);
       setSourceType("zip");
       setSourceData(zipFile);
@@ -227,7 +240,7 @@ export function RepoTabs() {
                           </Label>
                           <Input
                             id="access-token"
-                            type="password"
+                            type="text"
                             placeholder="ghp_xxxxxxxxxxxx"
                             value={accessToken}
                             onChange={(e) => setAccessToken(e.target.value)}

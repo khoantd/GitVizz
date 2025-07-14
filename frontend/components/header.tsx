@@ -53,8 +53,8 @@ const Header = () => {
                                         <div className="flex items-center gap-2 rounded-full pl-2 pr-1 py-1 hover:bg-muted/50 transition-colors">
                                             <div className="flex items-center gap-2">
                                                 <Avatar className="h-8 w-8 border border-border">
-                                                    <AvatarImage src={session.user.image || "/placeholder.svg"} alt={session.user.name} />
-                                                    <AvatarFallback>{session.user.name.charAt(0)}</AvatarFallback>
+                                                    <AvatarImage src={session.user.image || "/placeholder.svg"} alt={session.user.name ?? "User"} />
+                                                    <AvatarFallback>{session.user.name?.charAt(0) || "U"}</AvatarFallback>
                                                 </Avatar>
                                                 <span className="text-sm font-medium hidden sm:inline">{session.user.name}</span>
                                             </div>

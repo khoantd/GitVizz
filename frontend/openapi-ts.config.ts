@@ -1,19 +1,30 @@
-import { defineConfig } from '@hey-api/openapi-ts'; 
-import dotenv from 'dotenv';
+import { defineConfig } from '@hey-api/openapi-ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '.env.local') });
+// Get the API base URL from environment variables
+const apiBaseUrl = process.env.API_SERVER_BASE_URL || 'http://backend:8003';
 
-// Fallback to localhost if API_BASE_URL is not set
-const apiBaseUrl = process.env.API_BASE_URL
+// Check if we're in a build environment or runtime environment
+const isRuntimeGeneration = process.env.NODE_ENV === 'production';
+
+let input;
+if (isRuntimeGeneration) {
+  // At runtime, use the service name from Docker Compose
+  input = `${apiBaseUrl}/openapi.json`;
+} else {
+  // During development, use localhost or provided URL
+  const devApiUrl = process.env.API_SERVER_BASE_URL || 'http://localhost:8003';
+  input = `${devApiUrl}/openapi.json`;
+}
+
+console.log('OpenAPI input:', input);
 
 export default defineConfig({
-  input: `${apiBaseUrl}/openapi.json`,
+  input,
   output: {
     format: 'prettier',
     lint: 'eslint',

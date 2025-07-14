@@ -18,17 +18,24 @@ router = APIRouter(prefix='/repo')
 router.post(
     "/generate-text",
     response_model=TextResponse,
-    summary="Generates LLM-friendly text from a code repository.",
-    response_description="A JSON object containing repository structure, content, and a suggested filename.",
+    summary="Generates LLM-friendly text from a code repository with smart caching.",
+    description="""
+    Generates LLM-friendly text from a code repository or ZIP file.
+    """,
+    response_description="A JSON object containing repository structure, content, and a suggested filename. Returns cached data if available and up-to-date.",
     responses={
-        200: {"description": "Repository content as JSON.", "model": TextResponse},
+        200: {"description": "Repository content as JSON (cached or newly generated).", "model": TextResponse},
         400: {
             "model": ErrorResponse,
-            "description": "Invalid input (e.g., no URL or ZIP).",
+            "description": "Invalid input (e.g., no URL or ZIP provided).",
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired JWT token.",
         },
         404: {
             "model": ErrorResponse,
-            "description": "Could not download or no suitable files found.",
+            "description": "Could not download repository or no suitable files found.",
         },
         500: {"model": ErrorResponse, "description": "Server error during processing."},
     },
@@ -38,27 +45,42 @@ router.post(
 router.post(
     "/generate-graph",
     response_model=GraphResponse,
-    summary="Generates a dependency graph from a code repository.",
-    response_description="JSON containing graph nodes, edges, and URL to an HTML visualization.",
+    summary="Generates a dependency graph from a code repository with smart caching.",
+    description="""
+    Generates a dependency graph representation from a code repository or ZIP file.
+    """,
+    response_description="JSON containing graph nodes, edges, and metadata. Returns cached data if available and up-to-date.",
     responses={
-        400: {"model": ErrorResponse, "description": "Invalid input."},
-        404: {"model": ErrorResponse, "description": "Not found or no suitable files."},
-        500: {"model": ErrorResponse, "description": "Server error."},
+        200: {"description": "Dependency graph data as JSON (cached or newly generated).", "model": GraphResponse},
+        400: {"model": ErrorResponse, "description": "Invalid input (e.g., no URL or ZIP provided)."},
+        401: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired JWT token.",
+        },
+        404: {"model": ErrorResponse, "description": "Repository not found or no suitable files for graph generation."},
+        500: {"model": ErrorResponse, "description": "Server error during graph generation."},
     },
 )(generate_graph_endpoint)
 
 router.post(
     "/generate-structure",
     response_model=StructureResponse,
-    summary="Generates the file structure and content of a code repository.",  # Updated summary
-    response_description="JSON containing the repository's directory tree and file contents.",  # Updated description
+    summary="Generates the file structure and content of a code repository with smart caching.",
+    description="""
+    Generates the complete file structure and content of a code repository or ZIP file.
+    """,
+    response_description="JSON containing the repository's directory tree and file contents. Returns cached data if available and up-to-date.",
     responses={
         200: {
-            "description": "Repository structure and content as JSON.",
+            "description": "Repository structure and content as JSON (cached or newly generated).",
             "model": StructureResponse,
-        },  # Updated
-        400: {"model": ErrorResponse, "description": "Invalid input."},
-        404: {"model": ErrorResponse, "description": "Not found or no suitable files."},
-        500: {"model": ErrorResponse, "description": "Server error."},
+        },
+        400: {"model": ErrorResponse, "description": "Invalid input (e.g., no URL or ZIP provided)."},
+        401: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired JWT token.",
+        },
+        404: {"model": ErrorResponse, "description": "Repository not found or no suitable files after filtering."},
+        500: {"model": ErrorResponse, "description": "Server error during structure generation."},
     },
 )(generate_structure_endpoint)
