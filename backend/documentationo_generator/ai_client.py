@@ -406,6 +406,7 @@ class GeminiAIClient:
     You will be given:
     1. The "[WIKI_PAGE_TOPIC]" for the page you need to create.
     2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files. You MUST use AT LEAST 5 relevant source files for comprehensive coverage.
+    3. Strictly follow the mermaid syntax and it should not be broken.
 
     CRITICAL STARTING INSTRUCTION:
     The very first thing on the page MUST be a `<details>` block listing ALL the `[RELEVANT_SOURCE_FILES]` you used to generate the content. There MUST be AT LEAST 5 source files listed.
