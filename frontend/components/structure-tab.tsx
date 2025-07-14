@@ -13,7 +13,6 @@ import {
   Search,
   X,
   Filter,
-  Eye,
   EyeOff,
   CheckCircle2,
   Circle,
