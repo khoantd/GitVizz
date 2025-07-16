@@ -4,7 +4,7 @@ import requests
 import re
 from typing import Callable, Optional
 from typing import List
-import google.generativeai as genai
+
 
 # Use absolute imports to avoid relative import issues when running directly
 try:
@@ -26,27 +26,20 @@ class GeminiAIClient:
     def __init__(self, api_key: str, base_url: str = "https://generativelanguage.googleapis.com/v1beta"):
         self.api_key = api_key
         self.base_url = base_url
-        self.use_litellm = LITELLM_AVAILABLE
+        self.use_litellm = True  # Always use LiteLLM for Gemini
 
-        # Configure Gemini
-        genai.configure(api_key=api_key)
-        
-        # Available Gemini models
+        # Available Gemini models (for LiteLLM)
         self.models = [
-            "models/gemini-2.0-flash-exp",
-            "models/gemini-2.5-pro", 
-            "models/gemini-2.5-flash"
+            "gemini/gemini-2.0-flash"
         ]
         self.current_model_index = 0
-        self.default_model = "models/gemini-2.0-flash-exp"
+        self.default_model = "gemini/gemini-2.0-flash"
 
-        if self.use_litellm:
-            # Configure LiteLLM for Gemini
-            if LITELLM_AVAILABLE:
-                litellm.set_verbose = False
-                litellm.api_key = api_key
+        if LITELLM_AVAILABLE:
+            litellm.set_verbose = False
+            litellm.api_key = api_key
 
-        # Always initialize session for fallback
+        # Session for fallback (not used for Gemini anymore)
         self.session = requests.Session()
         self.session.headers.update({
             "Authorization": f"Bearer {api_key}",
@@ -56,10 +49,23 @@ class GeminiAIClient:
     def generate_content(self, prompt: str, model: str = None,
                         temperature: float = 0.7, max_tokens: int = 4000,
                         progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using Gemini models"""
-        
+        """Generate content using Gemini models via LiteLLM"""
+        if not LITELLM_AVAILABLE:
+            raise ImportError("LiteLLM is required for Gemini model usage.")
+        return self._generate_with_litellm(
+            prompt,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            progress_callback=progress_callback
+        )
+
+    def _generate_with_litellm(self, prompt: str, model: str = None,
+                            temperature: float = 0.7, max_tokens: int = 4000,
+                            progress_callback: Callable[[str], None] = None) -> str:
+        """Generate content using LiteLLM for Gemini models with robust error handling"""
         max_retries = 3
-        retry_delays = [15, 30, 60]  # Longer delays for 2.5 Pro limits
+        retry_delays = [15, 30, 45]
         
         for attempt in range(max_retries):
             try:
@@ -67,128 +73,62 @@ class GeminiAIClient:
                     progress_callback(f"  AI request (attempt {attempt + 1}/{max_retries})")
 
                 model_name = model or self.default_model
-                
-                if progress_callback:
-                    progress_callback(f"  Using model: {model_name}")
-                
-                # Create the model instance with safety settings
-                safety_settings = [
-                    {
-                        "category": "HARM_CATEGORY_HARASSMENT",
-                        "threshold": "BLOCK_NONE"
-                    },
-                    {
-                        "category": "HARM_CATEGORY_HATE_SPEECH", 
-                        "threshold": "BLOCK_NONE"
-                    },
-                    {
-                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                        "threshold": "BLOCK_NONE"
-                    },
-                    {
-                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                        "threshold": "BLOCK_NONE"
-                    }
-                ]
-                
-                gemini_model = genai.GenerativeModel(
-                    model_name,
-                    safety_settings=safety_settings
-                )
-                
-                # Configure generation settings
-                generation_config = genai.types.GenerationConfig(
-                    temperature=temperature,
-                    max_output_tokens=min(max_tokens, 8000),
-                )
-
+                timeout_seconds = 120
                 start_time = time.time()
 
-                # Add delay for 2.5 Pro rate limiting (5 RPM = 12 seconds between requests)
-                time.sleep(12)  # Respect 5 RPM limit
-                
-                # Generate content
-                response = gemini_model.generate_content(
-                    prompt,
-                    generation_config=generation_config
-                )
+                # Try streaming first
+                try:
+                    response = litellm.completion(
+                        model=model_name,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        stream=True,
+                        api_key=self.api_key,
+                        timeout=timeout_seconds
+                    )
 
-                # Check if response was blocked by safety filters
-                if hasattr(response, 'candidates') and response.candidates:
-                    candidate = response.candidates[0]
-                    if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 2:
-                        # Safety filter blocked
-                        error_msg = "🚫 GEMINI SAFETY FILTER BLOCKED THIS CONTENT"
+                    content = ""
+                    for chunk in response:
+                        if time.time() - start_time > timeout_seconds:
+                            raise TimeoutError(f"Generation timeout after {timeout_seconds} seconds")
+                        
+                        # Handle streaming chunks with null checks
+                        if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
+                            if chunk.choices[0].delta.content is not None:
+                                content += chunk.choices[0].delta.content
+                        elif hasattr(chunk.choices[0], "message") and hasattr(chunk.choices[0].message, "content"):
+                            if chunk.choices[0].message.content is not None:
+                                content += chunk.choices[0].message.content
+
+                    if progress_callback:
+                        progress_callback(f"  Generated ({len(content)} chars)")
+
+                    return content
+
+                except (RuntimeError, json.JSONDecodeError) as streaming_error:
+                    if "Error parsing chunk" in str(streaming_error):
                         if progress_callback:
-                            progress_callback(f"  {error_msg}")
-                        raise Exception(error_msg)
-
-                content = response.text
-
-                if progress_callback:
-                    progress_callback(f"  Generated ({len(content)} chars)")
-
-                return content
-
-            except Exception as e:
-                elapsed = time.time() - start_time
-                error_msg = str(e).lower()
-                
-                if ("rate_limit" in error_msg or "429" in error_msg or "quota" in error_msg):
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delays[attempt]
+                            progress_callback(f"  Streaming failed, trying non-streaming...")
+                        
+                        # Fallback to non-streaming
+                        response = litellm.completion(
+                            model=model_name,
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            stream=False,  # Non-streaming
+                            api_key=self.api_key,
+                            timeout=timeout_seconds
+                        )
+                        
+                        content = response.choices[0].message.content
                         if progress_callback:
-                            progress_callback(f"  Rate limited (2.5 Pro: 5 RPM limit). Waiting {wait_time}s...")
-                        time.sleep(wait_time)
-                        continue
+                            progress_callback(f"  Generated ({len(content)} chars)")
+                        
+                        return content
                     else:
-                        raise TimeoutError(f"Failed after {max_retries} attempts due to rate limits: {str(e)}")
-                else:
-                    raise Exception(f"AI generation failed: {str(e)}")
-
-        raise Exception("Should not reach here")
-
-    def _generate_with_litellm(self, prompt: str, model: str = None,
-                              temperature: float = 0.7, max_tokens: int = 4000,
-                              progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using LiteLLM with optimized retry logic"""
-        
-        max_retries = 3
-        retry_delays = [15, 30, 45]  # Shorter delays: 15s, 30s, 45s
-        
-        for attempt in range(max_retries):
-            try:
-                if progress_callback:
-                    progress_callback(f"  AI request (attempt {attempt + 1}/{max_retries})")
-
-                model_name = model or "models/gemini-2.0-flash-exp"  # Use the faster Gemini model
-                timeout_seconds = 120  # Reduced from 180s to 120s
-
-                start_time = time.time()
-
-                response = litellm.completion(
-                    model=f"gemini/{model_name}",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    stream=True,
-                    api_key=self.api_key,
-                    timeout=timeout_seconds
-                )
-
-                content = ""
-                for chunk in response:
-                    # Check timeout
-                    if time.time() - start_time > timeout_seconds:
-                        raise TimeoutError(f"Generation timeout after {timeout_seconds} seconds")
-
-                    if chunk.choices[0].delta.content:
-                        content += chunk.choices[0].delta.content
-
-                if progress_callback:
-                    progress_callback(f"  Generated ({len(content)} chars)")
-
-                return content
+                        raise streaming_error
 
             except Exception as e:
                 elapsed = time.time() - start_time
@@ -205,9 +145,8 @@ class GeminiAIClient:
                         raise TimeoutError(f"Failed after {max_retries} attempts: {str(e)}")
                 else:
                     raise Exception(f"AI generation failed: {str(e)}")
-
+        
         raise Exception("Should not reach here")
-
     
     def _generate_with_requests(self, prompt: str, model: str = None,
                                temperature: float = 0.7, max_tokens: int = 4000,
@@ -467,6 +406,7 @@ class GeminiAIClient:
     You will be given:
     1. The "[WIKI_PAGE_TOPIC]" for the page you need to create.
     2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files. You MUST use AT LEAST 5 relevant source files for comprehensive coverage.
+    3. Strictly follow the mermaid syntax and it should not be broken.
 
     CRITICAL STARTING INSTRUCTION:
     The very first thing on the page MUST be a `<details>` block listing ALL the `[RELEVANT_SOURCE_FILES]` you used to generate the content. There MUST be AT LEAST 5 source files listed.

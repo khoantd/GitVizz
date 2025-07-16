@@ -30,31 +30,33 @@ export async function GET(req: NextRequest): Promise<Response> {
     const octokit = new Octokit({ auth: installationAuth.token });
 
     console.log(`[DEBUG] Installation ID: ${installationId}`);
-    
+
     // Fetch all repositories with pagination using iterator
     const allRepositories = [];
-    
+
     for await (const response of octokit.paginate.iterator(
       octokit.rest.apps.listReposAccessibleToInstallation,
-      { per_page: 500 }
+      { per_page: 500 },
     )) {
       console.log(`[DEBUG] Fetched ${response.data.length} repositories in this page`);
       allRepositories.push(...response.data);
     }
-    
+
     console.log(`[DEBUG] Total repositories fetched: ${allRepositories.length}`);
 
-    return new Response(JSON.stringify({ 
-      repositories: allRepositories,
-      total_count: allRepositories.length 
-    }), {
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({
+        repositories: allRepositories,
+        total_count: allRepositories.length,
+      }),
+      {
+        status: 200,
+      },
+    );
   } catch (error: unknown) {
     console.error('[GITHUB ERROR]', error);
 
-    const message =
-      error instanceof Error ? error.message : 'Internal Server Error';
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
 
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

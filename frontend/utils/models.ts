@@ -6,7 +6,7 @@ export interface GitHubSourceData {
 }
 
 export type SourceData = GitHubSourceData | File | null;
-export type SourceType = "github" | "zip" | null;
+export type SourceType = 'github' | 'zip' | null;
 
 // for managing the state of the result data context
 export interface State {

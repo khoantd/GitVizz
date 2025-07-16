@@ -1,9 +1,9 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
-  images:{
-    domains: ["avatars.githubusercontent.com"],
+  images: {
+    domains: ['avatars.githubusercontent.com'],
   },
   // Enable TypeScript module resolution
   typescript: {
@@ -29,12 +29,12 @@ const nextConfig: NextConfig = {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     return [
       {
-      source: '/api/((?!auth|github).)*',
-      destination: `${backendUrl}/api/:path*`, // Proxy to backend
+        source: '/api/((?!auth|github).)*',
+        destination: `${backendUrl}/api/:path*`, // Proxy to backend
       },
       {
-      source: '/static/:path*',
-      destination: `${backendUrl}/static/:path*`, // Proxy to backend static files
+        source: '/static/:path*',
+        destination: `${backendUrl}/static/:path*`, // Proxy to backend static files
       },
     ];
   },

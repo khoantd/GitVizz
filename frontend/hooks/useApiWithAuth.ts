@@ -1,6 +1,6 @@
-import { useCallback } from "react";
-import { signOut } from "next-auth/react";
-import { TokenExpiredError } from "@/utils/api";
+import { useCallback } from 'react';
+import { signOut } from 'next-auth/react';
+import { TokenExpiredError } from '@/utils/api';
 
 export function useApiWithAuth<T extends (...args: any[]) => Promise<any>>(apiFn: T) {
   return useCallback(
@@ -10,12 +10,12 @@ export function useApiWithAuth<T extends (...args: any[]) => Promise<any>>(apiFn
         return await apiFn(...args);
       } catch (error) {
         if (error instanceof TokenExpiredError) {
-          await signOut({ callbackUrl: "/signin" });
+          await signOut({ callbackUrl: '/signin' });
           return Promise.reject(error);
         }
         throw error;
       }
     },
-    [apiFn]
+    [apiFn],
   );
 }

@@ -1,127 +1,135 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   getConversationHistory,
   getAvailableModels,
   getUserChatSessions,
   type AvailableModelsResponse,
   type ChatSessionListItem,
-} from "@/utils/api"
-import { createStreamingChatRequest, parseStreamingResponse, type StreamingChatRequest } from "@/lib/streaming-chat"
-import { showToast } from "@/components/toaster"
+} from '@/utils/api';
+import {
+  createStreamingChatRequest,
+  parseStreamingResponse,
+  type StreamingChatRequest,
+} from '@/lib/streaming-chat';
+import { showToast } from '@/components/toaster';
 
 interface Message {
-  role: "user" | "assistant" | "system"
-  content: string
-  timestamp: Date
-  context_used?: string | null
-  metadata?: Record<string, any> | null
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  context_used?: string | null;
+  metadata?: Record<string, any> | null;
 }
 
 interface ChatState {
-  messages: Message[]
-  isLoading: boolean
-  currentChatId?: string
-  currentConversationId?: string
+  messages: Message[];
+  isLoading: boolean;
+  currentChatId?: string;
+  currentConversationId?: string;
 }
 
 interface ModelState {
-  provider: string
-  model: string
-  temperature: number
+  provider: string;
+  model: string;
+  temperature: number;
 }
 
-export function useChatSidebar(repositoryId: string) {
-  const { data: session } = useSession()
+export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<string, boolean>) {
+  const { data: session } = useSession();
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
     isLoading: false,
-  })
+  });
   const [modelState, setModelState] = useState<ModelState>({
-    provider: "openai",
-    model: "gpt-3.5-turbo",
+    provider: 'openai',
+    model: 'gpt-3.5-turbo',
     temperature: 0.7,
-  })
+  });
   const [availableModels, setAvailableModels] = useState<AvailableModelsResponse>({
     providers: {},
     current_limits: {},
     user_has_keys: [],
-  })
-  const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([])
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  });
+  const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>({})
+  const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>(userKeyPreferences);
+
+  useEffect(() => {
+    setUseUserKeys(userKeyPreferences);
+  }, [userKeyPreferences]);
 
   // Load available models and chat history on mount
   useEffect(() => {
     if (session?.jwt_token) {
-      loadAvailableModels()
-      loadChatHistory()
+      loadAvailableModels();
+      loadChatHistory();
     }
-  }, [session?.jwt_token])
+  }, [session?.jwt_token]);
 
   const loadAvailableModels = async () => {
-    if (!session?.jwt_token) return
+    if (!session?.jwt_token) return;
 
     try {
-      const models = await getAvailableModels(session.jwt_token)
-      setAvailableModels(models)
+      const models = await getAvailableModels(session.jwt_token);
+      setAvailableModels(models);
 
       // Set default model if current one is not available
-      const currentProviderModels = models.providers[modelState.provider]
+      const currentProviderModels = models.providers[modelState.provider];
       if (!currentProviderModels?.includes(modelState.model)) {
-        const firstProvider = Object.keys(models.providers)[0]
-        const firstModel = models.providers[firstProvider]?.[0]
+        const firstProvider = Object.keys(models.providers)[0];
+        const firstModel = models.providers[firstProvider]?.[0];
         if (firstProvider && firstModel) {
           setModelState((prev) => ({
             ...prev,
             provider: firstProvider,
             model: firstModel,
-          }))
+          }));
         }
       }
     } catch (error) {
-      showToast.error("Failed to load available models")
+      showToast.error('Failed to load available models');
     }
-  }
+  };
 
   const loadChatHistory = async () => {
-    if (!session?.jwt_token) return
+    if (!session?.jwt_token) return;
 
-    setIsLoadingHistory(true)
+    setIsLoadingHistory(true);
     try {
-      const chatSessions = await getUserChatSessions(session.jwt_token, repositoryId)
+      const chatSessions = await getUserChatSessions(session.jwt_token, repositoryId);
       if (chatSessions.success) {
-        setChatHistory(chatSessions.sessions)
+        setChatHistory(chatSessions.sessions);
       } else {
-        setChatHistory([])
+        setChatHistory([]);
       }
     } catch (error) {
-      console.error("Failed to load chat history:", error)
-      showToast.error("Failed to load chat history")
-      setChatHistory([])
+      console.error('Failed to load chat history:', error);
+      showToast.error('Failed to load chat history');
+      setChatHistory([]);
     } finally {
-      setIsLoadingHistory(false)
+      setIsLoadingHistory(false);
     }
-  }
-  console.log(useUserKeys)
+  };
+  console.log(useUserKeys);
 
   const sendMessage = async (content: string) => {
-    if (!session?.jwt_token || chatState.isLoading) return
+    if (!session?.jwt_token || chatState.isLoading) return;
 
     const userMessage: Message = {
-      role: "user",
+      role: 'user',
       content,
       timestamp: new Date(),
-    }
+    };
 
     setChatState((prev) => ({
       ...prev,
       messages: [...prev.messages, userMessage],
       isLoading: true,
-    }))
+    }));
 
     try {
       const streamingRequest: StreamingChatRequest = {
@@ -135,64 +143,67 @@ export function useChatSidebar(repositoryId: string) {
         model: modelState.model,
         temperature: modelState.temperature,
         include_full_context: false,
-      }
+      };
 
-      const response = await createStreamingChatRequest(streamingRequest)
+      const response = await createStreamingChatRequest(streamingRequest);
 
-      let assistantMessage = ""
-      let chatId = chatState.currentChatId
-      let conversationId = chatState.currentConversationId
-      let hasStartedResponse = false
-      let metadataReceived = false
-      let hasReceivedTokens = false
+      let assistantMessage = '';
+      let chatId = chatState.currentChatId;
+      let conversationId = chatState.currentConversationId;
+      let hasStartedResponse = false;
+      let metadataReceived = false;
+      let hasReceivedTokens = false;
 
       // Add placeholder assistant message immediately
       setChatState((prev) => ({
         ...prev,
-        messages: [...prev.messages, {
-          role: "assistant",
-          content: "",
-          timestamp: new Date(),
-        }],
-      }))
+        messages: [
+          ...prev.messages,
+          {
+            role: 'assistant',
+            content: '',
+            timestamp: new Date(),
+          },
+        ],
+      }));
 
       try {
         // Process streaming response
         for await (const chunk of parseStreamingResponse(response)) {
-          console.log("Processing chunk:", chunk); // Debug log
+          console.log('Processing chunk:', chunk); // Debug log
 
-          if (chunk.type === "metadata") {
+          if (chunk.type === 'metadata') {
             // Extract chat and conversation IDs from metadata
             if (chunk.chat_id && chunk.conversation_id && !metadataReceived) {
-              chatId = chunk.chat_id
-              conversationId = chunk.conversation_id
-              metadataReceived = true
+              chatId = chunk.chat_id;
+              conversationId = chunk.conversation_id;
+              metadataReceived = true;
 
               // Update state with new IDs immediately
               setChatState((prev) => ({
                 ...prev,
                 currentChatId: chatId,
                 currentConversationId: conversationId,
-              }))
+              }));
             }
-          } else if (chunk.type === "token") {
-            hasReceivedTokens = true
-            hasStartedResponse = true
+          } else if (chunk.type === 'token') {
+            hasReceivedTokens = true;
+            hasStartedResponse = true;
 
             // Handle token content (can be empty string)
             if (chunk.content !== undefined) {
-              assistantMessage += chunk.content
+              assistantMessage += chunk.content;
 
               // Update the last assistant message with streaming content
               setChatState((prev) => {
-                const newMessages = [...prev.messages]
-                const lastMessage = newMessages[newMessages.length - 1]
+                const newMessages = [...prev.messages];
+                const lastMessage = newMessages[newMessages.length - 1];
 
-                if (lastMessage?.role === "assistant") {
+                if (lastMessage?.role === 'assistant') {
                   newMessages[newMessages.length - 1] = {
                     ...lastMessage,
                     content: assistantMessage,
-                  }
+                  };
                 }
 
                 return {
@@ -200,39 +211,45 @@ export function useChatSidebar(repositoryId: string) {
                   messages: newMessages,
                   currentChatId: chatId || prev.currentChatId,
                   currentConversationId: conversationId || prev.currentConversationId,
-                }
-              })
+                };
+              });
             }
-          } else if (chunk.type === "complete") {
-            console.log("Stream completed successfully");
-            break
-          } else if (chunk.type === "error") {
-            const errorMessage = chunk.message || "Streaming error occurred"
-            console.error("Streaming error:", errorMessage);
+          } else if (chunk.type === 'complete') {
+            console.log('Stream completed successfully');
+            break;
+          } else if (chunk.type === 'error') {
+            const errorMessage = chunk.message || 'Streaming error occurred';
+            console.error('Streaming error:', errorMessage);
 
             // Check for specific error types
-            if (errorMessage.toLowerCase().includes("quota") ||
-              errorMessage.toLowerCase().includes("limit") ||
-              errorMessage.toLowerCase().includes("rate")) {
-              throw new Error("API quota limit reached. Please try again later or use your own API key.")
-            } else if (errorMessage.toLowerCase().includes("authentication")) {
-              throw new Error("Authentication failed. Please try logging in again.")
+            if (
+              errorMessage.toLowerCase().includes('quota') ||
+              errorMessage.toLowerCase().includes('limit') ||
+              errorMessage.toLowerCase().includes('rate')
+            ) {
+              throw new Error(
+                'API quota limit reached. Please try again later or use your own API key.',
+              );
+            } else if (errorMessage.toLowerCase().includes('authentication')) {
+              throw new Error('Authentication failed. Please try logging in again.');
             } else {
-              throw new Error(errorMessage)
+              throw new Error(errorMessage);
             }
-          } else if (chunk.type === "done") {
-            console.log("Stream done");
-            break
+          } else if (chunk.type === 'done') {
+            console.log('Stream done');
+            break;
           }
         }
       } catch (streamError) {
-        console.error("Stream processing error:", streamError);
+        console.error('Stream processing error:', streamError);
         throw streamError; // Re-throw to be caught by outer try-catch
       }
 
       // Check if we actually received any response
       if (!hasReceivedTokens && !hasStartedResponse) {
-        throw new Error("No response received from AI. This may be due to API quota limits or temporary service issues. Please try again later.")
+        throw new Error(
+          'No response received from AI. This may be due to API quota limits or temporary service issues. Please try again later.',
+        );
       }
 
       // Final state update
@@ -241,39 +258,37 @@ export function useChatSidebar(repositoryId: string) {
         currentChatId: chatId || prev.currentChatId,
         currentConversationId: conversationId || prev.currentConversationId,
         isLoading: false,
-      }))
+      }));
 
-      console.log("Message sent successfully, refreshing chat history");
+      console.log('Message sent successfully, refreshing chat history');
       // Refresh chat history after successful message
-      await loadChatHistory()
-
+      await loadChatHistory();
     } catch (error) {
-      console.error("Chat error:", error)
+      console.error('Chat error:', error);
 
-      let errorMessage = "Failed to send message"
+      let errorMessage = 'Failed to send message';
       if (error instanceof Error) {
-        errorMessage = error.message
+        errorMessage = error.message;
       }
 
-      showToast.error(errorMessage)
+      showToast.error(errorMessage);
 
       // Remove both user and assistant messages if there was an error
       setChatState((prev) => ({
         ...prev,
         messages: prev.messages.slice(0, -2), // Remove last 2 messages (user + assistant placeholder)
         isLoading: false,
-      }))
+      }));
     }
-  }
-
+  };
 
   const loadConversation = async (conversationId: string) => {
-    if (!session?.jwt_token) return
+    if (!session?.jwt_token) return;
 
-    setChatState(prev => ({ ...prev, isLoading: true }))
+    setChatState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const conversation = await getConversationHistory(session.jwt_token, conversationId)
+      const conversation = await getConversationHistory(session.jwt_token, conversationId);
 
       const messages: Message[] = conversation.messages.map((msg) => ({
         role: msg.role,
@@ -281,26 +296,26 @@ export function useChatSidebar(repositoryId: string) {
         timestamp: new Date(msg.timestamp), // Ensure proper Date object
         context_used: msg.context_used,
         metadata: msg.metadata,
-      }))
+      }));
 
       setChatState({
         messages,
         isLoading: false,
         currentChatId: conversation.chat_id,
         currentConversationId: conversation.conversation_id,
-      })
+      });
 
-      showToast.success("Conversation loaded")
+      showToast.success('Conversation loaded');
     } catch (error) {
-      console.error("Failed to load conversation:", error)
-      showToast.error("Failed to load conversation")
-      setChatState(prev => ({ ...prev, isLoading: false }))
+      console.error('Failed to load conversation:', error);
+      showToast.error('Failed to load conversation');
+      setChatState((prev) => ({ ...prev, isLoading: false }));
     }
-  }
+  };
 
   const loadConversationBySessionItem = async (sessionItem: ChatSessionListItem) => {
-    await loadConversation(sessionItem.conversation_id)
-  }
+    await loadConversation(sessionItem.conversation_id);
+  };
 
   const clearCurrentChat = () => {
     // This creates a completely new chat session
@@ -309,21 +324,21 @@ export function useChatSidebar(repositoryId: string) {
       isLoading: false,
       currentChatId: undefined,
       currentConversationId: undefined,
-    })
-    showToast.success("Started new chat")
-  }
+    });
+    showToast.success('Started new chat');
+  };
 
   const startNewConversation = () => {
     // Keep the same chat_id but clear conversation_id to start a new conversation thread
-    setChatState(prev => ({
+    setChatState((prev) => ({
       messages: [],
       isLoading: false,
       currentChatId: prev.currentChatId, // Keep the existing chat session
       // Clear conversationId - will be generated on first message of new conversation
       currentConversationId: undefined,
-    }))
-    showToast.success("Started new conversation")
-  }
+    }));
+    showToast.success('Started new conversation');
+  };
 
   const startNewChatSession = () => {
     // This creates a completely new chat session
@@ -333,25 +348,25 @@ export function useChatSidebar(repositoryId: string) {
       // Clear both IDs - new session will be created by backend
       currentChatId: undefined,
       currentConversationId: undefined,
-    })
-    showToast.success("Started new chat session")
-  }
+    });
+    showToast.success('Started new chat session');
+  };
 
   const setModel = (provider: string, model: string) => {
     setModelState((prev) => ({
       ...prev,
       provider,
       model,
-    }))
-  }
+    }));
+  };
 
   const refreshModels = async () => {
-    await loadAvailableModels()
-  }
+    await loadAvailableModels();
+  };
 
   const refreshChatHistory = async () => {
-    await loadChatHistory()
-  }
+    await loadChatHistory();
+  };
 
   return {
     messages: chatState.messages,
@@ -363,16 +378,16 @@ export function useChatSidebar(repositoryId: string) {
     sendMessage,
     loadConversation,
     loadConversationBySessionItem, // New method specifically for session items
-    clearCurrentChat,        // Creates completely new chat session
-    startNewConversation,    // Starts new conversation in same chat session  
-    startNewChatSession,     // Same as clearCurrentChat for backward compatibility
+    clearCurrentChat, // Creates completely new chat session
+    startNewConversation, // Starts new conversation in same chat session
+    startNewChatSession, // Same as clearCurrentChat for backward compatibility
     setModel,
     refreshModels,
-    refreshChatHistory,      // New method to manually refresh chat history
+    refreshChatHistory, // New method to manually refresh chat history
     // Expose current session info for debugging
     currentChatId: chatState.currentChatId,
     currentConversationId: chatState.currentConversationId,
     useUserKeys,
     setUseUserKeys,
-  }
+  };
 }

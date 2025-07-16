@@ -18,7 +18,7 @@ import {
   generateWikiApiDocumentationGenerateWikiPost,
   getWikiStatusApiDocumentationWikiStatusPost,
   listRepositoryDocsApiDocumentationRepositoryDocsPost,
-  isWikiGeneratedApiDocumentationIsWikiGeneratedPost
+  isWikiGeneratedApiDocumentationIsWikiGeneratedPost,
 } from '../api-client/sdk.gen';
 
 import type {
@@ -35,9 +35,8 @@ import type {
   TextResponse,
   ChatSessionListResponse,
   ChatSessionListItem,
-  IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse
+  IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse,
 } from '../api-client/types.gen';
-
 
 // Types for convenience
 export interface RepoRequest {
@@ -48,7 +47,13 @@ export interface RepoRequest {
   zip_file?: File;
 }
 
-export type { ConversationHistoryResponse, AvailableModelsResponse, ChatSessionListResponse, ChatSessionResponse, ChatSessionListItem };
+export type {
+  ConversationHistoryResponse,
+  AvailableModelsResponse,
+  ChatSessionListResponse,
+  ChatSessionResponse,
+  ChatSessionListItem,
+};
 
 export interface ChatRequest {
   token: string;
@@ -76,7 +81,7 @@ export interface ApiKeyRequest {
 export enum OperationType {
   TEXT = 'text',
   GRAPH = 'graph',
-  STRUCTURE = 'structure'
+  STRUCTURE = 'structure',
 }
 
 // Type mapping for responses
@@ -104,16 +109,16 @@ const API_FUNCTIONS: ApiFunctionMap = {
 const ERROR_MESSAGES = {
   [OperationType.TEXT]: {
     repo: 'Failed to fetch repository',
-    zip: 'Failed to process zip file'
+    zip: 'Failed to process zip file',
   },
   [OperationType.GRAPH]: {
     repo: 'Failed to generate graph from GitHub repository',
-    zip: 'Failed to generate graph from ZIP file'
+    zip: 'Failed to generate graph from ZIP file',
   },
   [OperationType.STRUCTURE]: {
     repo: 'Failed to generate structure from GitHub repository',
-    zip: 'Failed to generate structure from ZIP file'
-  }
+    zip: 'Failed to generate structure from ZIP file',
+  },
 };
 
 /**
@@ -122,7 +127,7 @@ const ERROR_MESSAGES = {
  */
 async function executeOperation<T extends OperationType>(
   operationType: T,
-  request: RepoRequest
+  request: RepoRequest,
 ): Promise<ResponseMap[T]> {
   try {
     // Prepare the request data
@@ -131,7 +136,7 @@ async function executeOperation<T extends OperationType>(
       branch: request.branch || 'main',
       access_token: request.access_token || null,
       jwt_token: request.jwt_token || null,
-      zip_file: request.zip_file || null
+      zip_file: request.zip_file || null,
     };
 
     // Get the appropriate API function
@@ -139,7 +144,7 @@ async function executeOperation<T extends OperationType>(
 
     // Execute the API call with proper options structure
     const response = await apiFunction({
-      body: requestData
+      body: requestData,
     });
 
     // Handle errors
@@ -205,7 +210,7 @@ export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<TextRes
   return {
     text_content: response.text_content || '',
     repo_id: response.repo_id || '',
-    filename_suggestion: response.filename_suggestion
+    filename_suggestion: response.filename_suggestion,
   };
 }
 
@@ -219,7 +224,9 @@ export async function generateGraphFromGithub(repoRequest: RepoRequest): Promise
 /**
  * Generate structure from GitHub repository
  */
-export async function generateStructureFromGithub(repoRequest: RepoRequest): Promise<StructureResponse> {
+export async function generateStructureFromGithub(
+  repoRequest: RepoRequest,
+): Promise<StructureResponse> {
   return executeOperation(OperationType.STRUCTURE, repoRequest);
 }
 
@@ -230,12 +237,12 @@ export async function uploadLocalZip(file: File, jwt_token: string): Promise<Tex
   const response = await executeOperation(OperationType.TEXT, {
     zip_file: file,
     jwt_token,
-    branch: 'main'
+    branch: 'main',
   });
   return {
     text_content: response.text_content || '',
     repo_id: response.repo_id || '',
-    filename_suggestion: response.filename_suggestion
+    filename_suggestion: response.filename_suggestion,
   };
 }
 
@@ -246,18 +253,21 @@ export async function generateGraphFromZip(file: File, jwt_token: string): Promi
   return executeOperation(OperationType.GRAPH, {
     zip_file: file,
     jwt_token,
-    branch: 'main'
+    branch: 'main',
   });
 }
 
 /**
  * Generate structure from uploaded ZIP file
  */
-export async function generateStructureFromZip(file: File, jwt_token: string): Promise<StructureResponse> {
+export async function generateStructureFromZip(
+  file: File,
+  jwt_token: string,
+): Promise<StructureResponse> {
   return executeOperation(OperationType.STRUCTURE, {
     zip_file: file,
     jwt_token,
-    branch: 'main'
+    branch: 'main',
   });
 }
 
@@ -280,7 +290,7 @@ export async function getJwtToken(access_token: string): Promise<LoginResponse> 
   try {
     const response = await loginUserApiBackendAuthLoginPost({
       client: auth_client,
-      body: { access_token }
+      body: { access_token },
     });
 
     if (response.error) {
@@ -326,8 +336,8 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
         include_full_context: chatRequest.include_full_context || false,
-        context_search_query: chatRequest.context_search_query || null
-      }
+        context_search_query: chatRequest.context_search_query || null,
+      },
     });
 
     if (response.error) {
@@ -362,12 +372,12 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
         include_full_context: chatRequest.include_full_context || false,
-        context_search_query: chatRequest.context_search_query || null
-      }
+        context_search_query: chatRequest.context_search_query || null,
+      },
     });
 
     // For streaming, we return the raw response
-    return response as any
+    return response as any;
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
   }
@@ -376,10 +386,13 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
 /**
  * Get list of user's chat sessions
  */
-export async function getUserChatSessions(jwt_token: string, repo_id: string): Promise<ChatSessionListResponse> {
+export async function getUserChatSessions(
+  jwt_token: string,
+  repo_id: string,
+): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
-      body: { jwt_token, repo_id }
+      body: { jwt_token, repo_id },
     });
 
     if (response.error) {
@@ -396,15 +409,17 @@ export async function getUserChatSessions(jwt_token: string, repo_id: string): P
   }
 }
 
-
 /**
  * Get conversation history
  */
-export async function getConversationHistory(token: string, conversationId: string): Promise<ConversationHistoryResponse> {
+export async function getConversationHistory(
+  token: string,
+  conversationId: string,
+): Promise<ConversationHistoryResponse> {
   try {
     const response = await getConversationHistoryApiBackendChatConversationsConversationIdPost({
       path: { conversation_id: conversationId },
-      body: { token }
+      body: { token },
     });
 
     if (response.error) {
@@ -428,7 +443,7 @@ export async function getChatSession(token: string, chatId: string): Promise<Cha
   try {
     const response = await getChatSessionApiBackendChatSessionsChatIdPost({
       path: { chat_id: chatId },
-      body: { token }
+      body: { token },
     });
 
     if (response.error) {
@@ -459,8 +474,8 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
         token: apiKeyRequest.token,
         provider: apiKeyRequest.provider,
         api_key: apiKeyRequest.api_key,
-        key_name: apiKeyRequest.key_name || null
-      }
+        key_name: apiKeyRequest.key_name || null,
+      },
     });
 
     if (response.error) {
@@ -483,7 +498,7 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
 export async function getAvailableModels(token: string): Promise<AvailableModelsResponse> {
   try {
     const response = await getAvailableModelsApiBackendChatModelsPost({
-      body: { token }
+      body: { token },
     });
 
     if (response.error) {
@@ -515,7 +530,7 @@ export async function updateChatSettings(
     default_provider?: string;
     default_model?: string;
     default_temperature?: number;
-  }
+  },
 ): Promise<ChatSettingsResponse> {
   try {
     const response = await updateChatSettingsApiBackendChatSettingsPost({
@@ -525,8 +540,8 @@ export async function updateChatSettings(
         title: settings.title || null,
         default_provider: settings.default_provider || null,
         default_model: settings.default_model || null,
-        default_temperature: settings.default_temperature || null
-      }
+        default_temperature: settings.default_temperature || null,
+      },
     });
 
     if (response.error) {
@@ -554,7 +569,7 @@ export async function searchContext(
   token: string,
   repositoryId: string,
   query: string,
-  maxResults: number = 5
+  maxResults: number = 5,
 ): Promise<ContextSearchResponse> {
   try {
     const response = await searchContextApiBackendChatContextSearchPost({
@@ -562,8 +577,8 @@ export async function searchContext(
         token,
         repository_id: repositoryId,
         query,
-        max_results: Math.min(Math.max(maxResults, 1), 20) // Ensure between 1-20
-      }
+        max_results: Math.min(Math.max(maxResults, 1), 20), // Ensure between 1-20
+      },
     });
 
     if (response.error) {
@@ -585,23 +600,22 @@ export async function searchContext(
 // =============================================================================
 
 export class TokenExpiredError extends Error {
-  constructor(message = "Token expired") {
+  constructor(message = 'Token expired') {
     super(message);
-    this.name = "TokenExpiredError";
+    this.name = 'TokenExpiredError';
   }
 }
 
 function isTokenExpiredError(error: any): boolean {
   if (!error) return false;
-  const msg = typeof error === "string" ? error : error?.message || error?.toString();
+  const msg = typeof error === 'string' ? error : error?.message || error?.toString();
   return (
-    msg?.toLowerCase().includes("token has expired") ||
-    msg?.toLowerCase().includes("jwt expired") ||
-    msg?.toLowerCase().includes("expired token") ||
-    msg?.toLowerCase().includes("unauthorized")
+    msg?.toLowerCase().includes('token has expired') ||
+    msg?.toLowerCase().includes('jwt expired') ||
+    msg?.toLowerCase().includes('expired token') ||
+    msg?.toLowerCase().includes('unauthorized')
   );
 }
-
 
 // =============================================================================
 // WIKI DOCUMENTATION OPERATIONS
@@ -614,7 +628,7 @@ export async function generateWikiDocumentation(
   jwt_token: string,
   repository_url: string,
   language: string = 'en',
-  comprehensive: boolean = true
+  comprehensive: boolean = true,
 ): Promise<any> {
   try {
     const response = await generateWikiApiDocumentationGenerateWikiPost({
@@ -622,8 +636,8 @@ export async function generateWikiDocumentation(
         jwt_token,
         repository_url,
         language,
-        comprehensive
-      }
+        comprehensive,
+      },
     });
 
     if (response.error) {
@@ -644,16 +658,13 @@ export async function generateWikiDocumentation(
  * Get wiki generation status
  * Retrieves the current status of a wiki generation task using the provided task ID.
  */
-export async function getWikiGenerationStatus(
-  jwt_token: string,
-  repo_id: string
-): Promise<any> {
+export async function getWikiGenerationStatus(jwt_token: string, repo_id: string): Promise<any> {
   try {
     const response = await getWikiStatusApiDocumentationWikiStatusPost({
       body: {
         jwt_token,
-        repo_id
-      }
+        repo_id,
+      },
     });
 
     if (response.error) {
@@ -674,16 +685,13 @@ export async function getWikiGenerationStatus(
  * List repository documentation files
  * Lists all documentation files for a specific repository with parsed content.
  */
-export async function getRepositoryDocumentation(
-  jwt_token: string,
-  repo_id: string
-): Promise<any> {
+export async function getRepositoryDocumentation(jwt_token: string, repo_id: string): Promise<any> {
   try {
     const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
       body: {
         jwt_token,
-        repo_id
-      }
+        repo_id,
+      },
     });
 
     if (response.error) {
@@ -704,16 +712,19 @@ export async function getRepositoryDocumentation(
  * Is wiki documentation generated?
  * Checks if wiki documentation has been generated for a specific repository.
  */
-export async function isWikiGenerated(jwt_token: string, repo_id: string): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
-  console.log(jwt_token)
+export async function isWikiGenerated(
+  jwt_token: string,
+  repo_id: string,
+): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
+  console.log(jwt_token);
   try {
     const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
       body: {
         jwt_token,
-        repo_id
-      }
+        repo_id,
+      },
     });
-    
+
     if (response.error) {
       throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
     }
@@ -740,7 +751,7 @@ export async function isWikiGenerated(jwt_token: string, repo_id: string): Promi
  */
 export async function processRepository<T extends OperationType>(
   operationType: T,
-  request: RepoRequest
+  request: RepoRequest,
 ): Promise<ResponseMap[T]> {
   return executeOperation(operationType, request);
 }

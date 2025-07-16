@@ -38,6 +38,12 @@ class LLMService:
                     "rate_limit": "15 requests/minute",
                     "daily_limit": "1500 requests/day"
                 },
+                "gemini-2.0-flash": {
+                    "max_tokens": 1000000, 
+                    "cost_per_1k": 0.0,  # Free tier
+                    "rate_limit": "15 requests/minute",
+                    "daily_limit": "1500 requests/day"
+                }
             }
         }
     

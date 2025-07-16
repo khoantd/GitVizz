@@ -1,26 +1,28 @@
-"use client"
+'use client';
 
-import React, { createContext, useContext, useReducer, ReactNode } from "react";
-import { GitHubSourceData,SourceData,SourceType,State } from "@/utils/models";
+import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import { GitHubSourceData, SourceData, SourceType, State } from '@/utils/models';
 
 type Action =
-  | { type: "SET_OUTPUT"; payload: string | null }
-  | { type: "SET_OUTPUT_MESSAGE"; payload: string | null }
-  | { type: "SET_SOURCE_TYPE"; payload: SourceType }
-  | { type: "SET_SOURCE_DATA"; payload: SourceData }
-  | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_ERROR"; payload: string | null }
-  | { type: "RESET" }
-  | { type: "SET_SELECTED_FILE_PATH"; payload: string | null }
-  | { type: "SET_SELECTED_FILE_LINE"; payload: number | null }
-  | { type: "SET_CODE_VIEWER_SHEET_OPEN"; payload: boolean }
-  | { type: "SET_CURRENT_REPO_ID"; payload: string | null};
+  | { type: 'SET_OUTPUT'; payload: string | null }
+  | { type: 'SET_OUTPUT_MESSAGE'; payload: string | null }
+  | { type: 'SET_SOURCE_TYPE'; payload: SourceType }
+  | { type: 'SET_SOURCE_DATA'; payload: SourceData }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'RESET' }
+  | { type: 'SET_SELECTED_FILE_PATH'; payload: string | null }
+  | { type: 'SET_SELECTED_FILE_LINE'; payload: number | null }
+  | { type: 'SET_CODE_VIEWER_SHEET_OPEN'; payload: boolean }
+  | { type: 'SET_CURRENT_REPO_ID'; payload: string | null }
+  | { type: 'SET_USER_KEY_PREFERENCES'; payload: Record<string, boolean> };
 
 const initialState: State & {
   selectedFilePath: string | null;
   selectedFileLine: number | null;
   codeViewerSheetOpen: boolean;
-  currentRepoId: string | null
+  currentRepoId: string | null;
+  userKeyPreferences: Record<string, boolean>;
 } = {
   output: null,
   outputMessage: null,
@@ -31,35 +33,35 @@ const initialState: State & {
   selectedFilePath: null,
   selectedFileLine: null,
   codeViewerSheetOpen: false,
-  currentRepoId: null
+  currentRepoId: null,
+  userKeyPreferences: {},
 };
 
-function reducer(
-  state: typeof initialState,
-  action: Action
-): typeof initialState {
+function reducer(state: typeof initialState, action: Action): typeof initialState {
   switch (action.type) {
-    case "SET_OUTPUT":
+    case 'SET_OUTPUT':
       return { ...state, output: action.payload };
-    case "SET_SOURCE_TYPE":
+    case 'SET_SOURCE_TYPE':
       return { ...state, sourceType: action.payload };
-    case "SET_SOURCE_DATA":
+    case 'SET_SOURCE_DATA':
       return { ...state, sourceData: action.payload };
-    case "SET_LOADING":
+    case 'SET_LOADING':
       return { ...state, loading: action.payload };
-    case "SET_ERROR":
+    case 'SET_ERROR':
       return { ...state, error: action.payload };
-    case "SET_OUTPUT_MESSAGE":
+    case 'SET_OUTPUT_MESSAGE':
       return { ...state, outputMessage: action.payload };
-    case "SET_SELECTED_FILE_PATH":
+    case 'SET_SELECTED_FILE_PATH':
       return { ...state, selectedFilePath: action.payload };
-    case "SET_SELECTED_FILE_LINE":
+    case 'SET_SELECTED_FILE_LINE':
       return { ...state, selectedFileLine: action.payload };
-    case "SET_CODE_VIEWER_SHEET_OPEN":
+    case 'SET_CODE_VIEWER_SHEET_OPEN':
       return { ...state, codeViewerSheetOpen: action.payload };
-    case "SET_CURRENT_REPO_ID":
-      return {...state, currentRepoId: action.payload}
-    case "RESET":
+    case 'SET_CURRENT_REPO_ID':
+      return { ...state, currentRepoId: action.payload };
+    case 'SET_USER_KEY_PREFERENCES':
+      return { ...state, userKeyPreferences: action.payload };
+    case 'RESET':
       return initialState;
     default:
       return state;
@@ -82,6 +84,8 @@ interface ResultDataContextType extends State {
   setCodeViewerSheetOpen: (open: boolean) => void;
   setCurrentRepoId: (repo_id: string | null) => void;
   currentRepoId: string | null;
+  userKeyPreferences: Record<string, boolean>;
+  setUserKeyPreferences: (prefs: Record<string, boolean>) => void;
 }
 
 const ResultDataContext = createContext<ResultDataContextType | undefined>(undefined);
@@ -89,7 +93,7 @@ const ResultDataContext = createContext<ResultDataContextType | undefined>(undef
 export function useResultData() {
   const context = useContext(ResultDataContext);
   if (!context) {
-    throw new Error("useResultData must be used within a ResultDataProvider");
+    throw new Error('useResultData must be used within a ResultDataProvider');
   }
   return context;
 }
@@ -97,17 +101,24 @@ export function useResultData() {
 export function ResultDataProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const setOutput = (output: string | null) => dispatch({ type: "SET_OUTPUT", payload: output });
-  const setOutputMessage = (message: string | null) => dispatch({ type: "SET_OUTPUT_MESSAGE", payload: message });
-  const setSourceType = (type: SourceType) => dispatch({ type: "SET_SOURCE_TYPE", payload: type });
-  const setSourceData = (data: SourceData) => dispatch({ type: "SET_SOURCE_DATA", payload: data });
-  const setLoading = (loading: boolean) => dispatch({ type: "SET_LOADING", payload: loading });
-  const setError = (error: string | null) => dispatch({ type: "SET_ERROR", payload: error });
-  const reset = () => dispatch({ type: "RESET" });
-  const setSelectedFilePath = (path: string | null) => dispatch({ type: "SET_SELECTED_FILE_PATH", payload: path });
-  const setSelectedFileLine = (line: number | null) => dispatch({ type: "SET_SELECTED_FILE_LINE", payload: line });
-  const setCodeViewerSheetOpen = (open: boolean) => dispatch({ type: "SET_CODE_VIEWER_SHEET_OPEN", payload: open });
-  const setCurrentRepoId = (repo_id: string | null) => dispatch({ type: "SET_CURRENT_REPO_ID", payload: repo_id });
+  const setOutput = (output: string | null) => dispatch({ type: 'SET_OUTPUT', payload: output });
+  const setOutputMessage = (message: string | null) =>
+    dispatch({ type: 'SET_OUTPUT_MESSAGE', payload: message });
+  const setSourceType = (type: SourceType) => dispatch({ type: 'SET_SOURCE_TYPE', payload: type });
+  const setSourceData = (data: SourceData) => dispatch({ type: 'SET_SOURCE_DATA', payload: data });
+  const setLoading = (loading: boolean) => dispatch({ type: 'SET_LOADING', payload: loading });
+  const setError = (error: string | null) => dispatch({ type: 'SET_ERROR', payload: error });
+  const reset = () => dispatch({ type: 'RESET' });
+  const setSelectedFilePath = (path: string | null) =>
+    dispatch({ type: 'SET_SELECTED_FILE_PATH', payload: path });
+  const setSelectedFileLine = (line: number | null) =>
+    dispatch({ type: 'SET_SELECTED_FILE_LINE', payload: line });
+  const setCodeViewerSheetOpen = (open: boolean) =>
+    dispatch({ type: 'SET_CODE_VIEWER_SHEET_OPEN', payload: open });
+  const setCurrentRepoId = (repo_id: string | null) =>
+    dispatch({ type: 'SET_CURRENT_REPO_ID', payload: repo_id });
+  const setUserKeyPreferences = (prefs: Record<string, boolean>) =>
+    dispatch({ type: 'SET_USER_KEY_PREFERENCES', payload: prefs });
 
   return (
     <ResultDataContext.Provider
@@ -126,7 +137,9 @@ export function ResultDataProvider({ children }: { children: ReactNode }) {
         setSelectedFilePath,
         setSelectedFileLine,
         setCodeViewerSheetOpen,
-        setCurrentRepoId
+        setCurrentRepoId,
+        userKeyPreferences: state.userKeyPreferences,
+        setUserKeyPreferences,
       }}
     >
       {children}

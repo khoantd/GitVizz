@@ -1,15 +1,15 @@
-import NextAuth from "next-auth"
+import NextAuth from 'next-auth';
 
-declare module "next-auth" {
+declare module 'next-auth' {
   interface Session {
-    accessToken?: any
+    accessToken?: any;
     jwt_token?: any;
     expires_in?: number;
     user_id?: any;
     token_type?: any;
   }
   interface JWT {
-    accessToken?: any
+    accessToken?: any;
     jwt_token?: any;
     expires_in?: number;
     user_id?: any;

@@ -1,12 +1,12 @@
-"use client"
+'use client';
 
-import type React from "react"
+import type React from 'react';
 
-import type { JSX } from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
-import Editor from "@monaco-editor/react"
-import type * as Monaco from "monaco-editor"
-import { useTheme } from "next-themes"
+import type { JSX } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Editor from '@monaco-editor/react';
+import type * as Monaco from 'monaco-editor';
+import { useTheme } from 'next-themes';
 import {
   Folder,
   File,
@@ -25,338 +25,344 @@ import {
   GripVertical,
   Maximize2,
   Minimize2,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { useResultData } from "@/context/ResultDataContext"
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { useResultData } from '@/context/ResultDataContext';
 
 interface FileNode {
-  name: string
-  path: string
-  type: "file" | "directory"
-  content?: string
-  children?: FileNode[]
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  content?: string;
+  children?: FileNode[];
 }
 
 interface CodeViewerProps {
-  className?: string
+  className?: string;
 }
 
 export function CodeViewer({ className }: CodeViewerProps) {
   // Use repoContent from context
-  const { output: repoContent, selectedFilePath, setSelectedFilePath } = useResultData()
-  const [fileTree, setFileTree] = useState<FileNode[]>([])
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null)
-  const [searchTerm, setSearchTerm] = useState<string>("")
-  const [copyStatus, setCopyStatus] = useState<Record<string, boolean>>({})
-  const [activeTab, setActiveTab] = useState<"explorer" | "search">("explorer")
+  const { output: repoContent, selectedFilePath, setSelectedFilePath } = useResultData();
+  const [fileTree, setFileTree] = useState<FileNode[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [copyStatus, setCopyStatus] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'explorer' | 'search'>('explorer');
 
   // Mobile and responsive states
-  const [isMobileExplorerOpen, setIsMobileExplorerOpen] = useState(false)
-  const [explorerWidth, setExplorerWidth] = useState(320) // Default width in pixels
-  const [isResizing, setIsResizing] = useState(false)
-  const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false)
+  const [isMobileExplorerOpen, setIsMobileExplorerOpen] = useState(false);
+  const [explorerWidth, setExplorerWidth] = useState(320); // Default width in pixels
+  const [isResizing, setIsResizing] = useState(false);
+  const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false);
 
-  const { theme } = useTheme()
-  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
-  const explorerRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const resizeHandleRef = useRef<HTMLDivElement>(null)
+  const { theme } = useTheme();
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const explorerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizeHandleRef = useRef<HTMLDivElement>(null);
 
   // Resizable functionality
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
-  }, [])
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!isResizing || !containerRef.current) return
+      if (!isResizing || !containerRef.current) return;
 
-      const containerRect = containerRef.current.getBoundingClientRect()
-      const newWidth = e.clientX - containerRect.left
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newWidth = e.clientX - containerRect.left;
 
       // Set min and max width constraints
-      const minWidth = 240
-      const maxWidth = Math.min(600, containerRect.width * 0.6)
+      const minWidth = 240;
+      const maxWidth = Math.min(600, containerRect.width * 0.6);
 
       if (newWidth >= minWidth && newWidth <= maxWidth) {
-        setExplorerWidth(newWidth)
+        setExplorerWidth(newWidth);
       }
     },
     [isResizing],
-  )
+  );
 
   const handleMouseUp = useCallback(() => {
-    setIsResizing(false)
-  }, [])
+    setIsResizing(false);
+  }, []);
 
   // Add mouse event listeners for resizing
   useEffect(() => {
     if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-      document.body.style.cursor = "col-resize"
-      document.body.style.userSelect = "none"
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
 
       return () => {
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
-        document.body.style.cursor = ""
-        document.body.style.userSelect = ""
-      }
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
     }
-  }, [isResizing, handleMouseMove, handleMouseUp])
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // Parse repository structure from formatted text
   useEffect(() => {
     if (repoContent) {
       try {
-        const tree = parseRepositoryStructure(repoContent)
-        setFileTree(tree)
+        const tree = parseRepositoryStructure(repoContent);
+        setFileTree(tree);
         // Auto-expand first level directories for better UX
-        const firstLevelDirs = tree.filter((node) => node.type === "directory").map((node) => node.path)
-        setExpandedFolders(new Set(firstLevelDirs))
+        const firstLevelDirs = tree
+          .filter((node) => node.type === 'directory')
+          .map((node) => node.path);
+        setExpandedFolders(new Set(firstLevelDirs));
       } catch (error) {
-        console.error("Error parsing repo structure:", error)
+        console.error('Error parsing repo structure:', error);
       }
     }
-  }, [repoContent])
+  }, [repoContent]);
 
   // Function to handle editor mount
   const handleEditorDidMount = (editor: Monaco.editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor
-  }
+    editorRef.current = editor;
+  };
 
   const parseRepositoryStructure = (text: string): FileNode[] => {
-    const tree: FileNode[] = []
-    const rootMap: Record<string, FileNode> = {}
+    const tree: FileNode[] = [];
+    const rootMap: Record<string, FileNode> = {};
 
     // Extract files and their content
-    const fileContentSections = text.split("---\nFile:").slice(1)
+    const fileContentSections = text.split('---\nFile:').slice(1);
 
     // Process each file
     fileContentSections.forEach((section) => {
-      const firstNewlineIndex = section.indexOf("\n")
-      const filePath = section.substring(0, firstNewlineIndex).trim()
-      const content = section.substring(section.indexOf("\n---\n") + 5).trim()
+      const firstNewlineIndex = section.indexOf('\n');
+      const filePath = section.substring(0, firstNewlineIndex).trim();
+      const content = section.substring(section.indexOf('\n---\n') + 5).trim();
 
       // Create file hierarchy
-      const pathParts = filePath.split("/")
-      let currentPath = ""
-      let parentPath = ""
+      const pathParts = filePath.split('/');
+      let currentPath = '';
+      let parentPath = '';
 
       // Create directory nodes
       for (let i = 0; i < pathParts.length - 1; i++) {
-        const part = pathParts[i]
-        parentPath = currentPath
-        currentPath = currentPath ? `${currentPath}/${part}` : part
+        const part = pathParts[i];
+        parentPath = currentPath;
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
 
         if (!rootMap[currentPath]) {
           const dirNode: FileNode = {
             name: part,
             path: currentPath,
-            type: "directory",
+            type: 'directory',
             children: [],
-          }
-          rootMap[currentPath] = dirNode
+          };
+          rootMap[currentPath] = dirNode;
 
           if (parentPath) {
-            rootMap[parentPath].children = rootMap[parentPath].children || []
-            rootMap[parentPath].children!.push(dirNode)
+            rootMap[parentPath].children = rootMap[parentPath].children || [];
+            rootMap[parentPath].children!.push(dirNode);
           } else {
-            tree.push(dirNode)
+            tree.push(dirNode);
           }
         }
       }
 
       // Create file node
-      const fileName = pathParts[pathParts.length - 1]
+      const fileName = pathParts[pathParts.length - 1];
       const fileNode: FileNode = {
         name: fileName,
         path: filePath,
-        type: "file",
+        type: 'file',
         content: content,
-      }
+      };
 
       if (currentPath) {
-        rootMap[currentPath].children = rootMap[currentPath].children || []
-        rootMap[currentPath].children!.push(fileNode)
+        rootMap[currentPath].children = rootMap[currentPath].children || [];
+        rootMap[currentPath].children!.push(fileNode);
       } else {
-        tree.push(fileNode)
+        tree.push(fileNode);
       }
-    })
+    });
 
-    return tree
-  }
+    return tree;
+  };
 
   const toggleFolder = (path: string) => {
     setExpandedFolders((prev) => {
-      const newSet = new Set(prev)
+      const newSet = new Set(prev);
       if (newSet.has(path)) {
-        newSet.delete(path)
+        newSet.delete(path);
       } else {
-        newSet.add(path)
+        newSet.add(path);
       }
-      return newSet
-    })
-  }
+      return newSet;
+    });
+  };
 
   const expandAllFolders = () => {
-    const allPaths = new Set<string>()
+    const allPaths = new Set<string>();
 
     // Recursive function to collect all directory paths
     const collectDirPaths = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "directory") {
-          allPaths.add(node.path)
+        if (node.type === 'directory') {
+          allPaths.add(node.path);
           if (node.children) {
-            collectDirPaths(node.children)
+            collectDirPaths(node.children);
           }
         }
-      })
-    }
+      });
+    };
 
-    collectDirPaths(fileTree)
-    setExpandedFolders(allPaths)
-  }
+    collectDirPaths(fileTree);
+    setExpandedFolders(allPaths);
+  };
 
   const collapseAllFolders = () => {
-    setExpandedFolders(new Set())
-  }
+    setExpandedFolders(new Set());
+  };
 
   const handleFileSelect = (file: FileNode) => {
-    setSelectedFile(file)
+    setSelectedFile(file);
     // Close mobile explorer when file is selected
-    setIsMobileExplorerOpen(false)
-  }
+    setIsMobileExplorerOpen(false);
+  };
 
   const copyFileContent = (file: FileNode) => {
     if (file.content) {
-      navigator.clipboard.writeText(file.content)
-      setCopyStatus((prev) => ({ ...prev, [file.path]: true }))
+      navigator.clipboard.writeText(file.content);
+      setCopyStatus((prev) => ({ ...prev, [file.path]: true }));
       setTimeout(() => {
-        setCopyStatus((prev) => ({ ...prev, [file.path]: false }))
-      }, 2000)
+        setCopyStatus((prev) => ({ ...prev, [file.path]: false }));
+      }, 2000);
     }
-  }
+  };
 
   const copyAllContent = () => {
-    const allContent = getAllContent(fileTree)
-    navigator.clipboard.writeText(allContent)
-    setCopyStatus((prev) => ({ ...prev, all: true }))
+    const allContent = getAllContent(fileTree);
+    navigator.clipboard.writeText(allContent);
+    setCopyStatus((prev) => ({ ...prev, all: true }));
     setTimeout(() => {
-      setCopyStatus((prev) => ({ ...prev, all: false }))
-    }, 2000)
-  }
+      setCopyStatus((prev) => ({ ...prev, all: false }));
+    }, 2000);
+  };
 
   const getAllContent = (nodes: FileNode[]): string => {
-    let content = ""
+    let content = '';
     nodes.forEach((node) => {
-      if (node.type === "file" && node.content) {
-        content += `// File: ${node.path}\n${node.content}\n\n`
-      } else if (node.type === "directory" && node.children) {
-        content += getAllContent(node.children)
+      if (node.type === 'file' && node.content) {
+        content += `// File: ${node.path}\n${node.content}\n\n`;
+      } else if (node.type === 'directory' && node.children) {
+        content += getAllContent(node.children);
       }
-    })
-    return content
-  }
+    });
+    return content;
+  };
 
   const copyFolderContent = (folderNode: FileNode) => {
-    const folderContent = getFolderContent(folderNode)
-    navigator.clipboard.writeText(folderContent)
-    setCopyStatus((prev) => ({ ...prev, [folderNode.path]: true }))
+    const folderContent = getFolderContent(folderNode);
+    navigator.clipboard.writeText(folderContent);
+    setCopyStatus((prev) => ({ ...prev, [folderNode.path]: true }));
     setTimeout(() => {
-      setCopyStatus((prev) => ({ ...prev, [folderNode.path]: false }))
-    }, 2000)
-  }
+      setCopyStatus((prev) => ({ ...prev, [folderNode.path]: false }));
+    }, 2000);
+  };
 
   const getFolderContent = (folderNode: FileNode): string => {
-    let content = `// Folder: ${folderNode.path}\n\n`
+    let content = `// Folder: ${folderNode.path}\n\n`;
 
     const processNode = (node: FileNode) => {
-      if (node.type === "file" && node.content) {
-        content += `// File: ${node.path}\n${node.content}\n\n`
-      } else if (node.type === "directory" && node.children) {
-        node.children.forEach(processNode)
+      if (node.type === 'file' && node.content) {
+        content += `// File: ${node.path}\n${node.content}\n\n`;
+      } else if (node.type === 'directory' && node.children) {
+        node.children.forEach(processNode);
       }
-    }
+    };
 
     if (folderNode.children) {
-      folderNode.children.forEach(processNode)
+      folderNode.children.forEach(processNode);
     }
 
-    return content
-  }
+    return content;
+  };
 
   // Determine language based on file extension
   const getLanguage = (filePath: string): string => {
-    const fileExtension = filePath.split(".").pop()?.toLowerCase() || ""
+    const fileExtension = filePath.split('.').pop()?.toLowerCase() || '';
     const languageMap: Record<string, string> = {
-      js: "javascript",
-      jsx: "javascript",
-      ts: "typescript",
-      tsx: "typescript",
-      py: "python",
-      html: "html",
-      css: "css",
-      json: "json",
-      md: "markdown",
-      yml: "yaml",
-      yaml: "yaml",
-      sh: "shell",
-      bash: "shell",
-      java: "java",
-      c: "c",
-      cpp: "cpp",
-      cs: "csharp",
-      go: "go",
-      rb: "ruby",
-      php: "php",
-      rust: "rust",
-      rs: "rust",
-      swift: "swift",
-      kt: "kotlin",
-      scala: "scala",
-    }
+      js: 'javascript',
+      jsx: 'javascript',
+      ts: 'typescript',
+      tsx: 'typescript',
+      py: 'python',
+      html: 'html',
+      css: 'css',
+      json: 'json',
+      md: 'markdown',
+      yml: 'yaml',
+      yaml: 'yaml',
+      sh: 'shell',
+      bash: 'shell',
+      java: 'java',
+      c: 'c',
+      cpp: 'cpp',
+      cs: 'csharp',
+      go: 'go',
+      rb: 'ruby',
+      php: 'php',
+      rust: 'rust',
+      rs: 'rust',
+      swift: 'swift',
+      kt: 'kotlin',
+      scala: 'scala',
+    };
 
-    return languageMap[fileExtension] || "plaintext"
-  }
+    return languageMap[fileExtension] || 'plaintext';
+  };
 
   // Filter files by search term
   const filterFilesBySearch = (nodes: FileNode[]): FileNode[] => {
-    if (!searchTerm) return []
+    if (!searchTerm) return [];
 
-    const results: FileNode[] = []
-    const searchLower = searchTerm.toLowerCase()
+    const results: FileNode[] = [];
+    const searchLower = searchTerm.toLowerCase();
 
     const searchNodes = (nodeList: FileNode[]) => {
       nodeList.forEach((node) => {
         if (node.name.toLowerCase().includes(searchLower)) {
-          results.push(node)
+          results.push(node);
         }
-        if (node.type === "file" && node.content && node.content.toLowerCase().includes(searchLower)) {
+        if (
+          node.type === 'file' &&
+          node.content &&
+          node.content.toLowerCase().includes(searchLower)
+        ) {
           if (!results.includes(node)) {
-            results.push(node)
+            results.push(node);
           }
         }
-        if (node.type === "directory" && node.children) {
-          searchNodes(node.children)
+        if (node.type === 'directory' && node.children) {
+          searchNodes(node.children);
         }
-      })
-    }
+      });
+    };
 
-    searchNodes(nodes)
-    return results
-  }
+    searchNodes(nodes);
+    return results;
+  };
 
   // Auto-select file and expand folders when selectedFilePath changes
   useEffect(() => {
-    if (!selectedFilePath || !fileTree.length) return
+    if (!selectedFilePath || !fileTree.length) return;
 
     // Helper to find file node and collect parent paths
     const findFileAndParents = (
@@ -365,59 +371,59 @@ export function CodeViewer({ className }: CodeViewerProps) {
       parents: string[] = [],
     ): { file: FileNode | null; parentPaths: string[] } => {
       for (const node of nodes) {
-        if (node.type === "file" && node.path === targetPath) {
-          return { file: node, parentPaths: [...parents] }
+        if (node.type === 'file' && node.path === targetPath) {
+          return { file: node, parentPaths: [...parents] };
         }
-        if (node.type === "directory" && node.children) {
-          const result = findFileAndParents(node.children, targetPath, [...parents, node.path])
-          if (result.file) return result
+        if (node.type === 'directory' && node.children) {
+          const result = findFileAndParents(node.children, targetPath, [...parents, node.path]);
+          if (result.file) return result;
         }
       }
-      return { file: null, parentPaths: [] }
-    }
+      return { file: null, parentPaths: [] };
+    };
 
-    const { file, parentPaths } = findFileAndParents(fileTree, selectedFilePath)
+    const { file, parentPaths } = findFileAndParents(fileTree, selectedFilePath);
     if (file) {
-      setSelectedFile(file)
-      setActiveTab("explorer") // Switch to explorer tab so user sees the file
+      setSelectedFile(file);
+      setActiveTab('explorer'); // Switch to explorer tab so user sees the file
       setExpandedFolders((prev) => {
-        const newSet = new Set(prev)
-        parentPaths.forEach((p) => newSet.add(p))
-        return newSet
-      })
+        const newSet = new Set(prev);
+        parentPaths.forEach((p) => newSet.add(p));
+        return newSet;
+      });
       // Optionally scroll to file in explorer
       setTimeout(() => {
         if (explorerRef.current) {
-          const el = explorerRef.current.querySelector(`[data-file-path="${file.path}"]`)
-          if (el && "scrollIntoView" in el) {
-            ;(el as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" })
+          const el = explorerRef.current.querySelector(`[data-file-path="${file.path}"]`);
+          if (el && 'scrollIntoView' in el) {
+            (el as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
           }
         }
-      }, 100)
+      }, 100);
       // Clear selectedFilePath to avoid future collision
-      setTimeout(() => setSelectedFilePath?.(null), 200)
+      setTimeout(() => setSelectedFilePath?.(null), 200);
     }
-  }, [selectedFilePath, fileTree, setSelectedFilePath])
+  }, [selectedFilePath, fileTree, setSelectedFilePath]);
 
   const renderTree = (nodes: FileNode[], level = 0): JSX.Element[] => {
     return nodes
       .sort((a, b) => {
         // Sort directories first, then files
-        if (a.type === "directory" && b.type === "file") return -1
-        if (a.type === "file" && b.type === "directory") return 1
-        return a.name.localeCompare(b.name)
+        if (a.type === 'directory' && b.type === 'file') return -1;
+        if (a.type === 'file' && b.type === 'directory') return 1;
+        return a.name.localeCompare(b.name);
       })
       .map((node) => {
-        const isExpanded = expandedFolders.has(node.path)
-        const isSelected = selectedFile?.path === node.path
+        const isExpanded = expandedFolders.has(node.path);
+        const isSelected = selectedFile?.path === node.path;
 
-        if (node.type === "directory") {
+        if (node.type === 'directory') {
           return (
             <div key={node.path}>
               <div
                 className={cn(
-                  "flex items-center py-2 px-2 sm:px-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl group transition-all duration-200",
-                  level > 0 && "ml-2 sm:ml-3",
+                  'flex items-center py-2 px-2 sm:px-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl group transition-all duration-200',
+                  level > 0 && 'ml-2 sm:ml-3',
                 )}
                 onClick={() => toggleFolder(node.path)}
               >
@@ -431,10 +437,15 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 ) : (
                   <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-blue-500 flex-shrink-0" />
                 )}
-                <span className="text-xs sm:text-sm font-medium truncate flex-grow">{node.name}</span>
+                <span className="text-xs sm:text-sm font-medium truncate flex-grow">
+                  {node.name}
+                </span>
                 <div className="flex items-center gap-1">
                   {node.children && (
-                    <Badge variant="secondary" className="text-xs px-1.5 py-0.5 rounded-full hidden sm:inline-flex">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-1.5 py-0.5 rounded-full hidden sm:inline-flex"
+                    >
                       {node.children.length}
                     </Badge>
                   )}
@@ -447,8 +458,8 @@ export function CodeViewer({ className }: CodeViewerProps) {
                             size="icon"
                             className="h-5 w-5 sm:h-6 sm:w-6 rounded-lg hover:bg-background/80"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              copyFolderContent(node)
+                              e.stopPropagation();
+                              copyFolderContent(node);
                             }}
                             aria-label="Copy folder content"
                           >
@@ -471,15 +482,15 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 </div>
               )}
             </div>
-          )
+          );
         } else {
           return (
             <div key={node.path} className="group" data-file-path={node.path}>
               <div
                 className={cn(
-                  "flex items-center py-2 px-2 sm:px-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl transition-all duration-200",
-                  level > 0 && "ml-2 sm:ml-3",
-                  isSelected && "bg-primary/10 text-primary border border-primary/20",
+                  'flex items-center py-2 px-2 sm:px-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl transition-all duration-200',
+                  level > 0 && 'ml-2 sm:ml-3',
+                  isSelected && 'bg-primary/10 text-primary border border-primary/20',
                 )}
                 onClick={() => handleFileSelect(node)}
               >
@@ -487,8 +498,11 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 <span className="text-xs sm:text-sm truncate flex-grow">{node.name}</span>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   {node.content && (
-                    <Badge variant="outline" className="text-xs px-1 py-0.5 rounded-md hidden sm:inline-flex">
-                      {node.content.split("\n").length}L
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-1 py-0.5 rounded-md hidden sm:inline-flex"
+                    >
+                      {node.content.split('\n').length}L
                     </Badge>
                   )}
                   <Button
@@ -496,8 +510,8 @@ export function CodeViewer({ className }: CodeViewerProps) {
                     size="icon"
                     className="h-5 w-5 sm:h-6 sm:w-6 rounded-lg hover:bg-background/80"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      copyFileContent(node)
+                      e.stopPropagation();
+                      copyFileContent(node);
                     }}
                     aria-label="Copy file content"
                   >
@@ -510,13 +524,13 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 </div>
               </div>
             </div>
-          )
+          );
         }
-      })
-  }
+      });
+  };
 
   const renderSearchResults = () => {
-    const results = filterFilesBySearch(fileTree)
+    const results = filterFilesBySearch(fileTree);
     if (results.length === 0) {
       return (
         <div className="p-4 text-center">
@@ -526,7 +540,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
           <p className="text-xs sm:text-sm font-medium text-foreground">No results found</p>
           <p className="text-xs text-muted-foreground mt-1">Try adjusting your search terms</p>
         </div>
-      )
+      );
     }
 
     return (
@@ -537,7 +551,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
             className="p-2 sm:p-3 cursor-pointer hover:bg-muted/50 rounded-lg sm:rounded-xl flex items-center transition-all duration-200 group"
             onClick={() => handleFileSelect(file)}
           >
-            {file.type === "file" ? (
+            {file.type === 'file' ? (
               <File className="w-3 h-3 sm:w-4 sm:h-4 mr-2 sm:mr-3 text-muted-foreground flex-shrink-0" />
             ) : (
               <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-2 sm:mr-3 text-blue-500 flex-shrink-0" />
@@ -546,22 +560,25 @@ export function CodeViewer({ className }: CodeViewerProps) {
               <p className="text-xs sm:text-sm font-medium truncate">{file.name}</p>
               <p className="text-xs text-muted-foreground truncate">{file.path}</p>
             </div>
-            {file.type === "file" && file.content && (
-              <Badge variant="outline" className="text-xs px-1.5 py-0.5 rounded-md ml-2 hidden sm:inline-flex">
-                {file.content.split("\n").length}L
+            {file.type === 'file' && file.content && (
+              <Badge
+                variant="outline"
+                className="text-xs px-1.5 py-0.5 rounded-md ml-2 hidden sm:inline-flex"
+              >
+                {file.content.split('\n').length}L
               </Badge>
             )}
           </div>
         ))}
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        "flex h-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative",
+        'flex h-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative',
         className,
       )}
     >
@@ -585,7 +602,10 @@ export function CodeViewer({ className }: CodeViewerProps) {
               <div className="flex flex-col h-full">
                 {/* Tab Navigation */}
                 <div className="flex-shrink-0 p-3 border-b border-border/30">
-                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "explorer" | "search")}>
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(v) => setActiveTab(v as 'explorer' | 'search')}
+                  >
                     <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
                       <TabsTrigger
                         value="explorer"
@@ -609,7 +629,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 <div className="flex-1 flex flex-col overflow-hidden">
                   <Tabs
                     value={activeTab}
-                    onValueChange={(v) => setActiveTab(v as "explorer" | "search")}
+                    onValueChange={(v) => setActiveTab(v as 'explorer' | 'search')}
                     className="flex-1 flex flex-col overflow-hidden"
                   >
                     <TabsContent
@@ -618,9 +638,16 @@ export function CodeViewer({ className }: CodeViewerProps) {
                     >
                       {/* Explorer Actions */}
                       <div className="flex-shrink-0 p-3 border-b border-border/30 flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">PROJECT FILES</span>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          PROJECT FILES
+                        </span>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={expandAllFolders}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-lg"
+                            onClick={expandAllFolders}
+                          >
                             <Expand className="w-3 h-3" />
                           </Button>
                           <Button
@@ -631,7 +658,12 @@ export function CodeViewer({ className }: CodeViewerProps) {
                           >
                             <MinusCircle className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={copyAllContent}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-lg"
+                            onClick={copyAllContent}
+                          >
                             {copyStatus.all ? (
                               <CopyCheck className="w-3 h-3 text-green-500" />
                             ) : (
@@ -650,8 +682,12 @@ export function CodeViewer({ className }: CodeViewerProps) {
                             <div className="w-10 h-10 mx-auto rounded-xl bg-muted/50 flex items-center justify-center mb-3">
                               <FileText className="h-5 w-5 text-muted-foreground/50" />
                             </div>
-                            <p className="text-xs font-medium text-foreground">No files to display</p>
-                            <p className="text-xs text-muted-foreground mt-1">Upload a repository to get started</p>
+                            <p className="text-xs font-medium text-foreground">
+                              No files to display
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Upload a repository to get started
+                            </p>
                           </div>
                         )}
                       </div>
@@ -677,7 +713,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
                               variant="ghost"
                               size="icon"
                               className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 rounded-lg"
-                              onClick={() => setSearchTerm("")}
+                              onClick={() => setSearchTerm('')}
                             >
                               <X className="w-2.5 h-2.5" />
                             </Button>
@@ -694,8 +730,12 @@ export function CodeViewer({ className }: CodeViewerProps) {
                             <div className="w-10 h-10 mx-auto rounded-xl bg-muted/50 flex items-center justify-center mb-3">
                               <Search className="h-5 w-5 text-muted-foreground/50" />
                             </div>
-                            <p className="text-xs font-medium text-foreground">Search through files</p>
-                            <p className="text-xs text-muted-foreground mt-1">Type to search file names and content</p>
+                            <p className="text-xs font-medium text-foreground">
+                              Search through files
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Type to search file names and content
+                            </p>
                           </div>
                         )}
                       </div>
@@ -711,13 +751,13 @@ export function CodeViewer({ className }: CodeViewerProps) {
       {/* Desktop File Explorer Sidebar */}
       <div
         className={cn(
-          "hidden lg:flex flex-col border-r border-border/30 bg-background/40 backdrop-blur-sm transition-all duration-300",
-          isExplorerCollapsed ? "w-12" : "",
+          'hidden lg:flex flex-col border-r border-border/30 bg-background/40 backdrop-blur-sm transition-all duration-300',
+          isExplorerCollapsed ? 'w-12' : '',
         )}
         style={{
-          width: isExplorerCollapsed ? "48px" : `${explorerWidth}px`,
-          minWidth: isExplorerCollapsed ? "48px" : "240px",
-          maxWidth: isExplorerCollapsed ? "48px" : "600px",
+          width: isExplorerCollapsed ? '48px' : `${explorerWidth}px`,
+          minWidth: isExplorerCollapsed ? '48px' : '240px',
+          maxWidth: isExplorerCollapsed ? '48px' : '600px',
         }}
       >
         {isExplorerCollapsed ? (
@@ -734,16 +774,16 @@ export function CodeViewer({ className }: CodeViewerProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setActiveTab("explorer")}
-              className={cn("h-8 w-8 rounded-lg", activeTab === "explorer" && "bg-primary/10")}
+              onClick={() => setActiveTab('explorer')}
+              className={cn('h-8 w-8 rounded-lg', activeTab === 'explorer' && 'bg-primary/10')}
             >
               <Folder className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setActiveTab("search")}
-              className={cn("h-8 w-8 rounded-lg", activeTab === "search" && "bg-primary/10")}
+              onClick={() => setActiveTab('search')}
+              className={cn('h-8 w-8 rounded-lg', activeTab === 'search' && 'bg-primary/10')}
             >
               <Search className="h-4 w-4" />
             </Button>
@@ -754,7 +794,10 @@ export function CodeViewer({ className }: CodeViewerProps) {
             {/* Tab Navigation */}
             <div className="flex-shrink-0 p-3 border-b border-border/30">
               <div className="flex items-center justify-between mb-3">
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "explorer" | "search")}>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => setActiveTab(v as 'explorer' | 'search')}
+                >
                   <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
                     <TabsTrigger
                       value="explorer"
@@ -787,7 +830,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
             <div className="flex-1 flex flex-col overflow-hidden">
               <Tabs
                 value={activeTab}
-                onValueChange={(v) => setActiveTab(v as "explorer" | "search")}
+                onValueChange={(v) => setActiveTab(v as 'explorer' | 'search')}
                 className="flex-1 flex flex-col overflow-hidden"
               >
                 <TabsContent
@@ -833,7 +876,12 @@ export function CodeViewer({ className }: CodeViewerProps) {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg" onClick={copyAllContent}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-lg"
+                              onClick={copyAllContent}
+                            >
                               {copyStatus.all ? (
                                 <CopyCheck className="w-3 h-3 text-green-500" />
                               ) : (
@@ -857,7 +905,9 @@ export function CodeViewer({ className }: CodeViewerProps) {
                           <FileText className="h-6 w-6 text-muted-foreground/50" />
                         </div>
                         <p className="text-sm font-medium text-foreground">No files to display</p>
-                        <p className="text-xs text-muted-foreground mt-1">Upload a repository to get started</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Upload a repository to get started
+                        </p>
                       </div>
                     )}
                   </div>
@@ -883,7 +933,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
                           variant="ghost"
                           size="icon"
                           className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-lg"
-                          onClick={() => setSearchTerm("")}
+                          onClick={() => setSearchTerm('')}
                         >
                           <X className="w-3 h-3" />
                         </Button>
@@ -901,7 +951,9 @@ export function CodeViewer({ className }: CodeViewerProps) {
                           <Search className="h-6 w-6 text-muted-foreground/50" />
                         </div>
                         <p className="text-sm font-medium text-foreground">Search through files</p>
-                        <p className="text-xs text-muted-foreground mt-1">Type to search file names and content</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Type to search file names and content
+                        </p>
                       </div>
                     )}
                   </div>
@@ -968,7 +1020,7 @@ export function CodeViewer({ className }: CodeViewerProps) {
                   </Badge>
                   {selectedFile.content && (
                     <Badge variant="secondary" className="text-xs px-2 py-1 rounded-lg">
-                      {selectedFile.content.split("\n").length} lines
+                      {selectedFile.content.split('\n').length} lines
                     </Badge>
                   )}
                   <Button
@@ -999,26 +1051,27 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 height="100%"
                 language={getLanguage(selectedFile.path)}
                 value={selectedFile.content}
-                theme={theme === "dark" ? "vs-dark" : "light"}
+                theme={theme === 'dark' ? 'vs-dark' : 'light'}
                 options={{
                   readOnly: true,
-                  minimap: { enabled: window.innerWidth > 768 }, // Disable minimap on mobile
+                  // minimap: { enabled: window.innerWidth > 768 }, // Disable minimap on mobile
+                  minimap: { enabled: false }, // Disable minimap on mobile
                   scrollBeyondLastLine: false,
                   fontSize: window.innerWidth > 768 ? 14 : 12, // Smaller font on mobile
-                  lineNumbers: "on",
-                  renderLineHighlight: "all",
+                  lineNumbers: 'on',
+                  renderLineHighlight: 'all',
                   scrollbar: {
                     useShadows: true,
                     verticalHasArrows: false,
                     horizontalHasArrows: false,
-                    vertical: "visible",
-                    horizontal: "visible",
+                    vertical: 'visible',
+                    horizontal: 'visible',
                   },
                   padding: { top: 16, bottom: 16 },
                   smoothScrolling: true,
-                  cursorBlinking: "smooth",
-                  renderWhitespace: "selection",
-                  wordWrap: window.innerWidth > 768 ? "off" : "on", // Enable word wrap on mobile
+                  cursorBlinking: 'smooth',
+                  renderWhitespace: 'selection',
+                  wordWrap: window.innerWidth > 768 ? 'off' : 'on', // Enable word wrap on mobile
                 }}
                 onMount={handleEditorDidMount}
               />
@@ -1031,7 +1084,9 @@ export function CodeViewer({ className }: CodeViewerProps) {
                 <Code className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-medium text-foreground text-sm sm:text-base">Select a file to view</h3>
+                <h3 className="font-medium text-foreground text-sm sm:text-base">
+                  Select a file to view
+                </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
                   Choose a file from the explorer to view its contents with syntax highlighting
                 </p>
@@ -1050,5 +1105,5 @@ export function CodeViewer({ className }: CodeViewerProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useResultData } from "@/context/ResultDataContext";
-import { useEffect } from "react";
+import { useResultData } from '@/context/ResultDataContext';
+import { useEffect } from 'react';
 
 // Custom Components
-import { RepoTabs } from "@/components/repo-tabs";
-import { showToast } from "@/components/toaster";
-import Footer from "@/components/footer";
-import Header from "@/components/header"
+import { RepoTabs } from '@/components/repo-tabs';
+import { showToast } from '@/components/toaster';
+import Footer from '@/components/footer';
+import Header from '@/components/header';
 
 export default function Home() {
   const { error, outputMessage, setError, setOutputMessage } = useResultData();
@@ -15,14 +15,14 @@ export default function Home() {
   useEffect(() => {
     if (error) {
       showToast.error(error);
-      setError(""); // Clear error after showing
+      setError(''); // Clear error after showing
     }
   }, [error, setError]);
 
   useEffect(() => {
     if (outputMessage) {
       showToast.success(outputMessage);
-      setOutputMessage(""); // Clear message after showing
+      setOutputMessage(''); // Clear message after showing
     }
   }, [outputMessage, setOutputMessage]);
 

@@ -5,31 +5,31 @@
  * Response model for API key operations
  */
 export type ApiKeyResponse = {
-    /**
-     * Success
-     */
-    success: boolean;
-    /**
-     * Message
-     */
-    message?: string | null;
-    /**
-     * Error
-     */
-    error?: string | null;
-    /**
-     * Error Type
-     */
-    error_type?: string | null;
-    provider: ModelProvider;
-    /**
-     * Key Name
-     */
-    key_name?: string | null;
-    /**
-     * Created At
-     */
-    created_at?: Date | null;
+  /**
+   * Success
+   */
+  success: boolean;
+  /**
+   * Message
+   */
+  message?: string | null;
+  /**
+   * Error
+   */
+  error?: string | null;
+  /**
+   * Error Type
+   */
+  error_type?: string | null;
+  provider: ModelProvider;
+  /**
+   * Key Name
+   */
+  key_name?: string | null;
+  /**
+   * Created At
+   */
+  created_at?: Date | null;
 };
 
 /**
@@ -37,458 +37,458 @@ export type ApiKeyResponse = {
  * Response model for available models
  */
 export type AvailableModelsResponse = {
-    /**
-     * Providers
-     */
-    providers: {
-        [key: string]: Array<string>;
-    };
-    /**
-     * Current Limits
-     */
-    current_limits: {
-        [key: string]: number;
-    };
-    /**
-     * User Has Keys
-     */
-    user_has_keys: Array<string>;
+  /**
+   * Providers
+   */
+  providers: {
+    [key: string]: Array<string>;
+  };
+  /**
+   * Current Limits
+   */
+  current_limits: {
+    [key: string]: number;
+  };
+  /**
+   * User Has Keys
+   */
+  user_has_keys: Array<string>;
 };
 
 /**
  * Body_generate_graph_endpoint_api_repo_generate_graph_post
  */
 export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
-    /**
-     * Repo Url
-     * URL to a downloadable ZIP of the repository.
-     */
-    repo_url?: string | null;
-    /**
-     * Branch
-     * Branch for GitHub repo URL.
-     */
-    branch?: string | null;
-    /**
-     * Zip File
-     * A ZIP file of the repository.
-     */
-    zip_file?: (Blob | File) | null;
-    /**
-     * Access Token
-     * Optional GitHub token for accessing private repositories.
-     */
-    access_token?: string | null;
-    /**
-     * Jwt Token
-     * Optional JWT token for user authentication.
-     */
-    jwt_token?: string | null;
+  /**
+   * Repo Url
+   * URL to a downloadable ZIP of the repository.
+   */
+  repo_url?: string | null;
+  /**
+   * Branch
+   * Branch for GitHub repo URL.
+   */
+  branch?: string | null;
+  /**
+   * Zip File
+   * A ZIP file of the repository.
+   */
+  zip_file?: (Blob | File) | null;
+  /**
+   * Access Token
+   * Optional GitHub token for accessing private repositories.
+   */
+  access_token?: string | null;
+  /**
+   * Jwt Token
+   * Optional JWT token for user authentication.
+   */
+  jwt_token?: string | null;
 };
 
 /**
  * Body_generate_structure_endpoint_api_repo_generate_structure_post
  */
 export type BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
-    /**
-     * Repo Url
-     * URL to a downloadable ZIP of the repository.
-     */
-    repo_url?: string | null;
-    /**
-     * Branch
-     * Branch for GitHub repo URL.
-     */
-    branch?: string | null;
-    /**
-     * Zip File
-     * A ZIP file of the repository.
-     */
-    zip_file?: (Blob | File) | null;
-    /**
-     * Access Token
-     * Optional GitHub token for accessing private repositories.
-     */
-    access_token?: string | null;
-    /**
-     * Jwt Token
-     * Optional JWT token for user authentication.
-     */
-    jwt_token?: string | null;
+  /**
+   * Repo Url
+   * URL to a downloadable ZIP of the repository.
+   */
+  repo_url?: string | null;
+  /**
+   * Branch
+   * Branch for GitHub repo URL.
+   */
+  branch?: string | null;
+  /**
+   * Zip File
+   * A ZIP file of the repository.
+   */
+  zip_file?: (Blob | File) | null;
+  /**
+   * Access Token
+   * Optional GitHub token for accessing private repositories.
+   */
+  access_token?: string | null;
+  /**
+   * Jwt Token
+   * Optional JWT token for user authentication.
+   */
+  jwt_token?: string | null;
 };
 
 /**
  * Body_generate_text_endpoint_api_repo_generate_text_post
  */
 export type BodyGenerateTextEndpointApiRepoGenerateTextPost = {
-    /**
-     * Repo Url
-     * URL to a downloadable ZIP of the repository (e.g., GitHub archive link).
-     */
-    repo_url?: string | null;
-    /**
-     * Branch
-     * Branch to use if repo_url is a GitHub repository link.
-     */
-    branch?: string | null;
-    /**
-     * Zip File
-     * A ZIP file of the repository.
-     */
-    zip_file?: (Blob | File) | null;
-    /**
-     * Access Token
-     * Optional GitHub token for accessing private repositories.
-     */
-    access_token?: string | null;
-    /**
-     * Jwt Token
-     * Optional JWT token for user authentication.
-     */
-    jwt_token?: string | null;
+  /**
+   * Repo Url
+   * URL to a downloadable ZIP of the repository (e.g., GitHub archive link).
+   */
+  repo_url?: string | null;
+  /**
+   * Branch
+   * Branch to use if repo_url is a GitHub repository link.
+   */
+  branch?: string | null;
+  /**
+   * Zip File
+   * A ZIP file of the repository.
+   */
+  zip_file?: (Blob | File) | null;
+  /**
+   * Access Token
+   * Optional GitHub token for accessing private repositories.
+   */
+  access_token?: string | null;
+  /**
+   * Jwt Token
+   * Optional JWT token for user authentication.
+   */
+  jwt_token?: string | null;
 };
 
 /**
  * Body_generate_wiki_api_documentation_generate_wiki_post
  */
 export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
-    /**
-     * Jwt Token
-     * Authentication jwt_token for the request
-     */
-    jwt_token: string;
-    /**
-     * Repository Url
-     * URL of the repository to generate documentation for
-     */
-    repository_url: string;
-    /**
-     * Language
-     * Language for the documentation
-     */
-    language?: string | null;
-    /**
-     * Comprehensive
-     * Whether to generate comprehensive documentation
-     */
-    comprehensive?: boolean | null;
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
+  /**
+   * Repository Url
+   * URL of the repository to generate documentation for
+   */
+  repository_url: string;
+  /**
+   * Language
+   * Language for the documentation
+   */
+  language?: string | null;
+  /**
+   * Comprehensive
+   * Whether to generate comprehensive documentation
+   */
+  comprehensive?: boolean | null;
 };
 
 /**
  * Body_get_available_models_api_backend_chat_models_post
  */
 export type BodyGetAvailableModelsApiBackendChatModelsPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
 };
 
 /**
  * Body_get_chat_session_api_backend_chat_sessions__chat_id__post
  */
 export type BodyGetChatSessionApiBackendChatSessionsChatIdPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
 };
 
 /**
  * Body_get_conversation_history_api_backend_chat_conversations__conversation_id__post
  */
 export type BodyGetConversationHistoryApiBackendChatConversationsConversationIdPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
 };
 
 /**
  * Body_get_wiki_status_api_documentation_wiki_status_post
  */
 export type BodyGetWikiStatusApiDocumentationWikiStatusPost = {
-    /**
-     * Repo Id
-     * ID of the repository to check wiki generation status for
-     */
-    repo_id: string;
-    /**
-     * Jwt Token
-     * Authentication jwt_token for the request
-     */
-    jwt_token: string;
+  /**
+   * Repo Id
+   * ID of the repository to check wiki generation status for
+   */
+  repo_id: string;
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
 };
 
 /**
  * Body_is_wiki_generated_api_documentation_is_wiki_generated_post
  */
 export type BodyIsWikiGeneratedApiDocumentationIsWikiGeneratedPost = {
-    /**
-     * Repo Id
-     * ID of the repository to check wiki generation status for
-     */
-    repo_id: string;
-    /**
-     * Jwt Token
-     * Authentication jwt_token for the request
-     */
-    jwt_token: string;
+  /**
+   * Repo Id
+   * ID of the repository to check wiki generation status for
+   */
+  repo_id: string;
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
 };
 
 /**
  * Body_list_repository_docs_api_documentation_repository_docs_post
  */
 export type BodyListRepositoryDocsApiDocumentationRepositoryDocsPost = {
-    /**
-     * Repo Id
-     * ID of the repository to list documentation files for
-     */
-    repo_id: string;
-    /**
-     * Jwt Token
-     * Authentication jwt_token for the request
-     */
-    jwt_token: string;
+  /**
+   * Repo Id
+   * ID of the repository to list documentation files for
+   */
+  repo_id: string;
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
 };
 
 /**
  * Body_list_user_chat_sessions_api_backend_chat_sessions_post
  */
 export type BodyListUserChatSessionsApiBackendChatSessionsPost = {
-    /**
-     * Jwt Token
-     * JWT authentication token
-     */
-    jwt_token: string;
-    /**
-     * Repo Id
-     * Repository ID
-     */
-    repo_id: string;
+  /**
+   * Jwt Token
+   * JWT authentication token
+   */
+  jwt_token: string;
+  /**
+   * Repo Id
+   * Repository ID
+   */
+  repo_id: string;
 };
 
 /**
  * Body_process_chat_message_api_backend_chat_chat_post
  */
 export type BodyProcessChatMessageApiBackendChatChatPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
-    /**
-     * Message
-     * User's message/question
-     */
-    message: string;
-    /**
-     * Repository Id
-     * Repository ID to chat about
-     */
-    repository_id: string;
-    /**
-     * Use User
-     * Whether to use the user's saved API key
-     */
-    use_user?: boolean;
-    /**
-     * Chat Id
-     * Chat session ID (auto-generated if not provided)
-     */
-    chat_id?: string | null;
-    /**
-     * Conversation Id
-     * Conversation thread ID (auto-generated if not provided)
-     */
-    conversation_id?: string | null;
-    /**
-     * Provider
-     * LLM provider (openai, anthropic, gemini)
-     */
-    provider?: string;
-    /**
-     * Model
-     * Model name
-     */
-    model?: string;
-    /**
-     * Temperature
-     * Response randomness (0.0-2.0)
-     */
-    temperature?: number;
-    /**
-     * Max Tokens
-     * Maximum tokens in response (1-4000)
-     */
-    max_tokens?: number | null;
-    /**
-     * Include Full Context
-     * Include full repository content as context
-     */
-    include_full_context?: boolean;
-    /**
-     * Context Search Query
-     * Specific search query for context retrieval
-     */
-    context_search_query?: string | null;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Message
+   * User's message/question
+   */
+  message: string;
+  /**
+   * Repository Id
+   * Repository ID to chat about
+   */
+  repository_id: string;
+  /**
+   * Use User
+   * Whether to use the user's saved API key
+   */
+  use_user?: boolean;
+  /**
+   * Chat Id
+   * Chat session ID (auto-generated if not provided)
+   */
+  chat_id?: string | null;
+  /**
+   * Conversation Id
+   * Conversation thread ID (auto-generated if not provided)
+   */
+  conversation_id?: string | null;
+  /**
+   * Provider
+   * LLM provider (openai, anthropic, gemini)
+   */
+  provider?: string;
+  /**
+   * Model
+   * Model name
+   */
+  model?: string;
+  /**
+   * Temperature
+   * Response randomness (0.0-2.0)
+   */
+  temperature?: number;
+  /**
+   * Max Tokens
+   * Maximum tokens in response (1-4000)
+   */
+  max_tokens?: number | null;
+  /**
+   * Include Full Context
+   * Include full repository content as context
+   */
+  include_full_context?: boolean;
+  /**
+   * Context Search Query
+   * Specific search query for context retrieval
+   */
+  context_search_query?: string | null;
 };
 
 /**
  * Body_save_user_api_key_api_backend_chat_keys_save_post
  */
 export type BodySaveUserApiKeyApiBackendChatKeysSavePost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
-    /**
-     * Provider
-     * Provider name (openai, anthropic, gemini)
-     */
-    provider: string;
-    /**
-     * Api Key
-     * API key
-     */
-    api_key: string;
-    /**
-     * Key Name
-     * Friendly name for the key
-     */
-    key_name?: string | null;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Provider name (openai, anthropic, gemini)
+   */
+  provider: string;
+  /**
+   * Api Key
+   * API key
+   */
+  api_key: string;
+  /**
+   * Key Name
+   * Friendly name for the key
+   */
+  key_name?: string | null;
 };
 
 /**
  * Body_search_context_api_backend_chat_context_search_post
  */
 export type BodySearchContextApiBackendChatContextSearchPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
-    /**
-     * Repository Id
-     * Repository ID to search
-     */
-    repository_id: string;
-    /**
-     * Query
-     * Search query
-     */
-    query: string;
-    /**
-     * Max Results
-     * Maximum number of results (1-20)
-     */
-    max_results?: number;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Repository Id
+   * Repository ID to search
+   */
+  repository_id: string;
+  /**
+   * Query
+   * Search query
+   */
+  query: string;
+  /**
+   * Max Results
+   * Maximum number of results (1-20)
+   */
+  max_results?: number;
 };
 
 /**
  * Body_stream_chat_response_api_backend_chat_chat_stream_post
  */
 export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
-    /**
-     * Message
-     * User's message/question
-     */
-    message: string;
-    /**
-     * Repository Id
-     * Repository ID to chat about
-     */
-    repository_id: string;
-    /**
-     * Use User
-     * Whether to use the user's saved API key
-     */
-    use_user?: boolean;
-    /**
-     * Chat Id
-     * Chat session ID (auto-generated if not provided)
-     */
-    chat_id?: string | null;
-    /**
-     * Conversation Id
-     * Conversation thread ID (auto-generated if not provided)
-     */
-    conversation_id?: string | null;
-    /**
-     * Provider
-     * LLM provider (openai, anthropic, gemini)
-     */
-    provider?: string;
-    /**
-     * Model
-     * Model name
-     */
-    model?: string;
-    /**
-     * Temperature
-     * Response randomness (0.0-2.0)
-     */
-    temperature?: number;
-    /**
-     * Max Tokens
-     * Maximum tokens in response (1-4000)
-     */
-    max_tokens?: number | null;
-    /**
-     * Include Full Context
-     * Include full repository content as context
-     */
-    include_full_context?: boolean;
-    /**
-     * Context Search Query
-     * Specific search query for context retrieval
-     */
-    context_search_query?: string | null;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Message
+   * User's message/question
+   */
+  message: string;
+  /**
+   * Repository Id
+   * Repository ID to chat about
+   */
+  repository_id: string;
+  /**
+   * Use User
+   * Whether to use the user's saved API key
+   */
+  use_user?: boolean;
+  /**
+   * Chat Id
+   * Chat session ID (auto-generated if not provided)
+   */
+  chat_id?: string | null;
+  /**
+   * Conversation Id
+   * Conversation thread ID (auto-generated if not provided)
+   */
+  conversation_id?: string | null;
+  /**
+   * Provider
+   * LLM provider (openai, anthropic, gemini)
+   */
+  provider?: string;
+  /**
+   * Model
+   * Model name
+   */
+  model?: string;
+  /**
+   * Temperature
+   * Response randomness (0.0-2.0)
+   */
+  temperature?: number;
+  /**
+   * Max Tokens
+   * Maximum tokens in response (1-4000)
+   */
+  max_tokens?: number | null;
+  /**
+   * Include Full Context
+   * Include full repository content as context
+   */
+  include_full_context?: boolean;
+  /**
+   * Context Search Query
+   * Specific search query for context retrieval
+   */
+  context_search_query?: string | null;
 };
 
 /**
  * Body_update_chat_settings_api_backend_chat_settings_post
  */
 export type BodyUpdateChatSettingsApiBackendChatSettingsPost = {
-    /**
-     * Token
-     * JWT authentication token
-     */
-    token: string;
-    /**
-     * Chat Id
-     * Chat session ID to update
-     */
-    chat_id: string;
-    /**
-     * Title
-     * New chat title
-     */
-    title?: string | null;
-    /**
-     * Default Provider
-     * Default LLM provider
-     */
-    default_provider?: string | null;
-    /**
-     * Default Model
-     * Default model name
-     */
-    default_model?: string | null;
-    /**
-     * Default Temperature
-     * Default temperature (0.0-2.0)
-     */
-    default_temperature?: number | null;
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Chat Id
+   * Chat session ID to update
+   */
+  chat_id: string;
+  /**
+   * Title
+   * New chat title
+   */
+  title?: string | null;
+  /**
+   * Default Provider
+   * Default LLM provider
+   */
+  default_provider?: string | null;
+  /**
+   * Default Model
+   * Default model name
+   */
+  default_model?: string | null;
+  /**
+   * Default Temperature
+   * Default temperature (0.0-2.0)
+   */
+  default_temperature?: number | null;
 };
 
 /**
@@ -496,49 +496,49 @@ export type BodyUpdateChatSettingsApiBackendChatSettingsPost = {
  * Response model for non-streaming chat interactions
  */
 export type ChatResponse = {
-    /**
-     * Success
-     */
-    success: boolean;
-    /**
-     * Message
-     */
-    message?: string | null;
-    /**
-     * Error
-     */
-    error?: string | null;
-    /**
-     * Error Type
-     */
-    error_type?: string | null;
-    /**
-     * Chat Id
-     */
-    chat_id: string;
-    /**
-     * Conversation Id
-     */
-    conversation_id: string;
-    /**
-     * Ai Response
-     */
-    ai_response?: string | null;
-    /**
-     * Context Used
-     */
-    context_used?: string | null;
-    usage?: TokenUsage | null;
-    /**
-     * Model Used
-     */
-    model_used?: string | null;
-    provider?: ModelProvider | null;
-    /**
-     * Response Time
-     * Response time in seconds
-     */
-    response_time?: number | null;
+  /**
+   * Success
+   */
+  success: boolean;
+  /**
+   * Message
+   */
+  message?: string | null;
+  /**
+   * Error
+   */
+  error?: string | null;
+  /**
+   * Error Type
+   */
+  error_type?: string | null;
+  /**
+   * Chat Id
+   */
+  chat_id: string;
+  /**
+   * Conversation Id
+   */
+  conversation_id: string;
+  /**
+   * Ai Response
+   */
+  ai_response?: string | null;
+  /**
+   * Context Used
+   */
+  context_used?: string | null;
+  usage?: TokenUsage | null;
+  /**
+   * Model Used
+   */
+  model_used?: string | null;
+  provider?: ModelProvider | null;
+  /**
+   * Response Time
+   * Response time in seconds
+   */
+  response_time?: number | null;
 };
 
 /**
@@ -546,18 +546,18 @@ export type ChatResponse = {
  * Basic chat session info for listing
  */
 export type ChatSessionListItem = {
-    /**
-     * Chat Id
-     */
-    chat_id: string;
-    /**
-     * Conversation Id
-     */
-    conversation_id: string;
-    /**
-     * Title
-     */
-    title: string;
+  /**
+   * Chat Id
+   */
+  chat_id: string;
+  /**
+   * Conversation Id
+   */
+  conversation_id: string;
+  /**
+   * Title
+   */
+  title: string;
 };
 
 /**
@@ -565,14 +565,14 @@ export type ChatSessionListItem = {
  * Response for listing chat sessions
  */
 export type ChatSessionListResponse = {
-    /**
-     * Success
-     */
-    success: boolean;
-    /**
-     * Sessions
-     */
-    sessions: Array<ChatSessionListItem>;
+  /**
+   * Success
+   */
+  success: boolean;
+  /**
+   * Sessions
+   */
+  sessions: Array<ChatSessionListItem>;
 };
 
 /**
@@ -580,59 +580,59 @@ export type ChatSessionListResponse = {
  * Response model for chat session information
  */
 export type ChatSessionResponse = {
-    /**
-     * Chat Id
-     */
-    chat_id: string;
-    /**
-     * Title
-     */
-    title?: string | null;
-    /**
-     * Repository Name
-     */
-    repository_name: string;
-    /**
-     * Repository Id
-     */
-    repository_id: string;
-    /**
-     * Created At
-     */
-    created_at: Date;
-    /**
-     * Updated At
-     */
-    updated_at: Date;
-    /**
-     * Is Active
-     */
-    is_active?: boolean;
-    default_model_provider?: ModelProvider;
-    /**
-     * Default Model Name
-     */
-    default_model_name?: string;
-    /**
-     * Default Temperature
-     */
-    default_temperature?: number;
-    /**
-     * Use Own Key
-     */
-    use_own_key?: boolean;
-    /**
-     * Daily Requests Count
-     */
-    daily_requests_count?: number;
-    /**
-     * Daily Limit
-     */
-    daily_limit?: number;
-    /**
-     * Recent Conversations
-     */
-    recent_conversations?: Array<ConversationHistoryResponse>;
+  /**
+   * Chat Id
+   */
+  chat_id: string;
+  /**
+   * Title
+   */
+  title?: string | null;
+  /**
+   * Repository Name
+   */
+  repository_name: string;
+  /**
+   * Repository Id
+   */
+  repository_id: string;
+  /**
+   * Created At
+   */
+  created_at: Date;
+  /**
+   * Updated At
+   */
+  updated_at: Date;
+  /**
+   * Is Active
+   */
+  is_active?: boolean;
+  default_model_provider?: ModelProvider;
+  /**
+   * Default Model Name
+   */
+  default_model_name?: string;
+  /**
+   * Default Temperature
+   */
+  default_temperature?: number;
+  /**
+   * Use Own Key
+   */
+  use_own_key?: boolean;
+  /**
+   * Daily Requests Count
+   */
+  daily_requests_count?: number;
+  /**
+   * Daily Limit
+   */
+  daily_limit?: number;
+  /**
+   * Recent Conversations
+   */
+  recent_conversations?: Array<ConversationHistoryResponse>;
 };
 
 /**
@@ -640,28 +640,28 @@ export type ChatSessionResponse = {
  * Response model for chat settings
  */
 export type ChatSettingsResponse = {
-    /**
-     * Success
-     */
-    success: boolean;
-    /**
-     * Message
-     */
-    message?: string | null;
-    /**
-     * Error
-     */
-    error?: string | null;
-    /**
-     * Error Type
-     */
-    error_type?: string | null;
-    /**
-     * Settings
-     */
-    settings?: {
-        [key: string]: unknown;
-    } | null;
+  /**
+   * Success
+   */
+  success: boolean;
+  /**
+   * Message
+   */
+  message?: string | null;
+  /**
+   * Error
+   */
+  error?: string | null;
+  /**
+   * Error Type
+   */
+  error_type?: string | null;
+  /**
+   * Settings
+   */
+  settings?: {
+    [key: string]: unknown;
+  } | null;
 };
 
 /**
@@ -669,34 +669,34 @@ export type ChatSettingsResponse = {
  * Response model for context search
  */
 export type ContextSearchResponse = {
-    /**
-     * Success
-     */
-    success: boolean;
-    /**
-     * Message
-     */
-    message?: string | null;
-    /**
-     * Error
-     */
-    error?: string | null;
-    /**
-     * Error Type
-     */
-    error_type?: string | null;
-    /**
-     * Results
-     */
-    results?: Array<ContextSearchResult>;
-    /**
-     * Total Found
-     */
-    total_found?: number;
-    /**
-     * Query Used
-     */
-    query_used: string;
+  /**
+   * Success
+   */
+  success: boolean;
+  /**
+   * Message
+   */
+  message?: string | null;
+  /**
+   * Error
+   */
+  error?: string | null;
+  /**
+   * Error Type
+   */
+  error_type?: string | null;
+  /**
+   * Results
+   */
+  results?: Array<ContextSearchResult>;
+  /**
+   * Total Found
+   */
+  total_found?: number;
+  /**
+   * Query Used
+   */
+  query_used: string;
 };
 
 /**
@@ -704,18 +704,18 @@ export type ContextSearchResponse = {
  * Individual search result
  */
 export type ContextSearchResult = {
-    /**
-     * Line Number
-     */
-    line_number: number;
-    /**
-     * Content
-     */
-    content: string;
-    /**
-     * Context
-     */
-    context: string;
+  /**
+   * Line Number
+   */
+  line_number: number;
+  /**
+   * Content
+   */
+  content: string;
+  /**
+   * Context
+   */
+  context: string;
 };
 
 /**
@@ -723,242 +723,242 @@ export type ContextSearchResult = {
  * Response model for conversation history
  */
 export type ConversationHistoryResponse = {
-    /**
-     * Chat Id
-     */
-    chat_id: string;
-    /**
-     * Conversation Id
-     */
-    conversation_id: string;
-    /**
-     * Title
-     */
-    title?: string | null;
-    /**
-     * Messages
-     */
-    messages: Array<MessageResponse>;
-    /**
-     * Created At
-     */
-    created_at: Date;
-    /**
-     * Updated At
-     */
-    updated_at: Date;
-    /**
-     * Total Tokens Used
-     */
-    total_tokens_used?: number;
-    model_provider: ModelProvider;
-    /**
-     * Model Name
-     */
-    model_name: string;
+  /**
+   * Chat Id
+   */
+  chat_id: string;
+  /**
+   * Conversation Id
+   */
+  conversation_id: string;
+  /**
+   * Title
+   */
+  title?: string | null;
+  /**
+   * Messages
+   */
+  messages: Array<MessageResponse>;
+  /**
+   * Created At
+   */
+  created_at: Date;
+  /**
+   * Updated At
+   */
+  updated_at: Date;
+  /**
+   * Total Tokens Used
+   */
+  total_tokens_used?: number;
+  model_provider: ModelProvider;
+  /**
+   * Model Name
+   */
+  model_name: string;
 };
 
 /**
  * DocumentationFile
  */
 export type DocumentationFile = {
-    metadata: FileMetadata;
-    /**
-     * Content
-     */
-    content: string;
-    /**
-     * Preview
-     */
-    preview: string;
-    /**
-     * Word Count
-     */
-    word_count: number;
-    /**
-     * Read Time
-     */
-    read_time: number;
+  metadata: FileMetadata;
+  /**
+   * Content
+   */
+  content: string;
+  /**
+   * Preview
+   */
+  preview: string;
+  /**
+   * Word Count
+   */
+  word_count: number;
+  /**
+   * Read Time
+   */
+  read_time: number;
 };
 
 /**
  * ErrorResponse
  */
 export type ErrorResponse = {
-    /**
-     * Detail
-     */
-    detail: string;
+  /**
+   * Detail
+   */
+  detail: string;
 };
 
 /**
  * FileData
  */
 export type FileData = {
-    /**
-     * Path
-     */
-    path: string;
-    /**
-     * Content
-     */
-    content: string;
+  /**
+   * Path
+   */
+  path: string;
+  /**
+   * Content
+   */
+  content: string;
 };
 
 /**
  * FileMetadata
  */
 export type FileMetadata = {
-    /**
-     * Filename
-     */
-    filename: string;
-    /**
-     * Size
-     */
-    size: number;
-    /**
-     * Modified
-     */
-    modified: string;
-    /**
-     * Type
-     */
-    type: string;
+  /**
+   * Filename
+   */
+  filename: string;
+  /**
+   * Size
+   */
+  size: number;
+  /**
+   * Modified
+   */
+  modified: string;
+  /**
+   * Type
+   */
+  type: string;
 };
 
 /**
  * GraphEdge
  */
 export type GraphEdge = {
-    /**
-     * Source
-     */
-    source: string;
-    /**
-     * Target
-     */
-    target: string;
-    /**
-     * Relationship
-     */
-    relationship: string;
+  /**
+   * Source
+   */
+  source: string;
+  /**
+   * Target
+   */
+  target: string;
+  /**
+   * Relationship
+   */
+  relationship: string;
 };
 
 /**
  * GraphNode
  */
 export type GraphNode = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Category
-     */
-    category: string;
-    /**
-     * File
-     */
-    file?: string | null;
-    /**
-     * Start Line
-     */
-    start_line?: number | null;
-    /**
-     * End Line
-     */
-    end_line?: number | null;
-    /**
-     * Code
-     */
-    code?: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Category
+   */
+  category: string;
+  /**
+   * File
+   */
+  file?: string | null;
+  /**
+   * Start Line
+   */
+  start_line?: number | null;
+  /**
+   * End Line
+   */
+  end_line?: number | null;
+  /**
+   * Code
+   */
+  code?: string | null;
 };
 
 /**
  * GraphResponse
  */
 export type GraphResponse = {
-    /**
-     * Html Url
-     */
-    html_url?: string | null;
-    /**
-     * Nodes
-     */
-    nodes: Array<GraphNode>;
-    /**
-     * Edges
-     */
-    edges: Array<GraphEdge>;
+  /**
+   * Html Url
+   */
+  html_url?: string | null;
+  /**
+   * Nodes
+   */
+  nodes: Array<GraphNode>;
+  /**
+   * Edges
+   */
+  edges: Array<GraphEdge>;
 };
 
 /**
  * HTTPValidationError
  */
 export type HttpValidationError = {
-    /**
-     * Detail
-     */
-    detail?: Array<ValidationError>;
+  /**
+   * Detail
+   */
+  detail?: Array<ValidationError>;
 };
 
 /**
  * IsWikiGeneratedResponse
  */
 export type IsWikiGeneratedResponse = {
-    /**
-     * Is Generated
-     */
-    is_generated: boolean;
-    /**
-     * Status
-     */
-    status: string;
-    /**
-     * Message
-     */
-    message?: string;
-    /**
-     * Error
-     */
-    error?: string | null;
+  /**
+   * Is Generated
+   */
+  is_generated: boolean;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Message
+   */
+  message?: string;
+  /**
+   * Error
+   */
+  error?: string | null;
 };
 
 /**
  * LoginRequest
  */
 export type LoginRequest = {
-    /**
-     * Access Token
-     */
-    access_token: string;
+  /**
+   * Access Token
+   */
+  access_token: string;
 };
 
 /**
  * LoginResponse
  */
 export type LoginResponse = {
-    /**
-     * Jwt Token
-     */
-    jwt_token: string;
-    /**
-     * Expires In
-     */
-    expires_in: number;
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Token Type
-     */
-    token_type?: string;
+  /**
+   * Jwt Token
+   */
+  jwt_token: string;
+  /**
+   * Expires In
+   */
+  expires_in: number;
+  /**
+   * User Id
+   */
+  user_id: string;
+  /**
+   * Token Type
+   */
+  token_type?: string;
 };
 
 /**
@@ -966,28 +966,28 @@ export type LoginResponse = {
  * Response model for individual messages
  */
 export type MessageResponse = {
-    /**
-     * Role
-     */
-    role: 'user' | 'assistant' | 'system';
-    /**
-     * Content
-     */
-    content: string;
-    /**
-     * Timestamp
-     */
-    timestamp: Date;
-    /**
-     * Context Used
-     */
-    context_used?: string | null;
-    /**
-     * Metadata
-     */
-    metadata?: {
-        [key: string]: unknown;
-    } | null;
+  /**
+   * Role
+   */
+  role: 'user' | 'assistant' | 'system';
+  /**
+   * Content
+   */
+  content: string;
+  /**
+   * Timestamp
+   */
+  timestamp: Date;
+  /**
+   * Context Used
+   */
+  context_used?: string | null;
+  /**
+   * Metadata
+   */
+  metadata?: {
+    [key: string]: unknown;
+  } | null;
 };
 
 /**
@@ -1001,181 +1001,181 @@ export type ModelProvider = 'openai' | 'anthropic' | 'gemini';
  * Supported LLM providers
  */
 export const ModelProvider = {
-    OPENAI: 'openai',
-    ANTHROPIC: 'anthropic',
-    GEMINI: 'gemini'
+  OPENAI: 'openai',
+  ANTHROPIC: 'anthropic',
+  GEMINI: 'gemini',
 } as const;
 
 /**
  * NavigationData
  */
 export type NavigationData = {
-    /**
-     * Sidebar
-     */
-    sidebar: Array<SidebarItem>;
-    /**
-     * Total Pages
-     */
-    total_pages: number;
+  /**
+   * Sidebar
+   */
+  sidebar: Array<SidebarItem>;
+  /**
+   * Total Pages
+   */
+  total_pages: number;
 };
 
 /**
  * RepositoryAnalysis
  */
 export type RepositoryAnalysis = {
-    /**
-     * Domain Type
-     */
-    domain_type?: string | null;
-    /**
-     * Complexity Score
-     */
-    complexity_score?: string | null;
-    /**
-     * Languages
-     */
-    languages?: string | null;
-    /**
-     * Frameworks
-     */
-    frameworks?: string | null;
-    /**
-     * Total Pages
-     */
-    total_pages?: string | null;
+  /**
+   * Domain Type
+   */
+  domain_type?: string | null;
+  /**
+   * Complexity Score
+   */
+  complexity_score?: string | null;
+  /**
+   * Languages
+   */
+  languages?: string | null;
+  /**
+   * Frameworks
+   */
+  frameworks?: string | null;
+  /**
+   * Total Pages
+   */
+  total_pages?: string | null;
 };
 
 /**
  * RepositoryDocsData
  */
 export type RepositoryDocsData = {
-    repository: RepositoryInfo;
-    analysis: RepositoryAnalysis;
-    navigation: NavigationData;
-    /**
-     * Content
-     */
-    content: {
-        [key: string]: DocumentationFile;
-    };
+  repository: RepositoryInfo;
+  analysis: RepositoryAnalysis;
+  navigation: NavigationData;
+  /**
+   * Content
+   */
+  content: {
+    [key: string]: DocumentationFile;
+  };
 };
 
 /**
  * RepositoryDocsResponse
  */
 export type RepositoryDocsResponse = {
-    /**
-     * Success
-     */
-    success: boolean;
-    data: RepositoryDocsData;
-    /**
-     * Message
-     */
-    message: string;
+  /**
+   * Success
+   */
+  success: boolean;
+  data: RepositoryDocsData;
+  /**
+   * Message
+   */
+  message: string;
 };
 
 /**
  * RepositoryInfo
  */
 export type RepositoryInfo = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Directory
-     */
-    directory: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Directory
+   */
+  directory: string;
 };
 
 /**
  * SidebarItem
  */
 export type SidebarItem = {
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Filename
-     */
-    filename: string;
-    /**
-     * Emoji
-     */
-    emoji: string;
-    /**
-     * Url
-     */
-    url: string;
+  /**
+   * Title
+   */
+  title: string;
+  /**
+   * Filename
+   */
+  filename: string;
+  /**
+   * Emoji
+   */
+  emoji: string;
+  /**
+   * Url
+   */
+  url: string;
 };
 
 /**
  * StructureResponse
  */
 export type StructureResponse = {
-    /**
-     * Directory Tree
-     */
-    directory_tree: string;
-    /**
-     * Files
-     */
-    files: Array<FileData>;
+  /**
+   * Directory Tree
+   */
+  directory_tree: string;
+  /**
+   * Files
+   */
+  files: Array<FileData>;
 };
 
 /**
  * TaskStatus
  */
 export type TaskStatus = {
-    /**
-     * Task Id
-     */
-    task_id: string;
-    /**
-     * Status
-     */
-    status: string;
-    /**
-     * Message
-     */
-    message: string;
-    /**
-     * Error
-     */
-    error?: string | null;
-    /**
-     * Created At
-     */
-    created_at: number;
-    /**
-     * Completed At
-     */
-    completed_at?: number | null;
+  /**
+   * Task Id
+   */
+  task_id: string;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Error
+   */
+  error?: string | null;
+  /**
+   * Created At
+   */
+  created_at: number;
+  /**
+   * Completed At
+   */
+  completed_at?: number | null;
 };
 
 /**
  * TextResponse
  */
 export type TextResponse = {
-    /**
-     * Text Content
-     */
-    text_content: string;
-    /**
-     * Filename Suggestion
-     */
-    filename_suggestion: string;
-    /**
-     * Repo Id
-     */
-    repo_id: string;
+  /**
+   * Text Content
+   */
+  text_content: string;
+  /**
+   * Filename Suggestion
+   */
+  filename_suggestion: string;
+  /**
+   * Repo Id
+   */
+  repo_id: string;
 };
 
 /**
@@ -1183,683 +1183,716 @@ export type TextResponse = {
  * Token usage information
  */
 export type TokenUsage = {
-    /**
-     * Prompt Tokens
-     */
-    prompt_tokens?: number;
-    /**
-     * Completion Tokens
-     */
-    completion_tokens?: number;
-    /**
-     * Total Tokens
-     */
-    total_tokens?: number;
+  /**
+   * Prompt Tokens
+   */
+  prompt_tokens?: number;
+  /**
+   * Completion Tokens
+   */
+  completion_tokens?: number;
+  /**
+   * Total Tokens
+   */
+  total_tokens?: number;
 };
 
 /**
  * ValidationError
  */
 export type ValidationError = {
-    /**
-     * Location
-     */
-    loc: Array<string | number>;
-    /**
-     * Message
-     */
-    msg: string;
-    /**
-     * Error Type
-     */
-    type: string;
+  /**
+   * Location
+   */
+  loc: Array<string | number>;
+  /**
+   * Message
+   */
+  msg: string;
+  /**
+   * Error Type
+   */
+  type: string;
 };
 
 /**
  * WikiGenerationResponse
  */
 export type WikiGenerationResponse = {
-    /**
-     * Status
-     */
-    status: string;
-    /**
-     * Message
-     */
-    message: string;
-    /**
-     * Task Id
-     */
-    task_id?: string | null;
-    /**
-     * Result
-     */
-    result?: {
-        [key: string]: unknown;
-    } | null;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Task Id
+   */
+  task_id?: string | null;
+  /**
+   * Result
+   */
+  result?: {
+    [key: string]: unknown;
+  } | null;
 };
 
 export type GenerateTextEndpointApiRepoGenerateTextPostData = {
-    body?: BodyGenerateTextEndpointApiRepoGenerateTextPost;
-    path?: never;
-    query?: never;
-    url: '/api/repo/generate-text';
+  body?: BodyGenerateTextEndpointApiRepoGenerateTextPost;
+  path?: never;
+  query?: never;
+  url: '/api/repo/generate-text';
 };
 
 export type GenerateTextEndpointApiRepoGenerateTextPostErrors = {
-    /**
-     * Invalid input (e.g., no URL or ZIP provided).
-     */
-    400: ErrorResponse;
-    /**
-     * Invalid or expired JWT token.
-     */
-    401: ErrorResponse;
-    /**
-     * Could not download repository or no suitable files found.
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Server error during processing.
-     */
-    500: ErrorResponse;
+  /**
+   * Invalid input (e.g., no URL or ZIP provided).
+   */
+  400: ErrorResponse;
+  /**
+   * Invalid or expired JWT token.
+   */
+  401: ErrorResponse;
+  /**
+   * Could not download repository or no suitable files found.
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Server error during processing.
+   */
+  500: ErrorResponse;
 };
 
-export type GenerateTextEndpointApiRepoGenerateTextPostError = GenerateTextEndpointApiRepoGenerateTextPostErrors[keyof GenerateTextEndpointApiRepoGenerateTextPostErrors];
+export type GenerateTextEndpointApiRepoGenerateTextPostError =
+  GenerateTextEndpointApiRepoGenerateTextPostErrors[keyof GenerateTextEndpointApiRepoGenerateTextPostErrors];
 
 export type GenerateTextEndpointApiRepoGenerateTextPostResponses = {
-    /**
-     * Repository content as JSON (cached or newly generated).
-     */
-    200: TextResponse;
+  /**
+   * Repository content as JSON (cached or newly generated).
+   */
+  200: TextResponse;
 };
 
-export type GenerateTextEndpointApiRepoGenerateTextPostResponse = GenerateTextEndpointApiRepoGenerateTextPostResponses[keyof GenerateTextEndpointApiRepoGenerateTextPostResponses];
+export type GenerateTextEndpointApiRepoGenerateTextPostResponse =
+  GenerateTextEndpointApiRepoGenerateTextPostResponses[keyof GenerateTextEndpointApiRepoGenerateTextPostResponses];
 
 export type GenerateGraphEndpointApiRepoGenerateGraphPostData = {
-    body?: BodyGenerateGraphEndpointApiRepoGenerateGraphPost;
-    path?: never;
-    query?: never;
-    url: '/api/repo/generate-graph';
+  body?: BodyGenerateGraphEndpointApiRepoGenerateGraphPost;
+  path?: never;
+  query?: never;
+  url: '/api/repo/generate-graph';
 };
 
 export type GenerateGraphEndpointApiRepoGenerateGraphPostErrors = {
-    /**
-     * Invalid input (e.g., no URL or ZIP provided).
-     */
-    400: ErrorResponse;
-    /**
-     * Invalid or expired JWT token.
-     */
-    401: ErrorResponse;
-    /**
-     * Repository not found or no suitable files for graph generation.
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Server error during graph generation.
-     */
-    500: ErrorResponse;
+  /**
+   * Invalid input (e.g., no URL or ZIP provided).
+   */
+  400: ErrorResponse;
+  /**
+   * Invalid or expired JWT token.
+   */
+  401: ErrorResponse;
+  /**
+   * Repository not found or no suitable files for graph generation.
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Server error during graph generation.
+   */
+  500: ErrorResponse;
 };
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostError = GenerateGraphEndpointApiRepoGenerateGraphPostErrors[keyof GenerateGraphEndpointApiRepoGenerateGraphPostErrors];
+export type GenerateGraphEndpointApiRepoGenerateGraphPostError =
+  GenerateGraphEndpointApiRepoGenerateGraphPostErrors[keyof GenerateGraphEndpointApiRepoGenerateGraphPostErrors];
 
 export type GenerateGraphEndpointApiRepoGenerateGraphPostResponses = {
-    /**
-     * Dependency graph data as JSON (cached or newly generated).
-     */
-    200: GraphResponse;
+  /**
+   * Dependency graph data as JSON (cached or newly generated).
+   */
+  200: GraphResponse;
 };
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostResponse = GenerateGraphEndpointApiRepoGenerateGraphPostResponses[keyof GenerateGraphEndpointApiRepoGenerateGraphPostResponses];
+export type GenerateGraphEndpointApiRepoGenerateGraphPostResponse =
+  GenerateGraphEndpointApiRepoGenerateGraphPostResponses[keyof GenerateGraphEndpointApiRepoGenerateGraphPostResponses];
 
 export type GenerateStructureEndpointApiRepoGenerateStructurePostData = {
-    body?: BodyGenerateStructureEndpointApiRepoGenerateStructurePost;
-    path?: never;
-    query?: never;
-    url: '/api/repo/generate-structure';
+  body?: BodyGenerateStructureEndpointApiRepoGenerateStructurePost;
+  path?: never;
+  query?: never;
+  url: '/api/repo/generate-structure';
 };
 
 export type GenerateStructureEndpointApiRepoGenerateStructurePostErrors = {
-    /**
-     * Invalid input (e.g., no URL or ZIP provided).
-     */
-    400: ErrorResponse;
-    /**
-     * Invalid or expired JWT token.
-     */
-    401: ErrorResponse;
-    /**
-     * Repository not found or no suitable files after filtering.
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Server error during structure generation.
-     */
-    500: ErrorResponse;
+  /**
+   * Invalid input (e.g., no URL or ZIP provided).
+   */
+  400: ErrorResponse;
+  /**
+   * Invalid or expired JWT token.
+   */
+  401: ErrorResponse;
+  /**
+   * Repository not found or no suitable files after filtering.
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Server error during structure generation.
+   */
+  500: ErrorResponse;
 };
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostError = GenerateStructureEndpointApiRepoGenerateStructurePostErrors[keyof GenerateStructureEndpointApiRepoGenerateStructurePostErrors];
+export type GenerateStructureEndpointApiRepoGenerateStructurePostError =
+  GenerateStructureEndpointApiRepoGenerateStructurePostErrors[keyof GenerateStructureEndpointApiRepoGenerateStructurePostErrors];
 
 export type GenerateStructureEndpointApiRepoGenerateStructurePostResponses = {
-    /**
-     * Repository structure and content as JSON (cached or newly generated).
-     */
-    200: StructureResponse;
+  /**
+   * Repository structure and content as JSON (cached or newly generated).
+   */
+  200: StructureResponse;
 };
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostResponse = GenerateStructureEndpointApiRepoGenerateStructurePostResponses[keyof GenerateStructureEndpointApiRepoGenerateStructurePostResponses];
+export type GenerateStructureEndpointApiRepoGenerateStructurePostResponse =
+  GenerateStructureEndpointApiRepoGenerateStructurePostResponses[keyof GenerateStructureEndpointApiRepoGenerateStructurePostResponses];
 
 export type LoginUserApiBackendAuthLoginPostData = {
-    body: LoginRequest;
-    path?: never;
-    query?: never;
-    url: '/api/backend-auth/login';
+  body: LoginRequest;
+  path?: never;
+  query?: never;
+  url: '/api/backend-auth/login';
 };
 
 export type LoginUserApiBackendAuthLoginPostErrors = {
-    /**
-     * Bad request. GitHub token is invalid or does not return required user data (email/username).
-     */
-    400: ErrorResponse;
-    /**
-     * Unauthorized. GitHub token is invalid or expired.
-     */
-    401: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error.
-     */
-    500: ErrorResponse;
+  /**
+   * Bad request. GitHub token is invalid or does not return required user data (email/username).
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized. GitHub token is invalid or expired.
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error.
+   */
+  500: ErrorResponse;
 };
 
-export type LoginUserApiBackendAuthLoginPostError = LoginUserApiBackendAuthLoginPostErrors[keyof LoginUserApiBackendAuthLoginPostErrors];
+export type LoginUserApiBackendAuthLoginPostError =
+  LoginUserApiBackendAuthLoginPostErrors[keyof LoginUserApiBackendAuthLoginPostErrors];
 
 export type LoginUserApiBackendAuthLoginPostResponses = {
-    /**
-     * Login successful. Returns JWT and user ID.
-     */
-    200: LoginResponse;
+  /**
+   * Login successful. Returns JWT and user ID.
+   */
+  200: LoginResponse;
 };
 
-export type LoginUserApiBackendAuthLoginPostResponse = LoginUserApiBackendAuthLoginPostResponses[keyof LoginUserApiBackendAuthLoginPostResponses];
+export type LoginUserApiBackendAuthLoginPostResponse =
+  LoginUserApiBackendAuthLoginPostResponses[keyof LoginUserApiBackendAuthLoginPostResponses];
 
 export type ProcessChatMessageApiBackendChatChatPostData = {
-    body: BodyProcessChatMessageApiBackendChatChatPost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/chat';
+  body: BodyProcessChatMessageApiBackendChatChatPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/chat';
 };
 
 export type ProcessChatMessageApiBackendChatChatPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Repository or chat session not found
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Rate limit exceeded
-     */
-    429: ErrorResponse;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Repository or chat session not found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Rate limit exceeded
+   */
+  429: ErrorResponse;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type ProcessChatMessageApiBackendChatChatPostError = ProcessChatMessageApiBackendChatChatPostErrors[keyof ProcessChatMessageApiBackendChatChatPostErrors];
+export type ProcessChatMessageApiBackendChatChatPostError =
+  ProcessChatMessageApiBackendChatChatPostErrors[keyof ProcessChatMessageApiBackendChatChatPostErrors];
 
 export type ProcessChatMessageApiBackendChatChatPostResponses = {
-    /**
-     * Successful response with AI-generated content
-     */
-    200: ChatResponse;
+  /**
+   * Successful response with AI-generated content
+   */
+  200: ChatResponse;
 };
 
-export type ProcessChatMessageApiBackendChatChatPostResponse = ProcessChatMessageApiBackendChatChatPostResponses[keyof ProcessChatMessageApiBackendChatChatPostResponses];
+export type ProcessChatMessageApiBackendChatChatPostResponse =
+  ProcessChatMessageApiBackendChatChatPostResponses[keyof ProcessChatMessageApiBackendChatChatPostResponses];
 
 export type StreamChatResponseApiBackendChatChatStreamPostData = {
-    body: BodyStreamChatResponseApiBackendChatChatStreamPost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/chat/stream';
+  body: BodyStreamChatResponseApiBackendChatChatStreamPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/chat/stream';
 };
 
 export type StreamChatResponseApiBackendChatChatStreamPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Repository or chat session not found
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Rate limit exceeded
-     */
-    429: ErrorResponse;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Repository or chat session not found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Rate limit exceeded
+   */
+  429: ErrorResponse;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type StreamChatResponseApiBackendChatChatStreamPostError = StreamChatResponseApiBackendChatChatStreamPostErrors[keyof StreamChatResponseApiBackendChatChatStreamPostErrors];
+export type StreamChatResponseApiBackendChatChatStreamPostError =
+  StreamChatResponseApiBackendChatChatStreamPostErrors[keyof StreamChatResponseApiBackendChatChatStreamPostErrors];
 
 export type StreamChatResponseApiBackendChatChatStreamPostResponses = {
-    /**
-     * Successful streaming response
-     */
-    200: unknown;
+  /**
+   * Successful streaming response
+   */
+  200: unknown;
 };
 
 export type GetConversationHistoryApiBackendChatConversationsConversationIdPostData = {
-    body: BodyGetConversationHistoryApiBackendChatConversationsConversationIdPost;
-    path: {
-        /**
-         * Conversation Id
-         */
-        conversation_id: string;
-    };
-    query?: never;
-    url: '/api/backend-chat/conversations/{conversation_id}';
+  body: BodyGetConversationHistoryApiBackendChatConversationsConversationIdPost;
+  path: {
+    /**
+     * Conversation Id
+     */
+    conversation_id: string;
+  };
+  query?: never;
+  url: '/api/backend-chat/conversations/{conversation_id}';
 };
 
 export type GetConversationHistoryApiBackendChatConversationsConversationIdPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Conversation not found
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Conversation not found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type GetConversationHistoryApiBackendChatConversationsConversationIdPostError = GetConversationHistoryApiBackendChatConversationsConversationIdPostErrors[keyof GetConversationHistoryApiBackendChatConversationsConversationIdPostErrors];
+export type GetConversationHistoryApiBackendChatConversationsConversationIdPostError =
+  GetConversationHistoryApiBackendChatConversationsConversationIdPostErrors[keyof GetConversationHistoryApiBackendChatConversationsConversationIdPostErrors];
 
 export type GetConversationHistoryApiBackendChatConversationsConversationIdPostResponses = {
-    /**
-     * Successful retrieval of conversation history
-     */
-    200: ConversationHistoryResponse;
+  /**
+   * Successful retrieval of conversation history
+   */
+  200: ConversationHistoryResponse;
 };
 
-export type GetConversationHistoryApiBackendChatConversationsConversationIdPostResponse = GetConversationHistoryApiBackendChatConversationsConversationIdPostResponses[keyof GetConversationHistoryApiBackendChatConversationsConversationIdPostResponses];
+export type GetConversationHistoryApiBackendChatConversationsConversationIdPostResponse =
+  GetConversationHistoryApiBackendChatConversationsConversationIdPostResponses[keyof GetConversationHistoryApiBackendChatConversationsConversationIdPostResponses];
 
 export type ListUserChatSessionsApiBackendChatSessionsPostData = {
-    body: BodyListUserChatSessionsApiBackendChatSessionsPost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/sessions';
+  body: BodyListUserChatSessionsApiBackendChatSessionsPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/sessions';
 };
 
 export type ListUserChatSessionsApiBackendChatSessionsPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type ListUserChatSessionsApiBackendChatSessionsPostError = ListUserChatSessionsApiBackendChatSessionsPostErrors[keyof ListUserChatSessionsApiBackendChatSessionsPostErrors];
+export type ListUserChatSessionsApiBackendChatSessionsPostError =
+  ListUserChatSessionsApiBackendChatSessionsPostErrors[keyof ListUserChatSessionsApiBackendChatSessionsPostErrors];
 
 export type ListUserChatSessionsApiBackendChatSessionsPostResponses = {
-    /**
-     * Successful retrieval of chat sessions
-     */
-    200: ChatSessionListResponse;
+  /**
+   * Successful retrieval of chat sessions
+   */
+  200: ChatSessionListResponse;
 };
 
-export type ListUserChatSessionsApiBackendChatSessionsPostResponse = ListUserChatSessionsApiBackendChatSessionsPostResponses[keyof ListUserChatSessionsApiBackendChatSessionsPostResponses];
+export type ListUserChatSessionsApiBackendChatSessionsPostResponse =
+  ListUserChatSessionsApiBackendChatSessionsPostResponses[keyof ListUserChatSessionsApiBackendChatSessionsPostResponses];
 
 export type GetChatSessionApiBackendChatSessionsChatIdPostData = {
-    body: BodyGetChatSessionApiBackendChatSessionsChatIdPost;
-    path: {
-        /**
-         * Chat Id
-         */
-        chat_id: string;
-    };
-    query?: never;
-    url: '/api/backend-chat/sessions/{chat_id}';
+  body: BodyGetChatSessionApiBackendChatSessionsChatIdPost;
+  path: {
+    /**
+     * Chat Id
+     */
+    chat_id: string;
+  };
+  query?: never;
+  url: '/api/backend-chat/sessions/{chat_id}';
 };
 
 export type GetChatSessionApiBackendChatSessionsChatIdPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Chat session not found
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Chat session not found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type GetChatSessionApiBackendChatSessionsChatIdPostError = GetChatSessionApiBackendChatSessionsChatIdPostErrors[keyof GetChatSessionApiBackendChatSessionsChatIdPostErrors];
+export type GetChatSessionApiBackendChatSessionsChatIdPostError =
+  GetChatSessionApiBackendChatSessionsChatIdPostErrors[keyof GetChatSessionApiBackendChatSessionsChatIdPostErrors];
 
 export type GetChatSessionApiBackendChatSessionsChatIdPostResponses = {
-    /**
-     * Successful retrieval of chat session
-     */
-    200: ChatSessionResponse;
+  /**
+   * Successful retrieval of chat session
+   */
+  200: ChatSessionResponse;
 };
 
-export type GetChatSessionApiBackendChatSessionsChatIdPostResponse = GetChatSessionApiBackendChatSessionsChatIdPostResponses[keyof GetChatSessionApiBackendChatSessionsChatIdPostResponses];
+export type GetChatSessionApiBackendChatSessionsChatIdPostResponse =
+  GetChatSessionApiBackendChatSessionsChatIdPostResponses[keyof GetChatSessionApiBackendChatSessionsChatIdPostResponses];
 
 export type SaveUserApiKeyApiBackendChatKeysSavePostData = {
-    body: BodySaveUserApiKeyApiBackendChatKeysSavePost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/keys/save';
+  body: BodySaveUserApiKeyApiBackendChatKeysSavePost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/keys/save';
 };
 
 export type SaveUserApiKeyApiBackendChatKeysSavePostErrors = {
-    /**
-     * Invalid provider specified
-     */
-    400: ErrorResponse;
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Invalid provider specified
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type SaveUserApiKeyApiBackendChatKeysSavePostError = SaveUserApiKeyApiBackendChatKeysSavePostErrors[keyof SaveUserApiKeyApiBackendChatKeysSavePostErrors];
+export type SaveUserApiKeyApiBackendChatKeysSavePostError =
+  SaveUserApiKeyApiBackendChatKeysSavePostErrors[keyof SaveUserApiKeyApiBackendChatKeysSavePostErrors];
 
 export type SaveUserApiKeyApiBackendChatKeysSavePostResponses = {
-    /**
-     * API key saved successfully
-     */
-    200: ApiKeyResponse;
+  /**
+   * API key saved successfully
+   */
+  200: ApiKeyResponse;
 };
 
-export type SaveUserApiKeyApiBackendChatKeysSavePostResponse = SaveUserApiKeyApiBackendChatKeysSavePostResponses[keyof SaveUserApiKeyApiBackendChatKeysSavePostResponses];
+export type SaveUserApiKeyApiBackendChatKeysSavePostResponse =
+  SaveUserApiKeyApiBackendChatKeysSavePostResponses[keyof SaveUserApiKeyApiBackendChatKeysSavePostResponses];
 
 export type GetAvailableModelsApiBackendChatModelsPostData = {
-    body: BodyGetAvailableModelsApiBackendChatModelsPost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/models';
+  body: BodyGetAvailableModelsApiBackendChatModelsPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/models';
 };
 
 export type GetAvailableModelsApiBackendChatModelsPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type GetAvailableModelsApiBackendChatModelsPostError = GetAvailableModelsApiBackendChatModelsPostErrors[keyof GetAvailableModelsApiBackendChatModelsPostErrors];
+export type GetAvailableModelsApiBackendChatModelsPostError =
+  GetAvailableModelsApiBackendChatModelsPostErrors[keyof GetAvailableModelsApiBackendChatModelsPostErrors];
 
 export type GetAvailableModelsApiBackendChatModelsPostResponses = {
-    /**
-     * Successful retrieval of available models
-     */
-    200: AvailableModelsResponse;
+  /**
+   * Successful retrieval of available models
+   */
+  200: AvailableModelsResponse;
 };
 
-export type GetAvailableModelsApiBackendChatModelsPostResponse = GetAvailableModelsApiBackendChatModelsPostResponses[keyof GetAvailableModelsApiBackendChatModelsPostResponses];
+export type GetAvailableModelsApiBackendChatModelsPostResponse =
+  GetAvailableModelsApiBackendChatModelsPostResponses[keyof GetAvailableModelsApiBackendChatModelsPostResponses];
 
 export type UpdateChatSettingsApiBackendChatSettingsPostData = {
-    body: BodyUpdateChatSettingsApiBackendChatSettingsPost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/settings';
+  body: BodyUpdateChatSettingsApiBackendChatSettingsPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/settings';
 };
 
 export type UpdateChatSettingsApiBackendChatSettingsPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Chat session not found
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Chat session not found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type UpdateChatSettingsApiBackendChatSettingsPostError = UpdateChatSettingsApiBackendChatSettingsPostErrors[keyof UpdateChatSettingsApiBackendChatSettingsPostErrors];
+export type UpdateChatSettingsApiBackendChatSettingsPostError =
+  UpdateChatSettingsApiBackendChatSettingsPostErrors[keyof UpdateChatSettingsApiBackendChatSettingsPostErrors];
 
 export type UpdateChatSettingsApiBackendChatSettingsPostResponses = {
-    /**
-     * Settings updated successfully
-     */
-    200: ChatSettingsResponse;
+  /**
+   * Settings updated successfully
+   */
+  200: ChatSettingsResponse;
 };
 
-export type UpdateChatSettingsApiBackendChatSettingsPostResponse = UpdateChatSettingsApiBackendChatSettingsPostResponses[keyof UpdateChatSettingsApiBackendChatSettingsPostResponses];
+export type UpdateChatSettingsApiBackendChatSettingsPostResponse =
+  UpdateChatSettingsApiBackendChatSettingsPostResponses[keyof UpdateChatSettingsApiBackendChatSettingsPostResponses];
 
 export type SearchContextApiBackendChatContextSearchPostData = {
-    body: BodySearchContextApiBackendChatContextSearchPost;
-    path?: never;
-    query?: never;
-    url: '/api/backend-chat/context/search';
+  body: BodySearchContextApiBackendChatContextSearchPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/context/search';
 };
 
 export type SearchContextApiBackendChatContextSearchPostErrors = {
-    /**
-     * Unauthorized - Invalid JWT token
-     */
-    401: ErrorResponse;
-    /**
-     * Repository not found
-     */
-    404: ErrorResponse;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error
-     */
-    500: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Repository not found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
 };
 
-export type SearchContextApiBackendChatContextSearchPostError = SearchContextApiBackendChatContextSearchPostErrors[keyof SearchContextApiBackendChatContextSearchPostErrors];
+export type SearchContextApiBackendChatContextSearchPostError =
+  SearchContextApiBackendChatContextSearchPostErrors[keyof SearchContextApiBackendChatContextSearchPostErrors];
 
 export type SearchContextApiBackendChatContextSearchPostResponses = {
-    /**
-     * Successful context search
-     */
-    200: ContextSearchResponse;
+  /**
+   * Successful context search
+   */
+  200: ContextSearchResponse;
 };
 
-export type SearchContextApiBackendChatContextSearchPostResponse = SearchContextApiBackendChatContextSearchPostResponses[keyof SearchContextApiBackendChatContextSearchPostResponses];
+export type SearchContextApiBackendChatContextSearchPostResponse =
+  SearchContextApiBackendChatContextSearchPostResponses[keyof SearchContextApiBackendChatContextSearchPostResponses];
 
 export type GenerateWikiApiDocumentationGenerateWikiPostData = {
-    body: BodyGenerateWikiApiDocumentationGenerateWikiPost;
-    path?: never;
-    query?: never;
-    url: '/api/documentation/generate-wiki';
+  body: BodyGenerateWikiApiDocumentationGenerateWikiPost;
+  path?: never;
+  query?: never;
+  url: '/api/documentation/generate-wiki';
 };
 
 export type GenerateWikiApiDocumentationGenerateWikiPostErrors = {
-    /**
-     * Bad request. Invalid input parameters.
-     */
-    400: unknown;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error.
-     */
-    500: unknown;
+  /**
+   * Bad request. Invalid input parameters.
+   */
+  400: unknown;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error.
+   */
+  500: unknown;
 };
 
-export type GenerateWikiApiDocumentationGenerateWikiPostError = GenerateWikiApiDocumentationGenerateWikiPostErrors[keyof GenerateWikiApiDocumentationGenerateWikiPostErrors];
+export type GenerateWikiApiDocumentationGenerateWikiPostError =
+  GenerateWikiApiDocumentationGenerateWikiPostErrors[keyof GenerateWikiApiDocumentationGenerateWikiPostErrors];
 
 export type GenerateWikiApiDocumentationGenerateWikiPostResponses = {
-    /**
-     * Task ID and status of the wiki generation process.
-     */
-    200: WikiGenerationResponse;
-    /**
-     * Wiki generation task accepted and started.
-     */
-    202: WikiGenerationResponse;
+  /**
+   * Task ID and status of the wiki generation process.
+   */
+  200: WikiGenerationResponse;
+  /**
+   * Wiki generation task accepted and started.
+   */
+  202: WikiGenerationResponse;
 };
 
-export type GenerateWikiApiDocumentationGenerateWikiPostResponse = GenerateWikiApiDocumentationGenerateWikiPostResponses[keyof GenerateWikiApiDocumentationGenerateWikiPostResponses];
+export type GenerateWikiApiDocumentationGenerateWikiPostResponse =
+  GenerateWikiApiDocumentationGenerateWikiPostResponses[keyof GenerateWikiApiDocumentationGenerateWikiPostResponses];
 
 export type GetWikiStatusApiDocumentationWikiStatusPostData = {
-    body: BodyGetWikiStatusApiDocumentationWikiStatusPost;
-    path?: never;
-    query?: never;
-    url: '/api/documentation/wiki-status';
+  body: BodyGetWikiStatusApiDocumentationWikiStatusPost;
+  path?: never;
+  query?: never;
+  url: '/api/documentation/wiki-status';
 };
 
 export type GetWikiStatusApiDocumentationWikiStatusPostErrors = {
-    /**
-     * Task ID not found.
-     */
-    404: unknown;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-    /**
-     * Internal server error.
-     */
-    500: unknown;
+  /**
+   * Task ID not found.
+   */
+  404: unknown;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error.
+   */
+  500: unknown;
 };
 
-export type GetWikiStatusApiDocumentationWikiStatusPostError = GetWikiStatusApiDocumentationWikiStatusPostErrors[keyof GetWikiStatusApiDocumentationWikiStatusPostErrors];
+export type GetWikiStatusApiDocumentationWikiStatusPostError =
+  GetWikiStatusApiDocumentationWikiStatusPostErrors[keyof GetWikiStatusApiDocumentationWikiStatusPostErrors];
 
 export type GetWikiStatusApiDocumentationWikiStatusPostResponses = {
-    /**
-     * Task status retrieved successfully.
-     */
-    200: TaskStatus;
+  /**
+   * Task status retrieved successfully.
+   */
+  200: TaskStatus;
 };
 
-export type GetWikiStatusApiDocumentationWikiStatusPostResponse = GetWikiStatusApiDocumentationWikiStatusPostResponses[keyof GetWikiStatusApiDocumentationWikiStatusPostResponses];
+export type GetWikiStatusApiDocumentationWikiStatusPostResponse =
+  GetWikiStatusApiDocumentationWikiStatusPostResponses[keyof GetWikiStatusApiDocumentationWikiStatusPostResponses];
 
 export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostData = {
-    body: BodyIsWikiGeneratedApiDocumentationIsWikiGeneratedPost;
-    path?: never;
-    query?: never;
-    url: '/api/documentation/is-wiki-generated';
+  body: BodyIsWikiGeneratedApiDocumentationIsWikiGeneratedPost;
+  path?: never;
+  query?: never;
+  url: '/api/documentation/is-wiki-generated';
 };
 
 export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
 };
 
-export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostError = IsWikiGeneratedApiDocumentationIsWikiGeneratedPostErrors[keyof IsWikiGeneratedApiDocumentationIsWikiGeneratedPostErrors];
+export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostError =
+  IsWikiGeneratedApiDocumentationIsWikiGeneratedPostErrors[keyof IsWikiGeneratedApiDocumentationIsWikiGeneratedPostErrors];
 
 export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponses = {
-    /**
-     * Boolean indicating if wiki documentation is generated.
-     */
-    200: IsWikiGeneratedResponse;
+  /**
+   * Boolean indicating if wiki documentation is generated.
+   */
+  200: IsWikiGeneratedResponse;
 };
 
-export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse = IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponses[keyof IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponses];
+export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse =
+  IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponses[keyof IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponses];
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostData = {
-    body: BodyListRepositoryDocsApiDocumentationRepositoryDocsPost;
-    path?: never;
-    query?: never;
-    url: '/api/documentation/repository-docs';
+  body: BodyListRepositoryDocsApiDocumentationRepositoryDocsPost;
+  path?: never;
+  query?: never;
+  url: '/api/documentation/repository-docs';
 };
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
 };
 
-export type ListRepositoryDocsApiDocumentationRepositoryDocsPostError = ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors];
+export type ListRepositoryDocsApiDocumentationRepositoryDocsPostError =
+  ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors];
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses = {
-    /**
-     * Structured documentation data for the repository.
-     */
-    200: RepositoryDocsResponse;
+  /**
+   * Structured documentation data for the repository.
+   */
+  200: RepositoryDocsResponse;
 };
 
-export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponse = ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses];
+export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponse =
+  ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses];
 
 export type ClientOptions = {
-    baseUrl: 'http://localhost:8003' | (string & {});
+  baseUrl: 'http://localhost:8003' | (string & {});
 };

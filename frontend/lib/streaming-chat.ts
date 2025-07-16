@@ -1,78 +1,82 @@
 // streaming-chat.ts
 export interface StreamingChatRequest {
-  token: string
-  message: string
-  repository_id: string,
-  use_user: boolean,
-  chat_id?: string
-  conversation_id?: string
-  provider?: string
-  model?: string
-  temperature?: number
-  max_tokens?: number
-  include_full_context?: boolean
-  context_search_query?: string
+  token: string;
+  message: string;
+  repository_id: string;
+  use_user: boolean;
+  chat_id?: string;
+  conversation_id?: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  include_full_context?: boolean;
+  context_search_query?: string;
 }
 
 export interface StreamingChunk {
-  type: "token" | "metadata" | "error" | "done" | "complete"
-  content?: string
-  chat_id?: string
-  conversation_id?: string
-  message?: string
+  type: 'token' | 'metadata' | 'error' | 'done' | 'complete';
+  content?: string;
+  chat_id?: string;
+  conversation_id?: string;
+  message?: string;
   delta?: {
-    content?: string
-  }
+    content?: string;
+  };
   usage?: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  }
-  provider?: string
-  model?: string
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  provider?: string;
+  model?: string;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
   // Create form data as expected by the API
-  const formData = new FormData()
+  const formData = new FormData();
 
   // Add all required fields
-  formData.append("token", request.token)
-  formData.append("message", request.message)
-  formData.append("repository_id", request.repository_id)
-  formData.append("use_user", request.use_user.toString())
+  formData.append('token', request.token);
+  formData.append('message', request.message);
+  formData.append('repository_id', request.repository_id);
+  formData.append('use_user', request.use_user.toString());
 
   // Add optional fields
-  if (request.chat_id) formData.append("chat_id", request.chat_id)
-  if (request.conversation_id) formData.append("conversation_id", request.conversation_id)
-  if (request.provider) formData.append("provider", request.provider)
-  if (request.model) formData.append("model", request.model)
-  if (request.temperature !== undefined) formData.append("temperature", request.temperature.toString())
-  if (request.max_tokens) formData.append("max_tokens", request.max_tokens.toString())
+  if (request.chat_id) formData.append('chat_id', request.chat_id);
+  if (request.conversation_id) formData.append('conversation_id', request.conversation_id);
+  if (request.provider) formData.append('provider', request.provider);
+  if (request.model) formData.append('model', request.model);
+  if (request.temperature !== undefined)
+    formData.append('temperature', request.temperature.toString());
+  if (request.max_tokens) formData.append('max_tokens', request.max_tokens.toString());
   if (request.include_full_context !== undefined)
-    formData.append("include_full_context", request.include_full_context.toString())
-  if (request.context_search_query) formData.append("context_search_query", request.context_search_query)
+    formData.append('include_full_context', request.include_full_context.toString());
+  if (request.context_search_query)
+    formData.append('context_search_query', request.context_search_query);
 
   // Make the request to your backend
-  const response = await fetch(`${"http://localhost:8003"}/api/backend-chat/chat/stream`, {
-    method: "POST",
+  const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {
+    method: 'POST',
     body: formData,
-  })
+  });
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    const errorText = await response.text();
+    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
   }
 
-  return response
+  return response;
 }
 
-export async function* parseStreamingResponse(response: Response): AsyncGenerator<StreamingChunk, void, unknown> {
+export async function* parseStreamingResponse(
+  response: Response,
+): AsyncGenerator<StreamingChunk, void, unknown> {
   const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response stream available");
+  if (!reader) throw new Error('No response stream available');
 
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer = '';
   let hasReceivedData = false;
 
   try {
@@ -82,10 +86,10 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
 
       hasReceivedData = true;
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
+      const lines = buffer.split('\n');
 
       // Keep the last incomplete line in buffer
-      buffer = lines.pop() || "";
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         const trimmedLine = line.trim();
@@ -93,15 +97,15 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
 
         try {
           const data = JSON.parse(trimmedLine);
-          console.log("Received streaming data:", data); // Debug log
+          console.log('Received streaming data:', data); // Debug log
 
           // Map backend events to our StreamingChunk format
           switch (data.event) {
-            case "token":
+            case 'token':
               // First token in the stream contains metadata
               if (data.chat_id && data.conversation_id) {
                 yield {
-                  type: "metadata",
+                  type: 'metadata',
                   chat_id: data.chat_id,
                   conversation_id: data.conversation_id,
                   provider: data.provider,
@@ -110,9 +114,10 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
               }
 
               // Always yield the token content
-              if (data.token !== undefined) { // Check for undefined instead of truthy
+              if (data.token !== undefined) {
+                // Check for undefined instead of truthy
                 yield {
-                  type: "token",
+                  type: 'token',
                   content: data.token, // Can be empty string
                   chat_id: data.chat_id,
                   conversation_id: data.conversation_id,
@@ -120,32 +125,32 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
               }
               break;
 
-            case "complete":
+            case 'complete':
               yield {
-                type: "complete",
+                type: 'complete',
                 chat_id: data.chat_id,
                 conversation_id: data.conversation_id,
                 usage: data.usage,
                 provider: data.provider,
                 model: data.model,
               };
-              yield { type: "done" }; // Signal end
+              yield { type: 'done' }; // Signal end
               break;
 
-            case "error":
+            case 'error':
               yield {
-                type: "error",
-                message: data.error || "Unknown error",
+                type: 'error',
+                message: data.error || 'Unknown error',
                 chat_id: data.chat_id,
                 conversation_id: data.conversation_id,
               };
               return; // Stop processing on error
 
             default:
-              console.warn("Unknown event type:", data.event, data);
+              console.warn('Unknown event type:', data.event, data);
           }
         } catch (parseError) {
-          console.warn("Failed to parse JSON chunk:", trimmedLine, parseError);
+          console.warn('Failed to parse JSON chunk:', trimmedLine, parseError);
           // Don't yield error for parse failures, just log and continue
         }
       }
@@ -155,41 +160,42 @@ export async function* parseStreamingResponse(response: Response): AsyncGenerato
     if (buffer.trim()) {
       try {
         const data = JSON.parse(buffer);
-        console.log("Processing final buffer:", data);
+        console.log('Processing final buffer:', data);
 
-        if (data.event === "token" && data.token !== undefined) {
+        if (data.event === 'token' && data.token !== undefined) {
           yield {
-            type: "token",
+            type: 'token',
             content: data.token,
             chat_id: data.chat_id,
             conversation_id: data.conversation_id,
           };
-        } else if (data.event === "complete") {
+        } else if (data.event === 'complete') {
           yield {
-            type: "complete",
+            type: 'complete',
             chat_id: data.chat_id,
             conversation_id: data.conversation_id,
             usage: data.usage,
           };
         }
       } catch (parseError) {
-        console.warn("Failed to parse final buffer:", buffer, parseError);
+        console.warn('Failed to parse final buffer:', buffer, parseError);
       }
     }
 
     // Only yield done if we haven't already
     if (hasReceivedData) {
-      yield { type: "done" };
+      yield { type: 'done' };
     } else {
       // If no data was received at all, this might indicate a quota limit or other issue
-      throw new Error("No data received from streaming response - this may indicate a quota limit or API issue");
+      throw new Error(
+        'No data received from streaming response - this may indicate a quota limit or API issue',
+      );
     }
-
   } catch (error) {
-    console.error("Streaming error:", error);
+    console.error('Streaming error:', error);
     yield {
-      type: "error",
-      message: error instanceof Error ? error.message : "Streaming failed",
+      type: 'error',
+      message: error instanceof Error ? error.message : 'Streaming failed',
     };
   } finally {
     reader.releaseLock();

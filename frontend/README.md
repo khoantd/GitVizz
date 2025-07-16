@@ -49,6 +49,7 @@ cp .example.env .env.local
 ### 4. Auth.js Setup
 
 The app uses **Auth.js** for authentication. Configuration is located in:
+
 - `app/api/auth/[...nextauth]/route.ts` - Auth.js API routes
 - `auth.ts` - Auth configuration and providers
 
@@ -59,6 +60,7 @@ npm run generate:secret
 ```
 
 #### Supported Providers:
+
 - **GitHub** (recommended for Git-related apps)
 
 To add more providers, update the providers array in `auth.ts`.
@@ -99,15 +101,15 @@ pnpm lint
 
 ## ⚙️ Scripts
 
-| Script | Description |
-|--------|-------------|
-| `dev` | Run dev server with Turbopack |
-| `build` | Create production build |
-| `start` | Start production server |
-| `lint` | Run ESLint |
+| Script         | Description                      |
+| -------------- | -------------------------------- |
+| `dev`          | Run dev server with Turbopack    |
+| `build`        | Create production build          |
+| `start`        | Start production server          |
+| `lint`         | Run ESLint                       |
 | `generate:api` | Regenerate SDK from OpenAPI spec |
-| `setup:env` | Copy .env.example to .env.local |
-| `setup:secret` | Generate secure `AUTH_SECRET` |
+| `setup:env`    | Copy .env.example to .env.local  |
+| `setup:secret` | Generate secure `AUTH_SECRET`    |
 
 ---
 
@@ -122,12 +124,12 @@ pnpm lint
 │   └── ...               # Other Next.js App Router pages
 ├── components/
 │   └── ui/               # ShadCN components
-└── ...                   # Other resuable 
-context 
+└── ...                   # Other resuable
+context
 ├── ...                   # React context functions
 ├── middleware.ts         # Next.js middleware for route protection
 ├── public/               # Static assets (images, icons)
-├── utils/                # API helpers & 
+├── utils/                # API helpers &
 ├── .example.env          # Sample environment variables
 ├── next.config.ts        # Next.js configuration
 ├── openapi-ts.config.ts  # OpenAPI SDK generation config
@@ -153,7 +155,8 @@ context
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
---- 
+---
 
 ## 📄 License
+
 This project is licensed under the Apache License. See the [LICENSE](LICENSE) file for details.

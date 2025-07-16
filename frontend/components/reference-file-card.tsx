@@ -1,25 +1,30 @@
-"use client"
+'use client';
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { FileText, ChevronDown, ChevronRight } from "lucide-react"
-import { useState } from "react"
-import { UsageItem } from "./usage-item"
-import type { ReferenceFile } from "../types/code-analysis"
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { UsageItem } from './usage-item';
+import type { ReferenceFile } from '../types/code-analysis';
 
 interface ReferenceFileCardProps {
-  referenceFile: ReferenceFile
-  functionName: string
-  onOpenFile: (filePath: string, line?: number) => void
-  onCopyCode: (code: string) => void
+  referenceFile: ReferenceFile;
+  functionName: string;
+  onOpenFile: (filePath: string, line?: number) => void;
+  onCopyCode: (code: string) => void;
 }
 
-export function ReferenceFileCard({ referenceFile, functionName, onOpenFile, onCopyCode }: ReferenceFileCardProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+export function ReferenceFileCard({
+  referenceFile,
+  functionName,
+  onOpenFile,
+  onCopyCode,
+}: ReferenceFileCardProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const handleJumpToLine = (line: number) => {
-    onOpenFile(referenceFile.file, line)
-  }
+    onOpenFile(referenceFile.file, line);
+  };
 
   return (
     <div className="bg-card border border-border/40 rounded-lg overflow-hidden hover:border-border/60 transition-all">
@@ -41,14 +46,19 @@ export function ReferenceFileCard({ referenceFile, functionName, onOpenFile, onC
             <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
 
             <div className="flex-1 min-w-0">
-              <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{referenceFile.fileName}</h3>
-              <p className="text-xs text-muted-foreground font-mono truncate">{referenceFile.relativePath}</p>
+              <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">
+                {referenceFile.fileName}
+              </h3>
+              {/* <p className="text-xs text-muted-foreground font-mono truncate">{referenceFile.relativePath}</p> */}
             </div>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full">
-              {referenceFile.totalUsages} usage{referenceFile.totalUsages !== 1 ? "s" : ""}
+            <Badge
+              variant="secondary"
+              className="text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full"
+            >
+              {referenceFile.totalUsages} usage{referenceFile.totalUsages !== 1 ? 's' : ''}
             </Badge>
             <Button
               variant="outline"
@@ -80,5 +90,5 @@ export function ReferenceFileCard({ referenceFile, functionName, onOpenFile, onC
         </div>
       )}
     </div>
-  )
+  );
 }

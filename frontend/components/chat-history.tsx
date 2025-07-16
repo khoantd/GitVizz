@@ -1,36 +1,34 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, MessageCircle } from "lucide-react"
-import { ChatSessionListItem } from "@/api-client"
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, MessageCircle } from 'lucide-react';
+import { ChatSessionListItem } from '@/api-client';
 
 interface ChatHistoryProps {
-  history: ChatSessionListItem[] // Change this line
-  onLoadConversation: (conversationId: string) => void
-  onClose: () => void,
-  isLoading: unknown,
+  history: ChatSessionListItem[]; // Change this line
+  onLoadConversation: (conversationId: string) => void;
+  onClose: () => void;
+  isLoading: unknown;
 }
 
 export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistoryProps) {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState('');
 
   const filteredHistory = history.filter((conversation) => {
-    const searchLower = searchQuery.toLowerCase()
-    return (
-      conversation.title?.toLowerCase().includes(searchLower)
-    )
-  })
+    const searchLower = searchQuery.toLowerCase();
+    return conversation.title?.toLowerCase().includes(searchLower);
+  });
 
   const getConversationPreview = (session: ChatSessionListItem) => {
-    return `Chat session: ${session.title}`
-  }
+    return `Chat session: ${session.title}`;
+  };
 
   const handleLoadConversation = (conversationId: string) => {
-    onLoadConversation(conversationId)
-    onClose()
-  }
+    onLoadConversation(conversationId);
+    onClose();
+  };
 
   return (
     <div className="space-y-4">
@@ -56,7 +54,9 @@ export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistor
               <div>
                 <h3 className="font-medium text-sm">No conversations found</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {searchQuery ? "Try adjusting your search terms" : "Start chatting to see your history here"}
+                  {searchQuery
+                    ? 'Try adjusting your search terms'
+                    : 'Start chatting to see your history here'}
                 </p>
               </div>
             </div>
@@ -70,7 +70,9 @@ export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistor
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium text-sm truncate">{session.title || "Untitled Conversation"}</h4>
+                      <h4 className="font-medium text-sm truncate">
+                        {session.title || 'Untitled Conversation'}
+                      </h4>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                       {getConversationPreview(session)}
@@ -89,5 +91,5 @@ export function ChatHistory({ history, onLoadConversation, onClose }: ChatHistor
         </div>
       </ScrollArea>
     </div>
-  )
+  );
 }
