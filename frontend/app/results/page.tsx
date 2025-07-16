@@ -539,9 +539,11 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="h-[500px] sm:h-[600px] lg:h-[700px]">
+                  <div className="h-[500px] sm:h-[600px] lg:h-[700px] overflow-auto rounded-xl">
                     {currentRepoId && sourceData && sourceType ? (
-                      <DocumentationTab currentRepoId={currentRepoId} sourceData={sourceData} sourceType={sourceType} />
+                      <div className="h-full w-full overflow-auto">
+                        <DocumentationTab currentRepoId={currentRepoId} sourceData={sourceData} sourceType={sourceType} />
+                      </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center space-y-4 p-8">
