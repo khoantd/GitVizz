@@ -33,7 +33,7 @@ interface ModelState {
   temperature: number
 }
 
-export function useChatSidebar(repositoryId: string) {
+export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<string, boolean>) {
   const { data: session } = useSession()
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
@@ -52,7 +52,12 @@ export function useChatSidebar(repositoryId: string) {
   const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
-  const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>({})
+  const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>(userKeyPreferences)
+  
+  useEffect(() => {
+    setUseUserKeys(userKeyPreferences)
+  }, [userKeyPreferences])
+
 
   // Load available models and chat history on mount
   useEffect(() => {

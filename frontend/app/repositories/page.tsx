@@ -200,7 +200,7 @@ export default function RepositoriesPage() {
     try {
       // Redirect to GitHub App installation with custom redirect URL
       const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || "YOUR_APP_NAME"
-      const redirectUrl = `${window.location.origin}/repositories`
+      const redirectUrl = `${window.location.origin}/`
       const appInstallUrl = `https://github.com/apps/${appName}/installations/new?state=${encodeURIComponent(redirectUrl)}`
 
       window.location.href = appInstallUrl

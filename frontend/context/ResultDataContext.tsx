@@ -14,13 +14,15 @@ type Action =
   | { type: "SET_SELECTED_FILE_PATH"; payload: string | null }
   | { type: "SET_SELECTED_FILE_LINE"; payload: number | null }
   | { type: "SET_CODE_VIEWER_SHEET_OPEN"; payload: boolean }
-  | { type: "SET_CURRENT_REPO_ID"; payload: string | null};
+  | { type: "SET_CURRENT_REPO_ID"; payload: string | null}
+  | { type: "SET_USER_KEY_PREFERENCES"; payload: Record<string, boolean> };
 
 const initialState: State & {
   selectedFilePath: string | null;
   selectedFileLine: number | null;
   codeViewerSheetOpen: boolean;
-  currentRepoId: string | null
+  currentRepoId: string | null;
+  userKeyPreferences: Record<string, boolean>;
 } = {
   output: null,
   outputMessage: null,
@@ -31,7 +33,8 @@ const initialState: State & {
   selectedFilePath: null,
   selectedFileLine: null,
   codeViewerSheetOpen: false,
-  currentRepoId: null
+  currentRepoId: null,
+  userKeyPreferences: {}
 };
 
 function reducer(
@@ -58,7 +61,9 @@ function reducer(
     case "SET_CODE_VIEWER_SHEET_OPEN":
       return { ...state, codeViewerSheetOpen: action.payload };
     case "SET_CURRENT_REPO_ID":
-      return {...state, currentRepoId: action.payload}
+      return {...state, currentRepoId: action.payload};
+    case "SET_USER_KEY_PREFERENCES":
+      return { ...state, userKeyPreferences: action.payload };
     case "RESET":
       return initialState;
     default:
@@ -82,6 +87,8 @@ interface ResultDataContextType extends State {
   setCodeViewerSheetOpen: (open: boolean) => void;
   setCurrentRepoId: (repo_id: string | null) => void;
   currentRepoId: string | null;
+  userKeyPreferences: Record<string, boolean>;
+  setUserKeyPreferences: (prefs: Record<string, boolean>) => void;
 }
 
 const ResultDataContext = createContext<ResultDataContextType | undefined>(undefined);
@@ -108,6 +115,7 @@ export function ResultDataProvider({ children }: { children: ReactNode }) {
   const setSelectedFileLine = (line: number | null) => dispatch({ type: "SET_SELECTED_FILE_LINE", payload: line });
   const setCodeViewerSheetOpen = (open: boolean) => dispatch({ type: "SET_CODE_VIEWER_SHEET_OPEN", payload: open });
   const setCurrentRepoId = (repo_id: string | null) => dispatch({ type: "SET_CURRENT_REPO_ID", payload: repo_id });
+  const setUserKeyPreferences = (prefs: Record<string, boolean>) => dispatch({ type: "SET_USER_KEY_PREFERENCES", payload: prefs });
 
   return (
     <ResultDataContext.Provider
@@ -126,7 +134,9 @@ export function ResultDataProvider({ children }: { children: ReactNode }) {
         setSelectedFilePath,
         setSelectedFileLine,
         setCodeViewerSheetOpen,
-        setCurrentRepoId
+        setCurrentRepoId,
+        userKeyPreferences: state.userKeyPreferences,
+        setUserKeyPreferences
       }}
     >
       {children}

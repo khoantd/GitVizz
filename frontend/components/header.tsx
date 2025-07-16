@@ -75,6 +75,12 @@ const Header = () => {
                                             My Repositories
                                         </Link>
                                     </DropdownMenuItem>
+
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/api-keys" className="cursor-pointer">
+                                            My Api Keys
+                                        </Link>
+                                    </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => signOut({
                                         callbackUrl : "/"

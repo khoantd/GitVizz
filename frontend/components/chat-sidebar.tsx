@@ -2,17 +2,17 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Send, History, Key, Bot, Loader2, X, Plus, Settings, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
+import { Send, History, Key, Bot, Loader2, X, Plus, Settings, ChevronDown, ChevronUp, Sparkles, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatHistory } from "./chat-history"
 import { ChatMessage } from "./chat-message"
-import { ApiKeyManager } from "./api-key-manager"
 import { ModelSelector } from "./model-selector"
 import { useChatSidebar } from "@/hooks/use-chat-sidebar"
 
@@ -21,9 +21,17 @@ interface ChatSidebarProps {
   onClose: () => void
   repositoryId: string
   repositoryName: string
+  userKeyPreferences?: Record<string, boolean> // New prop for user key preferences
 }
 
-export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: ChatSidebarProps) {
+export function ChatSidebar({
+  isOpen,
+  onClose,
+  repositoryId,
+  repositoryName,
+  userKeyPreferences = {}
+}: ChatSidebarProps) {
+  const router = useRouter()
   const {
     messages,
     isLoading,
@@ -36,13 +44,10 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
     setModel,
     refreshModels,
     isLoadingHistory,
-    useUserKeys,
-    setUseUserKeys
-  } = useChatSidebar(repositoryId)
+  } = useChatSidebar(repositoryId, userKeyPreferences) // Pass preferences to hook
 
   const [input, setInput] = useState("")
   const [showHistory, setShowHistory] = useState(false)
-  const [showApiKeys, setShowApiKeys] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(420)
   const [isResizing, setIsResizing] = useState(false)
@@ -116,7 +121,15 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
     }
   }, [isResizing, handleMouseMove, handleMouseUp])
 
+  const handleApiKeysClick = () => {
+    router.push("/api-keys")
+  }
+
   const hasActiveChat = messages.length > 0
+
+  // Get user keys info for display
+  const userHasKeys = availableModels?.user_has_keys || []
+  const activeUserKeys = userHasKeys.filter(key => userKeyPreferences[key] !== false)
 
   return (
     <>
@@ -149,6 +162,7 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
             </div>
           </div>
         </div>
+
         {/* Header - Prominent and Clean */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent" />
@@ -165,11 +179,18 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
               <div className="space-y-1">
                 <h2 className="font-semibold text-base text-foreground">Repository Chat</h2>
                 <p className="text-sm text-muted-foreground truncate max-w-[200px]">{repositoryName}</p>
-                {hasActiveChat && (
-                  <Badge variant="secondary" className="text-xs">
-                    {messages.length} messages
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {hasActiveChat && (
+                    <Badge variant="secondary" className="text-xs">
+                      {messages.length} messages
+                    </Badge>
+                  )}
+                  {activeUserKeys.length > 0 && (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                      {activeUserKeys.length} key{activeUserKeys.length !== 1 ? 's' : ''} active
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-xl hover:bg-muted/50">
@@ -201,6 +222,42 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
                 />
               </div>
 
+              {/* API Keys Status */}
+              {userHasKeys.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">API Keys</span>
+                      <Button variant="ghost" size="sm" onClick={handleApiKeysClick} className="text-xs h-6 px-2">
+                        Manage
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {activeUserKeys.length > 0 ? (
+                        <>
+                          <span className="text-green-600 dark:text-green-400">
+                            {activeUserKeys.length} user key{activeUserKeys.length !== 1 ? 's' : ''} active
+                          </span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {activeUserKeys.map(key => (
+                              <Badge key={key} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                                {key}
+                              </Badge>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Using system keys (rate limited)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
               <Separator />
 
               {/* Action Buttons */}
@@ -209,7 +266,7 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
                   <History className="h-4 w-4 mr-2" />
                   History
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowApiKeys(true)} className="justify-start">
+                <Button variant="outline" size="sm" onClick={handleApiKeysClick} className="justify-start">
                   <Key className="h-4 w-4 mr-2" />
                   API Keys
                 </Button>
@@ -313,7 +370,7 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
           </div>
         </div>
 
-        {/* Dialogs */}
+        {/* Chat History Dialog */}
         {showHistory && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-background rounded-2xl border border-border shadow-2xl w-full max-w-2xl max-h-[80vh] m-4">
@@ -330,26 +387,8 @@ export function ChatSidebar({ isOpen, onClose, repositoryId, repositoryName }: C
                   history={chatHistory}
                   onLoadConversation={loadConversation}
                   onClose={() => setShowHistory(false)}
-                  isLoading={isLoadingHistory} // Add this prop if needed
+                  isLoading={isLoadingHistory}
                 />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showApiKeys && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-background rounded-2xl border border-border shadow-2xl w-full max-w-md max-h-[80vh] m-4">
-              <div className="p-6 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Manage API Keys</h3>
-                  <Button variant="ghost" size="icon" onClick={() => setShowApiKeys(false)} className="h-8 w-8">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="p-6">
-              <ApiKeyManager avavailableModels={availableModels}  onClose={() => setShowApiKeys(false)} useUserKeys={useUserKeys} onToggleUserKey={setUseUserKeys}  />
               </div>
             </div>
           </div>

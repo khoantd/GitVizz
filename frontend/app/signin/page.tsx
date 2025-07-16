@@ -18,7 +18,7 @@ export default function SignInPage() {
         setLoading(true)
 
         try {
-            await signIn("github", { callbackUrl: "/repositories" })
+            await signIn("github", { callbackUrl: "/" })
         } catch (error) {
             console.error("Sign-in failed:", error)
             setLoading(false)
