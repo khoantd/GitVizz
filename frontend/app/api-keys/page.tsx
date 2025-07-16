@@ -58,7 +58,7 @@ export default function ApiKeysPage() {
       }
     }
     fetchAndSetModels()
-  }, [session?.jwt_token, setUserKeyPreferences, userKeyPreferences]) // Dependencies are important
+  }, [session?.jwt_token]) // Dependencies are important
 
   // Redirect if not authenticated
   useEffect(() => {
