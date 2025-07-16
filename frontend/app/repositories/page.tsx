@@ -1,8 +1,8 @@
-"use client"
+'use client';
 
-import { useState, useEffect, useCallback } from "react"
-import { redirect, useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useState, useEffect, useCallback } from 'react';
+import { redirect, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Github,
   AlertCircle,
@@ -13,17 +13,17 @@ import {
   ArrowRight,
   Loader2,
   Code,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import Header from "@/components/header"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { showToast } from "@/components/toaster"
-import { useResultData } from "@/context/ResultDataContext"
-import { fetchGithubRepo } from "@/utils/api"
-import { useApiWithAuth } from "@/hooks/useApiWithAuth"
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import Header from '@/components/header';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { showToast } from '@/components/toaster';
+import { useResultData } from '@/context/ResultDataContext';
+import { fetchGithubRepo } from '@/utils/api';
+import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 
 interface Repository {
   id: number;
@@ -39,248 +39,252 @@ interface Repository {
 }
 
 export default function RepositoriesPage() {
-  const { data: session, status } = useSession()
-  const [isAppInstalled, setIsAppInstalled] = useState<boolean | null>(null)
-  const [repositories, setRepositories] = useState<Repository[]>([])
-  const [installationId, setInstallationId] = useState<number | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
-  const [processingRepos, setProcessingRepos] = useState<number[]>([])
-  const router = useRouter()
-  const { setOutput, setSourceType, setSourceData, setCurrentRepoId } = useResultData()
+  const { data: session, status } = useSession();
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean | null>(null);
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [installationId, setInstallationId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [processingRepos, setProcessingRepos] = useState<number[]>([]);
+  const router = useRouter();
+  const { setOutput, setSourceType, setSourceData, setCurrentRepoId } = useResultData();
 
-  const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo)
+  const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo);
 
   // Stable callback functions to prevent infinite loops
   const handleError = useCallback((message: string) => {
-    showToast.error(message)
-  }, [])
+    showToast.error(message);
+  }, []);
 
   const handleSuccess = useCallback((message: string) => {
-    showToast.success(message)
-  }, [])
+    showToast.success(message);
+  }, []);
 
   // Handle GitHub App installation callback and check installation status
   useEffect(() => {
-    let isMounted = true
+    let isMounted = true;
 
     const handleInstallationCallback = async () => {
-      if (status === "loading") return
-      if (status === "unauthenticated") {
-        if (isMounted) setIsLoading(false)
-        return
+      if (status === 'loading') return;
+      if (status === 'unauthenticated') {
+        if (isMounted) setIsLoading(false);
+        return;
       }
 
       // Check if this is a callback from GitHub App installation
-      const urlParams = new URLSearchParams(window.location.search)
-      const installationIdFromUrl = urlParams.get('installation_id')
-      const setupAction = urlParams.get('setup_action')
+      const urlParams = new URLSearchParams(window.location.search);
+      const installationIdFromUrl = urlParams.get('installation_id');
+      const setupAction = urlParams.get('setup_action');
 
       if (installationIdFromUrl && setupAction === 'install') {
         // Handle successful installation
-        const installationId = parseInt(installationIdFromUrl)
+        const installationId = parseInt(installationIdFromUrl);
         if (isMounted) {
-          setInstallationId(installationId)
-          setIsAppInstalled(true)
+          setInstallationId(installationId);
+          setIsAppInstalled(true);
         }
 
         // Clean up URL parameters
-        const cleanUrl = window.location.pathname
-        window.history.replaceState({}, document.title, cleanUrl)
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
 
         // Fetch repositories for the new installation
         try {
-          const reposRes = await fetch(`/api/github/app_repos?installationId=${installationIdFromUrl}`)
+          const reposRes = await fetch(
+            `/api/github/app_repos?installationId=${installationIdFromUrl}`,
+          );
           if (!reposRes.ok) {
-            throw new Error(`Failed to fetch repositories: ${reposRes.status}`)
+            throw new Error(`Failed to fetch repositories: ${reposRes.status}`);
           }
-          const reposData = await reposRes.json()
+          const reposData = await reposRes.json();
 
           const transformedRepos = (reposData.repositories || []).map((repo: Repository) => ({
             id: repo.id,
             name: repo.name,
             full_name: repo.full_name,
-            description: repo.description || "No description available",
+            description: repo.description || 'No description available',
             private: repo.private,
             html_url: repo.html_url,
             language: repo.language,
             stargazers_count: repo.stargazers_count,
             forks_count: repo.forks_count,
-            branch: repo.branch
-          }))
+            branch: repo.branch,
+          }));
 
           if (isMounted) {
-            setRepositories(transformedRepos)
-            handleSuccess("Successfully installed GitHub app and loaded repositories")
+            setRepositories(transformedRepos);
+            handleSuccess('Successfully installed GitHub app and loaded repositories');
           }
         } catch (error) {
-          console.error("Error fetching repositories after installation:", error)
+          console.error('Error fetching repositories after installation:', error);
           if (isMounted) {
-            handleError("Failed to load repositories after installation. Please try again.")
+            handleError('Failed to load repositories after installation. Please try again.');
           }
         }
 
-        if (isMounted) setIsLoading(false)
-        return
+        if (isMounted) setIsLoading(false);
+        return;
       }
 
       // Normal flow - check existing installations
       try {
-        if (isMounted) setIsLoading(true)
+        if (isMounted) setIsLoading(true);
 
-        const installationsRes = await fetch("/api/github/installations", {
+        const installationsRes = await fetch('/api/github/installations', {
           headers: {
             Authorization: `Bearer ${session?.accessToken}`,
           },
-        })
+        });
 
         if (!installationsRes.ok) {
-          throw new Error(`Failed to fetch installations: ${installationsRes.status}`)
+          throw new Error(`Failed to fetch installations: ${installationsRes.status}`);
         }
 
-        const installationsData = await installationsRes.json()
+        const installationsData = await installationsRes.json();
 
         if (installationsData.installations?.length) {
-          const firstInstallationId = installationsData.installations[0].id
+          const firstInstallationId = installationsData.installations[0].id;
 
           if (isMounted) {
-            setIsAppInstalled(true)
-            setInstallationId(firstInstallationId)
+            setIsAppInstalled(true);
+            setInstallationId(firstInstallationId);
           }
 
-          const reposRes = await fetch(`/api/github/app_repos?installationId=${firstInstallationId}`)
+          const reposRes = await fetch(
+            `/api/github/app_repos?installationId=${firstInstallationId}`,
+          );
           if (!reposRes.ok) {
-            throw new Error(`Failed to fetch repositories: ${reposRes.status}`)
+            throw new Error(`Failed to fetch repositories: ${reposRes.status}`);
           }
-          const reposData = await reposRes.json()
+          const reposData = await reposRes.json();
 
           const transformedRepos = (reposData.repositories || []).map((repo: Repository) => ({
             id: repo.id,
             name: repo.name,
             full_name: repo.full_name,
-            description: repo.description || "No description available",
+            description: repo.description || 'No description available',
             private: repo.private,
             html_url: repo.html_url,
             language: repo.language,
             stargazers_count: repo.stargazers_count,
             forks_count: repo.forks_count,
-          }))
+          }));
 
           if (isMounted) {
-            setRepositories(transformedRepos)
-            handleSuccess("Successfully loaded your GitHub repositories")
+            setRepositories(transformedRepos);
+            handleSuccess('Successfully loaded your GitHub repositories');
           }
         } else {
           if (isMounted) {
-            setIsAppInstalled(false)
-            setRepositories([])
+            setIsAppInstalled(false);
+            setRepositories([]);
           }
         }
       } catch (error) {
-        console.error("Error fetching GitHub data:", error)
+        console.error('Error fetching GitHub data:', error);
         if (isMounted) {
-          setIsAppInstalled(false)
-          setRepositories([])
-          handleError("Failed to fetch GitHub data. Please try again or check your connection.")
+          setIsAppInstalled(false);
+          setRepositories([]);
+          handleError('Failed to fetch GitHub data. Please try again or check your connection.');
         }
       } finally {
-        if (isMounted) setIsLoading(false)
+        if (isMounted) setIsLoading(false);
       }
-    }
+    };
 
-    handleInstallationCallback()
+    handleInstallationCallback();
 
     return () => {
-      isMounted = false
-    }
-  }, [session?.accessToken, status, handleError, handleSuccess]) // Only depend on stable values
+      isMounted = false;
+    };
+  }, [session?.accessToken, status, handleError, handleSuccess]); // Only depend on stable values
 
   const handleInstallApp = () => {
     try {
       // Redirect to GitHub App installation with custom redirect URL
-      const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || "YOUR_APP_NAME"
-      const redirectUrl = `${window.location.origin}/`
-      const appInstallUrl = `https://github.com/apps/${appName}/installations/new?state=${encodeURIComponent(redirectUrl)}`
+      const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'YOUR_APP_NAME';
+      const redirectUrl = `${window.location.origin}/`;
+      const appInstallUrl = `https://github.com/apps/${appName}/installations/new?state=${encodeURIComponent(redirectUrl)}`;
 
-      window.location.href = appInstallUrl
+      window.location.href = appInstallUrl;
     } catch (error) {
-      console.error("Error installing app:", error)
-      handleError("Failed to initiate GitHub app installation. Please try again.")
+      console.error('Error installing app:', error);
+      handleError('Failed to initiate GitHub app installation. Please try again.');
     }
-  }
+  };
 
   const handleUninstallApp = () => {
     try {
       // Redirect to GitHub App settings
       if (installationId) {
-        const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || "YOUR_APP_NAME"
-        const manageUrl = `https://github.com/apps/${appName}/installations/${installationId}`
-        window.open(manageUrl, "_blank")
+        const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'YOUR_APP_NAME';
+        const manageUrl = `https://github.com/apps/${appName}/installations/${installationId}`;
+        window.open(manageUrl, '_blank');
       } else {
-        window.open("https://github.com/settings/installations", "_blank")
+        window.open('https://github.com/settings/installations', '_blank');
       }
     } catch (error) {
-      console.error("Error opening GitHub settings:", error)
-      handleError("Failed to open GitHub settings. Please try again.")
+      console.error('Error opening GitHub settings:', error);
+      handleError('Failed to open GitHub settings. Please try again.');
     }
-  }
+  };
 
   const handleVizify = async ({ id: repoId, html_url, branch }: Repository) => {
     try {
-      setProcessingRepos((prev) => [...prev, repoId])
-      console.log(html_url)
+      setProcessingRepos((prev) => [...prev, repoId]);
+      console.log(html_url);
       const requestData = {
         repo_url: html_url,
         access_token: session?.accessToken || undefined,
-        branch: branch || "main",
-        jwt_token: session?.jwt_token || undefined
+        branch: branch || 'main',
+        jwt_token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
-      setOutput(formattedText)
-      setSourceType("github")
+      setOutput(formattedText);
+      setSourceType('github');
       setSourceData(requestData);
-      setCurrentRepoId(repo_id)
-      setProcessingRepos((prev) => prev.filter((id) => id !== repoId))
-      router.push("/results");
+      setCurrentRepoId(repo_id);
+      setProcessingRepos((prev) => prev.filter((id) => id !== repoId));
+      router.push('/results');
     } catch (error) {
-      console.error("Error processing repository:", error)
-      handleError("Failed to process repository. Please try again.")
-      setProcessingRepos((prev) => prev.filter((id) => id !== repoId))
+      console.error('Error processing repository:', error);
+      handleError('Failed to process repository. Please try again.');
+      setProcessingRepos((prev) => prev.filter((id) => id !== repoId));
     }
-  }
+  };
 
   const handleImportRepo = () => {
     try {
       // Redirect to add more repositories
       if (installationId) {
-        const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || "YOUR_APP_NAME"
-        const addReposUrl = `https://github.com/apps/${appName}/installations/${installationId}`
-        window.open(addReposUrl, "_blank")
+        const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'YOUR_APP_NAME';
+        const addReposUrl = `https://github.com/apps/${appName}/installations/${installationId}`;
+        window.open(addReposUrl, '_blank');
       } else {
-        handleError("No installation ID found. Please install the GitHub app first.")
+        handleError('No installation ID found. Please install the GitHub app first.');
       }
     } catch (error) {
-      console.error("Error opening repository import:", error)
-      handleError("Failed to open repository import page. Please try again.")
+      console.error('Error opening repository import:', error);
+      handleError('Failed to open repository import page. Please try again.');
     }
-  }
+  };
 
   const filteredRepositories = repositories.filter((repo) => {
     const matchesSearch =
       repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       repo.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      repo.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    if (activeTab === "all") return matchesSearch
-    if (activeTab === "public") return matchesSearch && !repo.private
-    if (activeTab === "private") return matchesSearch && repo.private
-    return matchesSearch
-  })
+    if (activeTab === 'all') return matchesSearch;
+    if (activeTab === 'public') return matchesSearch && !repo.private;
+    if (activeTab === 'private') return matchesSearch && repo.private;
+    return matchesSearch;
+  });
 
   // Show loading state while checking authentication
-  if (status === "loading" || isLoading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="fixed top-0 left-0 right-0 h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
@@ -299,12 +303,12 @@ export default function RepositoriesPage() {
           </div>
         </main>
       </div>
-    )
+    );
   }
 
   // Show sign-in message if not authenticated
-  if (status === "unauthenticated") {
-    return redirect('/')
+  if (status === 'unauthenticated') {
+    return redirect('/');
   }
 
   return (
@@ -372,20 +376,24 @@ export default function RepositoriesPage() {
                       className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
                     >
                       <GitBranch className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span>Public ({repositories.filter(r => !r.private).length})</span>
+                      <span>Public ({repositories.filter((r) => !r.private).length})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="private"
                       className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
                     >
                       <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span>Private ({repositories.filter(r => r.private).length})</span>
+                      <span>Private ({repositories.filter((r) => r.private).length})</span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
 
-                {["all", "public", "private"].map((tabValue) => (
-                  <TabsContent key={tabValue} value={tabValue} className="mt-6 animate-in fade-in-50 duration-300">
+                {['all', 'public', 'private'].map((tabValue) => (
+                  <TabsContent
+                    key={tabValue}
+                    value={tabValue}
+                    className="mt-6 animate-in fade-in-50 duration-300"
+                  >
                     {filteredRepositories.length > 0 ? (
                       <div className="divide-y divide-border/30 border border-border/50 rounded-xl overflow-hidden bg-background/60 backdrop-blur-xl">
                         {filteredRepositories.map((repo) => (
@@ -403,7 +411,9 @@ export default function RepositoriesPage() {
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <h3 className="text-lg font-semibold tracking-tight truncate">{repo.name}</h3>
+                                  <h3 className="text-lg font-semibold tracking-tight truncate">
+                                    {repo.name}
+                                  </h3>
                                   {repo.private ? (
                                     <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 rounded-xl">
                                       Private
@@ -419,7 +429,9 @@ export default function RepositoriesPage() {
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{repo.description}</p>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                  {repo.description}
+                                </p>
                               </div>
                             </div>
 
@@ -428,7 +440,7 @@ export default function RepositoriesPage() {
                                 variant="outline"
                                 size="sm"
                                 className="h-9 px-3 text-sm rounded-xl hover:bg-muted/50 transition-all duration-200"
-                                onClick={() => window.open(repo.html_url, "_blank")}
+                                onClick={() => window.open(repo.html_url, '_blank')}
                               >
                                 <ExternalLink className="h-4 w-4" />
                               </Button>
@@ -461,17 +473,18 @@ export default function RepositoriesPage() {
                             <AlertCircle className="h-6 w-6 text-muted-foreground" />
                           </div>
                           <h3 className="text-lg font-medium mb-2">
-                            {tabValue === "all" ? "No repositories found" :
-                              tabValue === "public" ? "No public repositories found" :
-                                "No private repositories found"}
+                            {tabValue === 'all'
+                              ? 'No repositories found'
+                              : tabValue === 'public'
+                                ? 'No public repositories found'
+                                : 'No private repositories found'}
                           </h3>
                           <p className="text-muted-foreground max-w-md mb-6">
-                            {searchQuery ?
-                              `No repositories match "${searchQuery}". Try adjusting your search terms.` :
-                              tabValue === "all" ?
-                                "You don't have access to any repositories yet. Install the app on more repositories to get started." :
-                                `You don't have any ${tabValue} repositories that match your search criteria.`
-                            }
+                            {searchQuery
+                              ? `No repositories match "${searchQuery}". Try adjusting your search terms.`
+                              : tabValue === 'all'
+                                ? "You don't have access to any repositories yet. Install the app on more repositories to get started."
+                                : `You don't have any ${tabValue} repositories that match your search criteria.`}
                           </p>
                           <Button
                             variant="outline"
@@ -498,7 +511,9 @@ export default function RepositoriesPage() {
                     <Github className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="text-lg sm:text-xl font-semibold tracking-tight">Connect to GitHub</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold tracking-tight">
+                      Connect to GitHub
+                    </h3>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                       Install the GitViz GitHub App to get started
                     </p>
@@ -514,8 +529,8 @@ export default function RepositoriesPage() {
                   </div>
                   <h2 className="text-2xl font-semibold mb-2">Connect to GitHub</h2>
                   <p className="text-muted-foreground max-w-md mb-8">
-                    To view your repositories, please install the GitViz GitHub App and grant access to the appropriate
-                    repositories.
+                    To view your repositories, please install the GitViz GitHub App and grant access
+                    to the appropriate repositories.
                   </p>
                   <Button
                     size="lg"
@@ -527,8 +542,8 @@ export default function RepositoriesPage() {
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                   <p className="text-xs text-muted-foreground mt-6 max-w-sm">
-                    GitViz requires read-only access to your repositories to provide visualization and analysis
-                    features.
+                    GitViz requires read-only access to your repositories to provide visualization
+                    and analysis features.
                   </p>
                 </div>
               </div>
@@ -540,5 +555,5 @@ export default function RepositoriesPage() {
       {/* Visual Anchor - Bottom Gradient */}
       <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-primary/5 to-transparent pointer-events-none" />
     </div>
-  )
+  );
 }

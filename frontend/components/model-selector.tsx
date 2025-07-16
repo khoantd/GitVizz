@@ -1,62 +1,73 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Slider } from "@/components/ui/slider"
-import { Label } from "@/components/ui/label"
-import { RefreshCw, Settings, Zap, Brain, Sparkles } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { RefreshCw, Settings, Zap, Brain, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
   currentModel: {
-    provider: string
-    model: string
-    temperature: number
-  }
+    provider: string;
+    model: string;
+    temperature: number;
+  };
   availableModels: {
-    providers: Record<string, string[]>
-    user_has_keys: string[]
-  }
-  onModelChange: (provider: string, model: string) => void
-  onRefresh: () => void
+    providers: Record<string, string[]>;
+    user_has_keys: string[];
+  };
+  onModelChange: (provider: string, model: string) => void;
+  onRefresh: () => void;
 }
 
-export function ModelSelector({ currentModel, availableModels, onModelChange, onRefresh }: ModelSelectorProps) {
-  const [temperature, setTemperature] = useState(currentModel.temperature)
-  const [showAdvanced, setShowAdvanced] = useState(false)
+export function ModelSelector({
+  currentModel,
+  availableModels,
+  onModelChange,
+  onRefresh,
+}: ModelSelectorProps) {
+  const [temperature, setTemperature] = useState(currentModel.temperature);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const getProviderIcon = (provider: string) => {
     switch (provider) {
-      case "openai":
-        return <Zap className="h-4 w-4" />
-      case "anthropic":
-        return <Brain className="h-4 w-4" />
-      case "gemini":
-        return <Sparkles className="h-4 w-4" />
+      case 'openai':
+        return <Zap className="h-4 w-4" />;
+      case 'anthropic':
+        return <Brain className="h-4 w-4" />;
+      case 'gemini':
+        return <Sparkles className="h-4 w-4" />;
       default:
-        return <Zap className="h-4 w-4" />
+        return <Zap className="h-4 w-4" />;
     }
-  }
+  };
 
   const getProviderColor = (provider: string) => {
     switch (provider) {
-      case "openai":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-      case "anthropic":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
-      case "gemini":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+      case 'openai':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'anthropic':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'gemini':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
-  }
+  };
 
   const hasUserKey = (provider: string) => {
-    return availableModels.user_has_keys.includes(provider)
-  }
+    return availableModels.user_has_keys.includes(provider);
+  };
 
   return (
     <div className="space-y-3">
@@ -103,9 +114,9 @@ export function ModelSelector({ currentModel, availableModels, onModelChange, on
         <Select
           value={currentModel.provider}
           onValueChange={(provider) => {
-            const firstModel = availableModels.providers[provider]?.[0]
+            const firstModel = availableModels.providers[provider]?.[0];
             if (firstModel) {
-              onModelChange(provider, firstModel)
+              onModelChange(provider, firstModel);
             }
           }}
         >
@@ -135,11 +146,17 @@ export function ModelSelector({ currentModel, availableModels, onModelChange, on
         </Select>
 
         {/* Model Selection */}
-        <Select value={currentModel.model} onValueChange={(model) => onModelChange(currentModel.provider, model)}>
+        <Select
+          value={currentModel.model}
+          onValueChange={(model) => onModelChange(currentModel.provider, model)}
+        >
           <SelectTrigger className="w-full">
             <SelectValue>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className={cn("text-xs", getProviderColor(currentModel.provider))}>
+                <Badge
+                  variant="secondary"
+                  className={cn('text-xs', getProviderColor(currentModel.provider))}
+                >
                   {currentModel.model}
                 </Badge>
               </div>
@@ -148,7 +165,10 @@ export function ModelSelector({ currentModel, availableModels, onModelChange, on
           <SelectContent>
             {availableModels.providers[currentModel.provider]?.map((model) => (
               <SelectItem key={model} value={model}>
-                <Badge variant="secondary" className={cn("text-xs", getProviderColor(currentModel.provider))}>
+                <Badge
+                  variant="secondary"
+                  className={cn('text-xs', getProviderColor(currentModel.provider))}
+                >
                   {model}
                 </Badge>
               </SelectItem>
@@ -157,5 +177,5 @@ export function ModelSelector({ currentModel, availableModels, onModelChange, on
         </Select>
       </div>
     </div>
-  )
+  );
 }

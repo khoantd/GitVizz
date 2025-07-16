@@ -1,15 +1,15 @@
-"use client"
+'use client';
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { StructureTab } from "@/components/structure-tab"
-import ReagraphVisualization from "@/components/ReagraphVisualization"
-import { FloatingChatButton } from "@/components/floating-chat-button"
-import { ChatSidebar } from "@/components/chat-sidebar"
-import DocumentationTab from "@/components/documentation"
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StructureTab } from '@/components/structure-tab';
+import ReagraphVisualization from '@/components/ReagraphVisualization';
+import { FloatingChatButton } from '@/components/floating-chat-button';
+import { ChatSidebar } from '@/components/chat-sidebar';
+import DocumentationTab from '@/components/documentation';
 import {
   Network,
   Code2,
@@ -26,130 +26,142 @@ import {
   Lock,
   BookOpen,
   Key,
-} from "lucide-react"
-import { CodeViewer } from "@/components/CodeViewer"
-import { cn } from "@/lib/utils"
-import { useResultData } from "@/context/ResultDataContext"
-import { showToast } from "@/components/toaster"
-import { useSession } from "next-auth/react"
+} from 'lucide-react';
+import { CodeViewer } from '@/components/CodeViewer';
+import { cn } from '@/lib/utils';
+import { useResultData } from '@/context/ResultDataContext';
+import { showToast } from '@/components/toaster';
+import { useSession } from 'next-auth/react';
 
 export default function ResultsPage() {
-  const router = useRouter()
-  const { output, error, outputMessage, sourceType, sourceData, loading, currentRepoId, userKeyPreferences } = useResultData()
-  const { data: session } = useSession()
+  const router = useRouter();
+  const {
+    output,
+    error,
+    outputMessage,
+    sourceType,
+    sourceData,
+    loading,
+    currentRepoId,
+    userKeyPreferences,
+  } = useResultData();
+  const { data: session } = useSession();
 
   // Set default active tab based on authentication
-  const defaultTab = session?.accessToken ? "graph" : "structure"
-  const [activeTab, setActiveTab] = useState(defaultTab)
-  const [showInfo, setShowInfo] = useState(false)
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
+  const defaultTab = session?.accessToken ? 'graph' : 'structure';
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleChat = () => {
-    setIsChatOpen(!isChatOpen)
-  }
+    setIsChatOpen(!isChatOpen);
+  };
 
   // popup state for full-screen code explorer
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false);
   // popup state for full-screen graph explorer
-  const [isGraphExpanded, setIsGraphExpanded] = useState(false)
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
 
-  const popupRef = useRef<HTMLDivElement>(null)
-  const popupGraphRef = useRef<HTMLDivElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null);
+  const popupGraphRef = useRef<HTMLDivElement>(null);
 
   // Handle restricted tab clicks
   const handleTabChange = (value: string) => {
-    if ((value === "graph" || value === "explorer" || value === "documentation") && !session?.accessToken) {
+    if (
+      (value === 'graph' || value === 'explorer' || value === 'documentation') &&
+      !session?.accessToken
+    ) {
       // Redirect to sign in page for restricted tabs
-      router.push("/signin")
-      return
+      router.push('/signin');
+      return;
     }
-    setActiveTab(value)
-  }
+    setActiveTab(value);
+  };
 
   // Handle click outside to close expanded view
   useEffect(() => {
-    if (!isExpanded) return
+    if (!isExpanded) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
-        setIsExpanded(false)
+        setIsExpanded(false);
       }
-    }
+    };
 
     // Add escape key handler
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsExpanded(false)
+      if (event.key === 'Escape') {
+        setIsExpanded(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside)
-    document.addEventListener("keydown", handleEscKey)
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscKey);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-      document.removeEventListener("keydown", handleEscKey)
-    }
-  }, [isExpanded])
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isExpanded]);
 
   // Show toast messages for error/outputMessage
   useEffect(() => {
-    if (error) showToast.error(error)
-  }, [error])
+    if (error) showToast.error(error);
+  }, [error]);
 
   useEffect(() => {
-    if (outputMessage) showToast.success(outputMessage)
-  }, [outputMessage])
+    if (outputMessage) showToast.success(outputMessage);
+  }, [outputMessage]);
 
   // Redirect if no output (no results)
   useEffect(() => {
     if (!output && !loading) {
-      router.replace("/")
+      router.replace('/');
     }
-  }, [output, loading, router])
+  }, [output, loading, router]);
 
   type GitHubSource = {
-    repo_url: string
-  }
+    repo_url: string;
+  };
 
   type ZipSource = {
-    name: string
-  }
+    name: string;
+  };
 
   // Helper to get repository name from sourceData
   const getRepoName = () => {
     if (
-      sourceType === "github" &&
+      sourceType === 'github' &&
       sourceData &&
-      typeof sourceData === "object" &&
-      "repo_url" in sourceData &&
-      typeof (sourceData as GitHubSource).repo_url === "string"
+      typeof sourceData === 'object' &&
+      'repo_url' in sourceData &&
+      typeof (sourceData as GitHubSource).repo_url === 'string'
     ) {
       try {
-        const url = new URL((sourceData as GitHubSource).repo_url)
-        const pathParts = url.pathname.split("/").filter(Boolean)
+        const url = new URL((sourceData as GitHubSource).repo_url);
+        const pathParts = url.pathname.split('/').filter(Boolean);
         if (pathParts.length >= 2) {
-          return `${pathParts[0]}/${pathParts[1]}`
+          return `${pathParts[0]}/${pathParts[1]}`;
         }
       } catch {
         // Do nothing
       }
-      return (sourceData as GitHubSource).repo_url
+      return (sourceData as GitHubSource).repo_url;
     }
 
     if (
-      sourceType === "zip" &&
+      sourceType === 'zip' &&
       sourceData &&
-      typeof sourceData === "object" &&
-      "name" in sourceData &&
-      typeof (sourceData as ZipSource).name === "string"
+      typeof sourceData === 'object' &&
+      'name' in sourceData &&
+      typeof (sourceData as ZipSource).name === 'string'
     ) {
-      return (sourceData as ZipSource).name
+      return (sourceData as ZipSource).name;
     }
 
-    return "Repository"
-  }
+    return 'Repository';
+  };
 
   if (loading || !output) {
     return (
@@ -158,11 +170,13 @@ export default function ResultsPage() {
           <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
           <div className="text-center space-y-2">
             <h3 className="font-medium text-foreground text-sm sm:text-base">Loading Results</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">Please wait while we prepare your analysis...</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Please wait while we prepare your analysis...
+            </p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -174,7 +188,12 @@ export default function ResultsPage() {
       <div className="lg:hidden sticky top-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border/30 pb-2">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => router.push("/")} className="h-9 w-9 rounded-xl">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.push('/')}
+              className="h-9 w-9 rounded-xl"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex items-center gap-2">
@@ -250,7 +269,7 @@ export default function ResultsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push("/api-keys")}
+              onClick={() => router.push('/api-keys')}
               className="rounded-xl bg-background/90 backdrop-blur-xl border-border/60 shadow-md hover:bg-background hover:shadow-lg transition-all duration-300 gap-2"
             >
               <Key className="h-4 w-4" />
@@ -282,7 +301,7 @@ export default function ResultsPage() {
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Source:</span>
-                <span>{sourceType === "github" ? "GitHub Repository" : "ZIP Archive"}</span>
+                <span>{sourceType === 'github' ? 'GitHub Repository' : 'ZIP Archive'}</span>
               </div>
             </div>
           </div>
@@ -298,8 +317,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="graph"
                 className={cn(
-                  "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
-                  !session?.accessToken && "opacity-60",
+                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2',
+                  !session?.accessToken && 'opacity-60',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
@@ -309,8 +328,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="explorer"
                 className={cn(
-                  "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
-                  !session?.accessToken && "opacity-60",
+                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2',
+                  !session?.accessToken && 'opacity-60',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
@@ -320,8 +339,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="documentation"
                 className={cn(
-                  "rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2",
-                  !session?.accessToken && "opacity-60",
+                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2',
+                  !session?.accessToken && 'opacity-60',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
@@ -345,8 +364,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="graph"
                 className={cn(
-                  "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
-                  !session?.accessToken && "opacity-60",
+                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center',
+                  !session?.accessToken && 'opacity-60',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
@@ -356,8 +375,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="explorer"
                 className={cn(
-                  "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
-                  !session?.accessToken && "opacity-60",
+                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center',
+                  !session?.accessToken && 'opacity-60',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
@@ -367,8 +386,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="documentation"
                 className={cn(
-                  "rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center",
-                  !session?.accessToken && "opacity-60",
+                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center',
+                  !session?.accessToken && 'opacity-60',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
@@ -431,7 +450,8 @@ export default function ResultsPage() {
                               </Badge>
                             </div>
                             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                              Interactive visualization of code relationships. Large graphs may slow down your browser.
+                              Interactive visualization of code relationships. Large graphs may slow
+                              down your browser.
                             </p>
                           </div>
                         </div>
@@ -466,7 +486,8 @@ export default function ResultsPage() {
                           <div className="space-y-2">
                             <h3 className="font-medium text-foreground">No Graph Data Available</h3>
                             <p className="text-sm text-muted-foreground max-w-sm">
-                              Graph visualization requires processed source data to display relationships
+                              Graph visualization requires processed source data to display
+                              relationships
                             </p>
                           </div>
                         </div>
@@ -542,7 +563,11 @@ export default function ResultsPage() {
                   <div className="h-[500px] sm:h-[600px] lg:h-[700px] overflow-auto rounded-xl">
                     {currentRepoId && sourceData && sourceType ? (
                       <div className="h-full w-full overflow-auto">
-                        <DocumentationTab currentRepoId={currentRepoId} sourceData={sourceData} sourceType={sourceType} />
+                        <DocumentationTab
+                          currentRepoId={currentRepoId}
+                          sourceData={sourceData}
+                          sourceType={sourceType}
+                        />
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -602,7 +627,9 @@ export default function ResultsPage() {
                           <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
                             Code Explorer
                           </h2>
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{getRepoName()}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                            {getRepoName()}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -653,7 +680,8 @@ export default function ResultsPage() {
                           </Badge>
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          Interactive visualization of code relationships. Large graphs may slow down your browser.
+                          Interactive visualization of code relationships. Large graphs may slow
+                          down your browser.
                         </p>
                       </div>
                     </div>
@@ -685,5 +713,5 @@ export default function ResultsPage() {
         </>
       )}
     </div>
-  )
+  );
 }

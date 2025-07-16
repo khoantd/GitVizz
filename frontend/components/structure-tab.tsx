@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import type React from "react";
-import { useState, useEffect, useMemo } from "react";
+import type React from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Folder,
   FolderOpen,
@@ -16,18 +16,18 @@ import {
   EyeOff,
   CheckCircle2,
   Circle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
-import { useResultData } from "@/context/ResultDataContext";
-import Link from "next/link";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+import { useResultData } from '@/context/ResultDataContext';
+import Link from 'next/link';
 
 interface FileNode {
   name: string;
   path: string;
-  type: "file" | "directory";
+  type: 'file' | 'directory';
   content?: string;
   children?: FileNode[];
   extension?: string;
@@ -36,12 +36,10 @@ interface FileNode {
 
 export function StructureTab() {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(true);
   const [copyingText, setCopyingText] = useState(false);
 
@@ -57,7 +55,7 @@ export function StructureTab() {
       const allDirPaths = new Set<string>();
       const collectAllDirPaths = (nodes: FileNode[]) => {
         nodes.forEach((node) => {
-          if (node.type === "directory") {
+          if (node.type === 'directory') {
             allDirPaths.add(node.path);
             if (node.children) {
               collectAllDirPaths(node.children);
@@ -72,7 +70,7 @@ export function StructureTab() {
       const allFilePaths = new Set<string>();
       const collectAllFilePaths = (nodes: FileNode[]) => {
         nodes.forEach((node) => {
-          if (node.type === "file") {
+          if (node.type === 'file') {
             allFilePaths.add(node.path);
           }
           if (node.children) {
@@ -87,7 +85,7 @@ export function StructureTab() {
       const extensions = new Set<string>();
       const collectExtensions = (nodes: FileNode[]) => {
         nodes.forEach((node) => {
-          if (node.type === "file" && node.extension) {
+          if (node.type === 'file' && node.extension) {
             extensions.add(node.extension);
           }
           if (node.children) {
@@ -105,17 +103,17 @@ export function StructureTab() {
     const rootMap: Record<string, FileNode> = {};
 
     // Extract files and their content
-    const fileContentSections = text.split("---\nFile:").slice(1);
+    const fileContentSections = text.split('---\nFile:').slice(1);
 
     fileContentSections.forEach((section) => {
-      const firstNewlineIndex = section.indexOf("\n");
+      const firstNewlineIndex = section.indexOf('\n');
       const filePath = section.substring(0, firstNewlineIndex).trim();
-      const content = section.substring(section.indexOf("\n---\n") + 5).trim();
+      const content = section.substring(section.indexOf('\n---\n') + 5).trim();
 
       // Create file hierarchy
-      const pathParts = filePath.split("/");
-      let currentPath = "";
-      let parentPath = "";
+      const pathParts = filePath.split('/');
+      let currentPath = '';
+      let parentPath = '';
 
       // Create directory nodes
       for (let i = 0; i < pathParts.length - 1; i++) {
@@ -127,7 +125,7 @@ export function StructureTab() {
           const dirNode: FileNode = {
             name: part,
             path: currentPath,
-            type: "directory",
+            type: 'directory',
             children: [],
             selected: false,
           };
@@ -144,13 +142,11 @@ export function StructureTab() {
 
       // Create file node
       const fileName = pathParts[pathParts.length - 1];
-      const extension = fileName.includes(".")
-        ? fileName.split(".").pop()?.toLowerCase()
-        : "";
+      const extension = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() : '';
       const fileNode: FileNode = {
         name: fileName,
         path: filePath,
-        type: "file",
+        type: 'file',
         content: content,
         extension: extension,
         selected: false,
@@ -169,7 +165,7 @@ export function StructureTab() {
 
   const getAllDescendantFilePaths = (node: FileNode): string[] => {
     let paths: string[] = [];
-    if (node.type === "file") {
+    if (node.type === 'file') {
       paths.push(node.path);
     }
     if (node.children) {
@@ -180,21 +176,17 @@ export function StructureTab() {
     return paths;
   };
 
-  const getDirectorySelectionState = (
-    directoryNode: FileNode
-  ): "all" | "some" | "none" => {
+  const getDirectorySelectionState = (directoryNode: FileNode): 'all' | 'some' | 'none' => {
     const descendantFilePaths = getAllDescendantFilePaths(directoryNode);
     if (descendantFilePaths.length === 0) {
-      return "none";
+      return 'none';
     }
 
-    const selectedCount = descendantFilePaths.filter((path) =>
-      selectedFiles.has(path)
-    ).length;
+    const selectedCount = descendantFilePaths.filter((path) => selectedFiles.has(path)).length;
 
-    if (selectedCount === 0) return "none";
-    if (selectedCount === descendantFilePaths.length) return "all";
-    return "some";
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === descendantFilePaths.length) return 'all';
+    return 'some';
   };
 
   const toggleDirectorySelection = (directoryNode: FileNode) => {
@@ -203,7 +195,7 @@ export function StructureTab() {
 
     setSelectedFiles((prev) => {
       const newSet = new Set(prev);
-      if (selectionState === "all") {
+      if (selectionState === 'all') {
         descendantFilePaths.forEach((path) => newSet.delete(path));
       } else {
         // 'none' or 'some'
@@ -218,7 +210,7 @@ export function StructureTab() {
     const extensions = new Set<string>();
     const collectExtensions = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "file" && node.extension) {
+        if (node.type === 'file' && node.extension) {
           extensions.add(node.extension);
         }
         if (node.children) {
@@ -235,7 +227,7 @@ export function StructureTab() {
     let count = 0;
     const countFiles = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "file" && node.extension === extension) {
+        if (node.type === 'file' && node.extension === extension) {
           count++;
         }
         if (node.children) {
@@ -252,11 +244,7 @@ export function StructureTab() {
     let count = 0;
     const countSelected = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (
-          node.type === "file" &&
-          node.extension === extension &&
-          selectedFiles.has(node.path)
-        ) {
+        if (node.type === 'file' && node.extension === extension && selectedFiles.has(node.path)) {
           count++;
         }
         if (node.children) {
@@ -275,10 +263,8 @@ export function StructureTab() {
     const filterNodes = (nodes: FileNode[]): FileNode[] => {
       return nodes
         .map((node) => {
-          if (node.type === "directory") {
-            const filteredChildren = node.children
-              ? filterNodes(node.children)
-              : [];
+          if (node.type === 'directory') {
+            const filteredChildren = node.children ? filterNodes(node.children) : [];
             if (
               filteredChildren.length > 0 ||
               node.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -288,9 +274,7 @@ export function StructureTab() {
             return null;
           } else {
             // File filtering by search term only
-            const matchesSearch = node.name
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase());
+            const matchesSearch = node.name.toLowerCase().includes(searchTerm.toLowerCase());
             if (matchesSearch) {
               return node;
             }
@@ -303,21 +287,19 @@ export function StructureTab() {
     return filterNodes(fileTree);
   }, [fileTree, searchTerm]);
 
-  const generateStructureTree = (nodes: FileNode[], prefix = ""): string => {
-    let treeString = "";
+  const generateStructureTree = (nodes: FileNode[], prefix = ''): string => {
+    let treeString = '';
     nodes.forEach((node, index) => {
       const isLast = index === nodes.length - 1;
-      const connector = isLast ? "└── " : "├── ";
-      if (selectedFiles.has(node.path) || node.type === "directory") {
-        if (node.type === "directory") {
+      const connector = isLast ? '└── ' : '├── ';
+      if (selectedFiles.has(node.path) || node.type === 'directory') {
+        if (node.type === 'directory') {
           const descendantFilePaths = getAllDescendantFilePaths(node);
-          const hasSelectedChildren = descendantFilePaths.some((p) =>
-            selectedFiles.has(p)
-          );
+          const hasSelectedChildren = descendantFilePaths.some((p) => selectedFiles.has(p));
           if (hasSelectedChildren) {
             treeString += `${prefix}${connector}${node.name}/\n`;
             if (node.children) {
-              const newPrefix = prefix + (isLast ? "    " : "│   ");
+              const newPrefix = prefix + (isLast ? '    ' : '│   ');
               treeString += generateStructureTree(node.children, newPrefix);
             }
           }
@@ -333,7 +315,7 @@ export function StructureTab() {
     const content: string[] = [];
     const processNode = (node: FileNode) => {
       if (selectedFiles.has(node.path)) {
-        if (node.type === "file" && node.content) {
+        if (node.type === 'file' && node.content) {
           content.push(`---\nFile: ${node.path}\n---\n${node.content}`);
         }
       }
@@ -343,10 +325,7 @@ export function StructureTab() {
     };
     fileTree.forEach(processNode);
     const structureTree = generateStructureTree(fileTree);
-    return (
-      (structureTree ? `\`\`\`\n${structureTree}\`\`\`\n\n` : "") +
-      content.join("\n\n")
-    );
+    return (structureTree ? `\`\`\`\n${structureTree}\`\`\`\n\n` : '') + content.join('\n\n');
   }, [fileTree, selectedFiles]);
 
   /*
@@ -364,8 +343,8 @@ export function StructureTab() {
     });
   };
 
-  const toggleFileSelection = (node: FileNode, type: "file" | "directory") => {
-    if (type === "directory") {
+  const toggleFileSelection = (node: FileNode, type: 'file' | 'directory') => {
+    if (type === 'directory') {
       toggleDirectorySelection(node);
     } else {
       setSelectedFiles((prev) => {
@@ -397,7 +376,7 @@ export function StructureTab() {
     const filesToUpdate = new Set<string>();
     const collectFilesWithExtension = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "file" && node.extension === extension) {
+        if (node.type === 'file' && node.extension === extension) {
           filesToUpdate.add(node.path);
         }
         if (node.children) {
@@ -424,7 +403,7 @@ export function StructureTab() {
     const allFilePaths: string[] = [];
     const collectAllFilePaths = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "file") {
+        if (node.type === 'file') {
           allFilePaths.push(node.path);
         }
         if (node.children) {
@@ -444,7 +423,7 @@ export function StructureTab() {
     const allDirPaths = new Set<string>();
     const collectDirPaths = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "directory") {
+        if (node.type === 'directory') {
           allDirPaths.add(node.path);
           if (node.children) {
             collectDirPaths(node.children);
@@ -467,17 +446,17 @@ export function StructureTab() {
       // Show success feedback
       setTimeout(() => setCopyingText(false), 1000);
     } catch (error) {
-      console.error("Failed to copy to clipboard:", error);
+      console.error('Failed to copy to clipboard:', error);
       setCopyingText(false);
     }
   };
 
   const downloadSelectedFiles = () => {
-    const blob = new Blob([selectedContent], { type: "text/plain" });
+    const blob = new Blob([selectedContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = "selected-files.txt";
+    a.download = 'selected-files.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -497,44 +476,42 @@ export function StructureTab() {
         return null;
       };
       const node = findNode(fileTree);
-      return node?.type === "file";
+      return node?.type === 'file';
     }).length;
   };
 
   const renderTree = (nodes: FileNode[], level = 0): React.ReactNode => {
     return nodes
       .sort((a, b) => {
-        if (a.type === "directory" && b.type === "file") return -1;
-        if (a.type === "file" && b.type === "directory") return 1;
+        if (a.type === 'directory' && b.type === 'file') return -1;
+        if (a.type === 'file' && b.type === 'directory') return 1;
         return a.name.localeCompare(b.name);
       })
       .map((node) => {
         const isExpanded = expandedFolders.has(node.path);
-        let isSelected: boolean | "indeterminate" = false;
+        let isSelected: boolean | 'indeterminate' = false;
 
-        if (node.type === "directory") {
+        if (node.type === 'directory') {
           const selectionState = getDirectorySelectionState(node);
-          if (selectionState === "all") {
+          if (selectionState === 'all') {
             isSelected = true;
-          } else if (selectionState === "some") {
-            isSelected = "indeterminate";
+          } else if (selectionState === 'some') {
+            isSelected = 'indeterminate';
           }
         } else {
           isSelected = selectedFiles.has(node.path);
         }
 
         const isFileTypeFiltered =
-          node.type === "file" &&
-          node.extension &&
-          !activeFilters.has(node.extension);
+          node.type === 'file' && node.extension && !activeFilters.has(node.extension);
 
         return (
           <div key={node.path} className="select-none">
             <div
               className={cn(
-                "flex items-center py-2 px-3 hover:bg-muted/50 rounded-lg group transition-all duration-200",
-                level > 0 && "ml-4",
-                isFileTypeFiltered && "opacity-50"
+                'flex items-center py-2 px-3 hover:bg-muted/50 rounded-lg group transition-all duration-200',
+                level > 0 && 'ml-4',
+                isFileTypeFiltered && 'opacity-50',
               )}
             >
               <Checkbox
@@ -544,7 +521,7 @@ export function StructureTab() {
                 disabled={isFileTypeFiltered ? true : false}
               />
 
-              {node.type === "directory" ? (
+              {node.type === 'directory' ? (
                 <>
                   <button
                     onClick={() => toggleFolder(node.path)}
@@ -560,15 +537,10 @@ export function StructureTab() {
                     ) : (
                       <Folder className="h-4 w-4 text-blue-500 flex-shrink-0" />
                     )}
-                    <span className="text-sm font-medium truncate">
-                      {node.name}
-                    </span>
+                    <span className="text-sm font-medium truncate">{node.name}</span>
                   </button>
                   {node.children && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs px-2 py-1 rounded-full ml-2"
-                    >
+                    <Badge variant="secondary" className="text-xs px-2 py-1 rounded-full ml-2">
                       {node.children.length}
                     </Badge>
                   )}
@@ -579,17 +551,15 @@ export function StructureTab() {
                   <File className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{node.name}</span>
                   <div className="flex items-center gap-2 ml-2">
-                    {isFileTypeFiltered && (
-                      <EyeOff className="h-3 w-3 text-muted-foreground" />
-                    )}
+                    {isFileTypeFiltered && <EyeOff className="h-3 w-3 text-muted-foreground" />}
                     {node.extension && (
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-xs px-2 py-0.5 rounded-md",
+                          'text-xs px-2 py-0.5 rounded-md',
                           activeFilters.has(node.extension)
-                            ? "border-primary/50 text-primary"
-                            : "border-muted-foreground/30 text-muted-foreground"
+                            ? 'border-primary/50 text-primary'
+                            : 'border-muted-foreground/30 text-muted-foreground',
                         )}
                       >
                         {node.extension}
@@ -600,7 +570,7 @@ export function StructureTab() {
               )}
             </div>
 
-            {node.type === "directory" && isExpanded && node.children && (
+            {node.type === 'directory' && isExpanded && node.children && (
               <div className="ml-3 border-l-2 border-border/30 pl-3 mt-1">
                 {renderTree(node.children, level + 1)}
               </div>
@@ -614,7 +584,7 @@ export function StructureTab() {
     let count = 0;
     const countFiles = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "file") count++;
+        if (node.type === 'file') count++;
         if (node.children) countFiles(node.children);
       });
     };
@@ -639,7 +609,7 @@ export function StructureTab() {
                   target="_blank"
                   className="text-sm text-muted-foreground ml-2"
                 >
-                  using{" "}
+                  using{' '}
                   <span className="text-blue-600 underline cursor-pointer">
                     cl100k_base tokenizer
                   </span>
@@ -649,9 +619,7 @@ export function StructureTab() {
             {/* Selection Counter */}
             <div className="flex items-center justify-center sm:justify-end gap-4 px-4 py-2 bg-muted/50 rounded-xl border">
               <div className="text-center">
-                <div className="text-lg font-bold text-primary">
-                  {getSelectedCount()}
-                </div>
+                <div className="text-lg font-bold text-primary">{getSelectedCount()}</div>
                 <div className="text-xs text-muted-foreground">Selected</div>
               </div>
               <div className="w-px h-8 bg-border" />
@@ -675,7 +643,7 @@ export function StructureTab() {
           />
           {searchTerm && (
             <button
-              onClick={() => setSearchTerm("")}
+              onClick={() => setSearchTerm('')}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />
@@ -685,39 +653,19 @@ export function StructureTab() {
 
         {/* Quick Controls */}
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={selectAll}
-            className="text-xs rounded-lg"
-          >
+          <Button variant="outline" size="sm" onClick={selectAll} className="text-xs rounded-lg">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Select All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={deselectAll}
-            className="text-xs rounded-lg"
-          >
+          <Button variant="outline" size="sm" onClick={deselectAll} className="text-xs rounded-lg">
             <Circle className="h-3 w-3 mr-1" />
             Deselect All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={expandAll}
-            className="text-xs rounded-lg"
-          >
+          <Button variant="outline" size="sm" onClick={expandAll} className="text-xs rounded-lg">
             <ChevronDown className="h-3 w-3 mr-1" />
             Expand All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={collapseAll}
-            className="text-xs rounded-lg"
-          >
+          <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs rounded-lg">
             <ChevronRight className="h-3 w-3 mr-1" />
             Collapse All
           </Button>
@@ -728,7 +676,7 @@ export function StructureTab() {
             className="text-xs rounded-lg ml-auto"
           >
             <Filter className="h-3 w-3 mr-1" />
-            {showFilters ? "Hide" : "Show"} Filters
+            {showFilters ? 'Hide' : 'Show'} Filters
           </Button>
         </div>
 
@@ -768,22 +716,19 @@ export function StructureTab() {
                     key={ext}
                     onClick={() => handleExtensionFilterToggle(ext)}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 p-1.5 rounded-md border text-xs font-medium transition-all duration-200",
+                      'flex cursor-pointer items-center gap-2 p-1.5 rounded-md border text-xs font-medium transition-all duration-200',
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background hover:bg-muted border-border"
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-muted border-border',
                     )}
                   >
                     <Checkbox
                       checked={isActive}
-                      className={cn(
-                        "h-4 w-4",
-                        isActive && "border-primary-foreground"
-                      )}
+                      className={cn('h-4 w-4', isActive && 'border-primary-foreground')}
                     />
                     <span className="font-mono">.{ext}</span>
                     <Badge
-                      variant={isActive ? "secondary" : "outline"}
+                      variant={isActive ? 'secondary' : 'outline'}
                       className="text-xs px-1.5 py-0.5"
                     >
                       {selectedCount}/{totalCount}
@@ -810,9 +755,7 @@ export function StructureTab() {
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <File className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-base font-medium">
-                  No files match your search
-                </p>
+                <p className="text-base font-medium">No files match your search</p>
                 <p className="text-sm">Try adjusting your search terms</p>
               </div>
             )}
@@ -823,9 +766,7 @@ export function StructureTab() {
       {/* Right Panel: Output */}
       <div className="w-full md:w-1/2 lg:w-2/3 space-y-4">
         <div className="bg-muted/30 rounded-xl p-4 border border-border sticky top-6">
-          <h3 className="text-base font-semibold mb-4">
-            Selected Files Output
-          </h3>
+          <h3 className="text-base font-semibold mb-4">Selected Files Output</h3>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <Button
@@ -860,9 +801,7 @@ export function StructureTab() {
 
         <div className="bg-background rounded-xl border border-border p-4 mt-4 max-h-[80vh] overflow-y-auto">
           <pre className="text-xs font-mono whitespace-pre-wrap text-foreground/90 leading-relaxed">
-            {selectedContent
-              ? selectedContent
-              : "No files selected or content available."}
+            {selectedContent ? selectedContent : 'No files selected or content available.'}
           </pre>
         </div>
       </div>

@@ -1,27 +1,40 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Send, History, Key, Bot, Loader2, X, Plus, Settings, ChevronDown, ChevronUp, Sparkles, ExternalLink } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { ChatHistory } from "./chat-history"
-import { ChatMessage } from "./chat-message"
-import { ModelSelector } from "./model-selector"
-import { useChatSidebar } from "@/hooks/use-chat-sidebar"
+import type React from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Send,
+  History,
+  Key,
+  Bot,
+  Loader2,
+  X,
+  Plus,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  ExternalLink,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ChatHistory } from './chat-history';
+import { ChatMessage } from './chat-message';
+import { ModelSelector } from './model-selector';
+import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 
 interface ChatSidebarProps {
-  isOpen: boolean
-  onClose: () => void
-  repositoryId: string
-  repositoryName: string
-  userKeyPreferences?: Record<string, boolean> // New prop for user key preferences
+  isOpen: boolean;
+  onClose: () => void;
+  repositoryId: string;
+  repositoryName: string;
+  userKeyPreferences?: Record<string, boolean>; // New prop for user key preferences
 }
 
 export function ChatSidebar({
@@ -29,9 +42,9 @@ export function ChatSidebar({
   onClose,
   repositoryId,
   repositoryName,
-  userKeyPreferences = {}
+  userKeyPreferences = {},
 }: ChatSidebarProps) {
-  const router = useRouter()
+  const router = useRouter();
   const {
     messages,
     isLoading,
@@ -44,105 +57,112 @@ export function ChatSidebar({
     setModel,
     refreshModels,
     isLoadingHistory,
-  } = useChatSidebar(repositoryId, userKeyPreferences) // Pass preferences to hook
+  } = useChatSidebar(repositoryId, userKeyPreferences); // Pass preferences to hook
 
-  const [input, setInput] = useState("")
-  const [showHistory, setShowHistory] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(420)
-  const [isResizing, setIsResizing] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const [input, setInput] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState('40vw');
+  const [isResizing, setIsResizing] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" })
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [messages])
+  }, [messages]);
 
   // Focus input when sidebar opens
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 150)
+      setTimeout(() => inputRef.current?.focus(), 150);
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading) return;
 
-    const message = input.trim()
-    setInput("")
-    await sendMessage(message)
-  }
+    const message = input.trim();
+    setInput('');
+    await sendMessage(message);
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsResizing(true)
-    e.preventDefault()
-  }, [])
+    setIsResizing(true);
+    e.preventDefault();
+  }, []);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!isResizing) return
-      const newWidth = window.innerWidth - e.clientX
-      const minWidth = 320
-      const maxWidth = 800
-      if (newWidth >= minWidth && newWidth <= maxWidth) {
-        setSidebarWidth(newWidth)
-      }
+      if (!isResizing) return;
+      const newWidthPx = window.innerWidth - e.clientX;
+      const minWidthPx = 320;
+      const minWidthVw = (minWidthPx / window.innerWidth) * 100;
+      const maxWidthVw = 100;
+      let newWidthVw = (newWidthPx / window.innerWidth) * 100;
+      if (newWidthVw < minWidthVw) newWidthVw = minWidthVw;
+      if (newWidthVw > maxWidthVw) newWidthVw = maxWidthVw;
+      setSidebarWidth(`${newWidthVw}vw`);
     },
     [isResizing],
-  )
+  );
 
   const handleMouseUp = useCallback(() => {
-    setIsResizing(false)
-  }, [])
+    setIsResizing(false);
+  }, []);
 
   useEffect(() => {
     if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-      document.body.style.cursor = "col-resize"
-      document.body.style.userSelect = "none"
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
       return () => {
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
-        document.body.style.cursor = ""
-        document.body.style.userSelect = ""
-      }
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
     }
-  }, [isResizing, handleMouseMove, handleMouseUp])
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   const handleApiKeysClick = () => {
-    router.push("/api-keys")
-  }
+    router.push('/api-keys');
+  };
 
-  const hasActiveChat = messages.length > 0
+  const hasActiveChat = messages.length > 0;
 
   // Get user keys info for display
-  const userHasKeys = availableModels?.user_has_keys || []
-  const activeUserKeys = userHasKeys.filter(key => userKeyPreferences[key] !== false)
+  const userHasKeys = availableModels?.user_has_keys || [];
+  const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
 
   return (
     <>
       {/* Backdrop */}
-      {isOpen && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={onClose} />}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
 
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed top-0 right-0 h-full bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl z-50 transition-all duration-300 ease-out flex flex-col",
-          isOpen ? "translate-x-0" : "translate-x-full",
+          'fixed top-0 right-0 h-full bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl z-50 transition-all duration-300 ease-out flex flex-col',
+          isOpen ? 'translate-x-0' : 'translate-x-full',
         )}
-        style={{ width: `${sidebarWidth}px` }}
+        style={{ width: typeof sidebarWidth === 'string' ? sidebarWidth : `${sidebarWidth}px` }}
       >
         {/* Resize Handle */}
         <div
@@ -178,7 +198,9 @@ export function ChatSidebar({
               </div>
               <div className="space-y-1">
                 <h2 className="font-semibold text-base text-foreground">Repository Chat</h2>
-                <p className="text-sm text-muted-foreground truncate max-w-[200px]">{repositoryName}</p>
+                <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                  {repositoryName}
+                </p>
                 <div className="flex items-center gap-2">
                   {hasActiveChat && (
                     <Badge variant="secondary" className="text-xs">
@@ -186,14 +208,22 @@ export function ChatSidebar({
                     </Badge>
                   )}
                   {activeUserKeys.length > 0 && (
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
+                    >
                       {activeUserKeys.length} key{activeUserKeys.length !== 1 ? 's' : ''} active
                     </Badge>
                   )}
                 </div>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-xl hover:bg-muted/50">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-9 w-9 rounded-xl hover:bg-muted/50"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -203,12 +233,19 @@ export function ChatSidebar({
         <div className="border-b border-border/30">
           <Collapsible open={showSettings} onOpenChange={setShowSettings}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between p-4 h-auto rounded-none hover:bg-muted/30">
+              <Button
+                variant="ghost"
+                className="w-full justify-between p-4 h-auto rounded-none hover:bg-muted/30"
+              >
                 <div className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   <span className="text-sm font-medium">Chat Settings</span>
                 </div>
-                {showSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showSettings ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4 space-y-4">
@@ -229,7 +266,12 @@ export function ChatSidebar({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">API Keys</span>
-                      <Button variant="ghost" size="sm" onClick={handleApiKeysClick} className="text-xs h-6 px-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleApiKeysClick}
+                        className="text-xs h-6 px-2"
+                      >
                         Manage
                         <ExternalLink className="h-3 w-3 ml-1" />
                       </Button>
@@ -238,11 +280,16 @@ export function ChatSidebar({
                       {activeUserKeys.length > 0 ? (
                         <>
                           <span className="text-green-600 dark:text-green-400">
-                            {activeUserKeys.length} user key{activeUserKeys.length !== 1 ? 's' : ''} active
+                            {activeUserKeys.length} user key{activeUserKeys.length !== 1 ? 's' : ''}{' '}
+                            active
                           </span>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {activeUserKeys.map(key => (
-                              <Badge key={key} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                            {activeUserKeys.map((key) => (
+                              <Badge
+                                key={key}
+                                variant="outline"
+                                className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
+                              >
                                 {key}
                               </Badge>
                             ))}
@@ -262,11 +309,21 @@ export function ChatSidebar({
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowHistory(true)} className="justify-start">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHistory(true)}
+                  className="justify-start"
+                >
                   <History className="h-4 w-4 mr-2" />
                   History
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleApiKeysClick} className="justify-start">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleApiKeysClick}
+                  className="justify-start"
+                >
                   <Key className="h-4 w-4 mr-2" />
                   API Keys
                 </Button>
@@ -276,7 +333,12 @@ export function ChatSidebar({
               {hasActiveChat && (
                 <>
                   <Separator />
-                  <Button variant="outline" size="sm" onClick={clearCurrentChat} className="w-full justify-start">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearCurrentChat}
+                    className="w-full justify-start"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Start New Chat
                   </Button>
@@ -288,7 +350,11 @@ export function ChatSidebar({
 
         {/* Messages Area - Primary Focus */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <ScrollArea ref={scrollAreaRef} className="flex-1" style={{ height: "calc(100vh - 280px)" }}>
+          <ScrollArea
+            ref={scrollAreaRef}
+            className="flex-1"
+            style={{ height: 'calc(100vh - 280px)' }}
+          >
             <div className="px-3 py-2 space-y-4 pb-4 w-full">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center space-y-6 px-4">
@@ -301,8 +367,8 @@ export function ChatSidebar({
                   <div className="space-y-3 max-w-[280px]">
                     <h3 className="font-semibold text-lg text-foreground">Ready to help!</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Ask me anything about this repository - code structure, functionality, best practices, or specific
-                      implementations.
+                      Ask me anything about this repository - code structure, functionality, best
+                      practices, or specific implementations.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">
@@ -364,7 +430,11 @@ export function ChatSidebar({
                 size="icon"
                 className="h-11 w-11 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50"
               >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
@@ -377,7 +447,12 @@ export function ChatSidebar({
               <div className="p-6 border-b border-border">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Chat History</h3>
-                  <Button variant="ghost" size="icon" onClick={() => setShowHistory(false)} className="h-8 w-8">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowHistory(false)}
+                    className="h-8 w-8"
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -395,5 +470,5 @@ export function ChatSidebar({
         )}
       </div>
     </>
-  )
+  );
 }

@@ -38,7 +38,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const data = (await res.json()) as GitHubInstallationResponse | { message: string };
 
   if (!res.ok) {
-    return NextResponse.json({ error: (data as { message: string }).message }, { status: res.status });
+    return NextResponse.json(
+      { error: (data as { message: string }).message },
+      { status: res.status },
+    );
   }
 
   return NextResponse.json({ installations: (data as GitHubInstallationResponse).installations });

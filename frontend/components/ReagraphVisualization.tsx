@@ -1,27 +1,22 @@
-"use client";
+'use client';
 
-import type React from "react";
-import { useEffect, useState, useMemo, useCallback, useRef, memo } from "react";
-import dynamic from "next/dynamic";
-import { generateGraphFromGithub, generateGraphFromZip } from "@/utils/api";
+import type React from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, memo } from 'react';
+import dynamic from 'next/dynamic';
+import { generateGraphFromGithub, generateGraphFromZip } from '@/utils/api';
 import type {
   GraphResponse,
   GraphNode as ApiGraphNode,
   GraphEdge as ApiGraphEdge,
-} from "@/api-client/types.gen";
-import { useResultData } from "@/context/ResultDataContext";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useSession } from "next-auth/react";
-import { useApiWithAuth } from "@/hooks/useApiWithAuth";
+} from '@/api-client/types.gen';
+import { useResultData } from '@/context/ResultDataContext';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSession } from 'next-auth/react';
+import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import {
   Network,
   FileText,
@@ -34,18 +29,15 @@ import {
   EyeOff,
   Menu,
   X,
-} from "lucide-react";
-import { CodeReferenceAnalyzer } from "@/components/code-reference-analyzer";
-import type { CodeReference, GraphData } from "@/types/code-analysis";
+} from 'lucide-react';
+import { CodeReferenceAnalyzer } from '@/components/code-reference-analyzer';
+import type { CodeReference, GraphData } from '@/types/code-analysis';
 
 // Properly import GraphCanvas with Next.js SSR handling
-const GraphCanvas = dynamic(
-  () => import("reagraph").then((mod) => mod.GraphCanvas),
-  {
-    ssr: false,
-    loading: () => <GraphLoadingComponent />,
-  }
-);
+const GraphCanvas = dynamic(() => import('reagraph').then((mod) => mod.GraphCanvas), {
+  ssr: false,
+  loading: () => <GraphLoadingComponent />,
+});
 
 // Memoized loading component
 const GraphLoadingComponent = memo(() => (
@@ -53,17 +45,13 @@ const GraphLoadingComponent = memo(() => (
     <div className="flex flex-col items-center gap-4 p-8">
       <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
       <div className="text-center space-y-2">
-        <p className="text-xs sm:text-sm font-medium text-foreground">
-          Loading Graph
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Analyzing code structure...
-        </p>
+        <p className="text-xs sm:text-sm font-medium text-foreground">Loading Graph</p>
+        <p className="text-xs text-muted-foreground">Analyzing code structure...</p>
       </div>
     </div>
   </div>
 ));
-GraphLoadingComponent.displayName = "GraphLoadingComponent";
+GraphLoadingComponent.displayName = 'GraphLoadingComponent';
 
 // Define interfaces
 interface GraphNode extends ApiGraphNode {
@@ -133,35 +121,27 @@ const apiCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 5 * 60 * 1000;
 
 const COLOR_PALETTE = [
-  "#F06292",
-  "#64B5F6",
-  "#81C784",
-  "#FFD54F",
-  "#BA68C8",
-  "#FF8A65",
-  "#90A4AE",
-  "#A1887F",
-  "#4DB6AC",
-  "#9575CD",
+  '#F06292',
+  '#64B5F6',
+  '#81C784',
+  '#FFD54F',
+  '#BA68C8',
+  '#FF8A65',
+  '#90A4AE',
+  '#A1887F',
+  '#4DB6AC',
+  '#9575CD',
 ];
-const ICON_LIST = [
-  Layers,
-  Function,
-  Code,
-  Variable,
-  Package,
-  FileText,
-  Network,
-];
+const ICON_LIST = [Layers, Function, Code, Variable, Package, FileText, Network];
 
 // Utility functions
 const getDynamicNodeCategories = (() => {
   const cache = new Map<string, NodeCategories>();
   return (nodes: GraphNode[] = []): NodeCategories => {
     const cacheKey = nodes
-      .map((n) => n.category || "other")
+      .map((n) => n.category || 'other')
       .sort()
-      .join(",");
+      .join(',');
     if (cache.has(cacheKey)) return cache.get(cacheKey)!;
 
     const categories: NodeCategories = {};
@@ -169,7 +149,7 @@ const getDynamicNodeCategories = (() => {
       iconIdx = 0;
 
     for (const node of nodes) {
-      const key = node.category?.toLowerCase() || "other";
+      const key = node.category?.toLowerCase() || 'other';
       if (!categories[key]) {
         categories[key] = {
           color: COLOR_PALETTE[colorIdx % COLOR_PALETTE.length],
@@ -182,12 +162,12 @@ const getDynamicNodeCategories = (() => {
       }
     }
 
-    if (!categories["other"]) {
-      categories["other"] = {
-        color: "#90A4AE",
+    if (!categories['other']) {
+      categories['other'] = {
+        color: '#90A4AE',
         icon: Network,
-        label: "Other",
-        description: "Other code elements",
+        label: 'Other',
+        description: 'Other code elements',
       };
     }
 
@@ -196,11 +176,7 @@ const getDynamicNodeCategories = (() => {
   };
 })();
 
-const calculateNodeMetrics = (
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-  maxDepth = 3
-) => {
+const calculateNodeMetrics = (nodes: GraphNode[], edges: GraphEdge[], maxDepth = 3) => {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const inDegreeMap = new Map<string, number>();
   const outDegreeMap = new Map<string, number>();
@@ -228,9 +204,7 @@ const calculateNodeMetrics = (
 
   const getConnectedFiles = (nodeId: string, depth: number): Set<string> => {
     const visited = new Set<string>();
-    const queue: Array<{ id: string; currentDepth: number }> = [
-      { id: nodeId, currentDepth: 0 },
-    ];
+    const queue: Array<{ id: string; currentDepth: number }> = [{ id: nodeId, currentDepth: 0 }];
     const connectedFiles = new Set<string>();
 
     while (queue.length > 0) {
@@ -274,13 +248,10 @@ const transformApiResponseMemo = (() => {
       line: node.start_line || 0,
     }));
 
-    const nodesWithMetrics = calculateNodeMetrics(
-      transformedNodes,
-      response.edges
-    );
+    const nodesWithMetrics = calculateNodeMetrics(transformedNodes, response.edges);
 
     const result = {
-      html_url: response.html_url ?? "",
+      html_url: response.html_url ?? '',
       nodes: nodesWithMetrics,
       edges: response.edges,
     };
@@ -305,9 +276,7 @@ const OverviewTab = memo(
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-4 sm:space-y-6">
           <div className="space-y-3">
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground">
-              Node Types
-            </h3>
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground">Node Types</h3>
             <div className="space-y-2">
               {categoryData.map(({ key, config, count }) => {
                 const Icon = config.icon;
@@ -346,9 +315,7 @@ const OverviewTab = memo(
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground">
-              Interaction
-            </h3>
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground">Interaction</h3>
             <div className="space-y-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
@@ -367,9 +334,9 @@ const OverviewTab = memo(
         </div>
       </ScrollArea>
     </div>
-  )
+  ),
 );
-OverviewTab.displayName = "OverviewTab";
+OverviewTab.displayName = 'OverviewTab';
 
 // Main Component
 export default function EnhancedReagraphVisualization({
@@ -390,17 +357,13 @@ export default function EnhancedReagraphVisualization({
   const [isClient, setIsClient] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "analysis" | "map">(
-    "overview"
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'map'>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(400);
+  const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
   const { data: session } = useSession();
 
-  const generateGraphFromGithubWithAuth = useApiWithAuth(
-    generateGraphFromGithub
-  );
+  const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub);
   const generateGraphFromZipWithAuth = useApiWithAuth(generateGraphFromZip);
 
   const hasLoadedRef = useRef(false);
@@ -411,19 +374,16 @@ export default function EnhancedReagraphVisualization({
     setIsClient(true);
   }, []);
 
-  const isGitHubSourceData = useCallback(
-    (data: SourceData): data is GitHubSourceData => {
-      return data !== null && typeof data === "object" && "repo_url" in data;
-    },
-    []
-  );
+  const isGitHubSourceData = useCallback((data: SourceData): data is GitHubSourceData => {
+    return data !== null && typeof data === 'object' && 'repo_url' in data;
+  }, []);
 
   const requestKey = useMemo(() => {
     if (!sourceType || !sourceData) return null;
-    if (sourceType === "github" && isGitHubSourceData(sourceData)) {
-      return `github-${sourceData.repo_url}-${sourceData.access_token || ""}`;
+    if (sourceType === 'github' && isGitHubSourceData(sourceData)) {
+      return `github-${sourceData.repo_url}-${sourceData.access_token || ''}`;
     }
-    if (sourceType === "zip" && sourceData instanceof File) {
+    if (sourceType === 'zip' && sourceData instanceof File) {
       return `zip-${sourceData.name}-${sourceData.size}-${sourceData.lastModified}`;
     }
     return null;
@@ -431,8 +391,7 @@ export default function EnhancedReagraphVisualization({
 
   useEffect(() => {
     if (!requestKey || !isClient) return;
-    if (hasLoadedRef.current && currentRequestKeyRef.current === requestKey)
-      return;
+    if (hasLoadedRef.current && currentRequestKeyRef.current === requestKey) return;
 
     const cachedEntry = apiCache.get(requestKey);
     if (cachedEntry && isCacheValid(cachedEntry)) {
@@ -450,22 +409,12 @@ export default function EnhancedReagraphVisualization({
 
       try {
         let data: GraphResponse;
-        if (
-          sourceType === "github" &&
-          sourceData &&
-          isGitHubSourceData(sourceData)
-        ) {
-          data = await generateGraphFromGithubWithAuth(
-            sourceData,
-            session?.jwt_token || ""
-          );
-        } else if (sourceType === "zip" && sourceData instanceof File) {
-          data = await generateGraphFromZipWithAuth(
-            sourceData,
-            session?.jwt_token || ""
-          );
+        if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
+          data = await generateGraphFromGithubWithAuth(sourceData, session?.jwt_token || '');
+        } else if (sourceType === 'zip' && sourceData instanceof File) {
+          data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
         } else {
-          throw new Error("Invalid source type or data");
+          throw new Error('Invalid source type or data');
         }
 
         if (!isCancelled) {
@@ -480,8 +429,7 @@ export default function EnhancedReagraphVisualization({
         }
       } catch (e) {
         if (!isCancelled) {
-          const msg =
-            e instanceof Error ? e.message : "Failed to load graph data";
+          const msg = e instanceof Error ? e.message : 'Failed to load graph data';
           setError(msg);
           onError?.(msg);
           setGraphData(null);
@@ -511,14 +459,13 @@ export default function EnhancedReagraphVisualization({
 
   const nodeCategories = useMemo(
     () => getDynamicNodeCategories(graphData?.nodes),
-    [graphData?.nodes]
+    [graphData?.nodes],
   );
 
   const getNodeColor = useCallback(
     (category: string) =>
-      nodeCategories[category?.toLowerCase()]?.color ||
-      nodeCategories["other"].color,
-    [nodeCategories]
+      nodeCategories[category?.toLowerCase()]?.color || nodeCategories['other'].color,
+    [nodeCategories],
   );
 
   // Resize handlers
@@ -530,14 +477,16 @@ export default function EnhancedReagraphVisualization({
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isResizing) return;
-      const newWidth = window.innerWidth - e.clientX;
-      const minWidth = 320;
-      const maxWidth = 800;
-      if (newWidth >= minWidth && newWidth <= maxWidth) {
-        setSidebarWidth(newWidth);
-      }
+      const newWidthPx = window.innerWidth - e.clientX;
+      const minWidthPx = 320;
+      const minWidthVw = (minWidthPx / window.innerWidth) * 100;
+      const maxWidthVw = 100;
+      let newWidthVw = (newWidthPx / window.innerWidth) * 100;
+      if (newWidthVw < minWidthVw) newWidthVw = minWidthVw;
+      if (newWidthVw > maxWidthVw) newWidthVw = maxWidthVw;
+      setSidebarWidth(`${newWidthVw}vw`);
     },
-    [isResizing]
+    [isResizing],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -546,15 +495,15 @@ export default function EnhancedReagraphVisualization({
 
   useEffect(() => {
     if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
       return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
       };
     }
   }, [isResizing, handleMouseMove, handleMouseUp]);
@@ -570,19 +519,19 @@ export default function EnhancedReagraphVisualization({
       const graphNode = graphData?.nodes.find((n) => n.id === node.id);
       if (graphNode) {
         setSelectedNode(graphNode);
-        setActiveTab("analysis");
+        setActiveTab('analysis');
         setIsMobileSidebarOpen(true);
         onNodeClick?.(graphNode);
 
         // Scroll to top of analysis content after a brief delay
         setTimeout(() => {
           if (analysisScrollRef.current) {
-            analysisScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+            analysisScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
           }
         }, 100);
       }
     },
-    [graphData?.nodes, onNodeClick]
+    [graphData?.nodes, onNodeClick],
   );
 
   const handleOpenFile = useCallback(
@@ -590,15 +539,10 @@ export default function EnhancedReagraphVisualization({
       setSelectedFilePath?.(filePath);
       setSelectedFileLine?.(line || 1);
       setCodeViewerSheetOpen?.(true);
-      setParentActiveTab?.("explorer");
+      setParentActiveTab?.('explorer');
       setIsMobileSidebarOpen(false);
     },
-    [
-      setSelectedFilePath,
-      setSelectedFileLine,
-      setCodeViewerSheetOpen,
-      setParentActiveTab,
-    ]
+    [setSelectedFilePath, setSelectedFileLine, setCodeViewerSheetOpen, setParentActiveTab],
   );
 
   const reagraphData = useMemo((): ReagraphData | null => {
@@ -622,15 +566,18 @@ export default function EnhancedReagraphVisualization({
 
   const categoryData = useMemo(() => {
     if (!graphData?.nodes) return [];
-    const categoryCount = graphData.nodes.reduce((acc, node) => {
-      const category = node.category?.toLowerCase() || "other";
-      acc[category] = (acc[category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const categoryCount = graphData.nodes.reduce(
+      (acc, node) => {
+        const category = node.category?.toLowerCase() || 'other';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return Object.entries(nodeCategories)
       .map(([key, config]) => ({ key, config, count: categoryCount[key] || 0 }))
-      .filter((item) => item.count > 0 || item.key === "other");
+      .filter((item) => item.count > 0 || item.key === 'other');
   }, [graphData?.nodes, nodeCategories]);
 
   const handleTryAgain = useCallback(() => {
@@ -646,9 +593,9 @@ export default function EnhancedReagraphVisualization({
     return {
       id: selectedNode.id,
       name: selectedNode.name,
-      file: selectedNode.file || "",
-      code: selectedNode.code || "",
-      category: selectedNode.category || "other",
+      file: selectedNode.file || '',
+      code: selectedNode.code || '',
+      category: selectedNode.category || 'other',
       start_line: selectedNode.start_line ?? undefined,
       end_line: selectedNode.end_line ?? undefined,
     };
@@ -661,9 +608,9 @@ export default function EnhancedReagraphVisualization({
       nodes: graphData.nodes.map((node) => ({
         id: node.id,
         name: node.name,
-        file: node.file || "",
-        code: node.code || "",
-        category: node.category || "other",
+        file: node.file || '',
+        code: node.code || '',
+        category: node.category || 'other',
         start_line: node.start_line ?? undefined,
         end_line: node.end_line ?? undefined,
       })),
@@ -677,9 +624,7 @@ export default function EnhancedReagraphVisualization({
         <div className="flex flex-col items-center gap-4 p-8">
           <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
           <div className="text-center space-y-2">
-            <p className="text-xs sm:text-sm font-medium text-foreground">
-              Initializing
-            </p>
+            <p className="text-xs sm:text-sm font-medium text-foreground">Initializing</p>
             <p className="text-xs text-muted-foreground">
               Setting up enhanced graph visualization...
             </p>
@@ -695,12 +640,8 @@ export default function EnhancedReagraphVisualization({
         <div className="flex flex-col items-center gap-4 p-8">
           <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
           <div className="text-center space-y-2">
-            <p className="text-xs sm:text-sm font-medium text-foreground">
-              Analyzing Dependencies
-            </p>
-            <p className="text-xs text-muted-foreground">
-              This may take a few moments...
-            </p>
+            <p className="text-xs sm:text-sm font-medium text-foreground">Analyzing Dependencies</p>
+            <p className="text-xs text-muted-foreground">This may take a few moments...</p>
           </div>
         </div>
       </div>
@@ -718,9 +659,7 @@ export default function EnhancedReagraphVisualization({
             <h3 className="text-sm sm:text-base font-medium text-foreground">
               Failed to Load Graph
             </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
-              {error}
-            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">{error}</p>
           </div>
           <Button
             variant="outline"
@@ -746,8 +685,7 @@ export default function EnhancedReagraphVisualization({
               No Dependencies Found
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
-              The repository may not have analyzable code structure or
-              dependencies
+              The repository may not have analyzable code structure or dependencies
             </p>
           </div>
         </div>
@@ -782,9 +720,7 @@ export default function EnhancedReagraphVisualization({
             <div className="flex-1 overflow-hidden">
               <Tabs
                 value={activeTab}
-                onValueChange={(v) =>
-                  setActiveTab(v as "overview" | "analysis")
-                }
+                onValueChange={(v) => setActiveTab(v as 'overview' | 'analysis')}
                 className="flex-1 flex flex-col h-full"
               >
                 <div className="p-3 border-b border-border/30 flex-shrink-0">
@@ -836,13 +772,10 @@ export default function EnhancedReagraphVisualization({
               <Network className="h-8 w-8 text-primary" />
             </div>
             <div className="space-y-2">
-              <h3 className="font-semibold text-foreground">
-                Desktop View Required
-              </h3>
+              <h3 className="font-semibold text-foreground">Desktop View Required</h3>
               <p className="text-sm text-muted-foreground">
-                The dependency graph visualization is optimized for desktop
-                screens. Use the analysis panel below for detailed code
-                insights.
+                The dependency graph visualization is optimized for desktop screens. Use the
+                analysis panel below for detailed code insights.
               </p>
             </div>
             <Button
@@ -890,16 +823,10 @@ export default function EnhancedReagraphVisualization({
                   className="h-8 w-8 rounded-xl bg-background/90 backdrop-blur-sm border-border/60"
                   onClick={() => setShowSidebar(!showSidebar)}
                 >
-                  {showSidebar ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showSidebar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                {showSidebar ? "Hide Sidebar" : "Show Sidebar"}
-              </TooltipContent>
+              <TooltipContent>{showSidebar ? 'Hide Sidebar' : 'Show Sidebar'}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -907,8 +834,7 @@ export default function EnhancedReagraphVisualization({
         {/* Stats Badge for desktop */}
         <div className="absolute top-4 right-4">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-3 py-1 text-xs">
-            {reagraphData.nodes.length} nodes • {reagraphData.edges.length}{" "}
-            edges
+            {reagraphData.nodes.length} nodes • {reagraphData.edges.length} edges
           </Badge>
         </div>
       </div>
@@ -917,7 +843,7 @@ export default function EnhancedReagraphVisualization({
       {showSidebar && (
         <div
           className="hidden lg:flex border-l border-border/30 bg-background/40 backdrop-blur-sm flex-col relative hover:border-l-2 hover:border-primary/20 transition-all duration-200"
-          style={{ width: sidebarWidth }}
+          style={{ width: typeof sidebarWidth === 'string' ? sidebarWidth : `${sidebarWidth}px` }}
         >
           {/* Resize Handle */}
           <div
@@ -940,7 +866,7 @@ export default function EnhancedReagraphVisualization({
 
           <Tabs
             value={activeTab}
-            onValueChange={(v) => setActiveTab(v as "overview" | "analysis")}
+            onValueChange={(v) => setActiveTab(v as 'overview' | 'analysis')}
             className="flex-1 flex flex-col h-full"
           >
             {/* Desktop Tab Navigation */}

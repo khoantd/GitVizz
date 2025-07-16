@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import { Code2, Clock, Info } from "lucide-react";
-import { useState } from "react";
+import { Badge } from '@/components/ui/badge';
+import { Code2, Clock, Info } from 'lucide-react';
+import { useState } from 'react';
 
 export interface Language {
   name: string;
@@ -15,10 +15,7 @@ interface SupportedLanguagesProps {
   className?: string;
 }
 
-export function SupportedLanguages({
-  languages = [],
-  className = "",
-}: SupportedLanguagesProps) {
+export function SupportedLanguages({ languages = [], className = '' }: SupportedLanguagesProps) {
   const [isHovered, setIsHovered] = useState(false);
   const supportedLanguages = languages.filter((lang) => lang.supported);
   const comingSoonLanguages = languages.filter((lang) => !lang.supported);
@@ -37,7 +34,7 @@ export function SupportedLanguages({
         onMouseLeave={() => setIsHovered(false)}
       >
         <Code2 className="h-3 w-3" />
-        <span>Supported Languages</span>
+        <span>Supported Graph Languages</span>
         <Info className="h-3 w-3" />
       </div>
 
@@ -45,9 +42,7 @@ export function SupportedLanguages({
       {isHovered && (
         <div className="absolute top-full right-0 mt-2 z-[100] bg-background/95 backdrop-blur-xl border border-border/60 rounded-xl p-3 shadow-lg min-w-[280px] animate-in fade-in-50 slide-in-from-top-2 duration-200">
           <div className="space-y-3">
-            <p className="text-xs font-medium text-foreground">
-              Currently Supported
-            </p>
+            <p className="text-xs font-medium text-foreground">Currently Supported</p>
 
             {/* Currently Supported */}
             <div className="flex flex-wrap gap-1.5">
@@ -67,9 +62,7 @@ export function SupportedLanguages({
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Coming Soon
-                  </span>
+                  <span className="text-xs text-muted-foreground font-medium">Coming Soon</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {comingSoonLanguages.map((language) => (

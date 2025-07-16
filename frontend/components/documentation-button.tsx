@@ -1,16 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { FileText, Lock, Loader2, CheckCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useSession } from "next-auth/react";
-import {
-  isWikiGenerated,
-  generateWikiDocumentation,
-  getWikiGenerationStatus,
-} from "@/utils/api";
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { FileText, Lock, Loader2, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
+import { isWikiGenerated, generateWikiDocumentation, getWikiGenerationStatus } from '@/utils/api';
 
 interface DocumentationButtonProps {
   currentRepoId: string;
@@ -33,36 +29,30 @@ export default function DocumentationButton({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentStatus, setCurrentStatus] = useState<string>("");
+  const [currentStatus, setCurrentStatus] = useState<string>('');
 
   const checkDocumentationStatus = useCallback(async () => {
     try {
       if (!session?.jwt_token || !currentRepoId) return;
 
-      const wikiResponse = await isWikiGenerated(
-        session.jwt_token,
-        currentRepoId
-      );
+      const wikiResponse = await isWikiGenerated(session.jwt_token, currentRepoId);
       setIsDocGenerated(wikiResponse.is_generated);
       setCurrentStatus(wikiResponse.status);
 
       // If there's an error in the response, show it
       if (wikiResponse.error) {
-        setError("Try again later or contact support");
+        setError('Try again later or contact support');
       } else {
         setError(null);
       }
 
       // If status is running or pending, start polling
-      if (
-        wikiResponse.status === "running" ||
-        wikiResponse.status === "pending"
-      ) {
+      if (wikiResponse.status === 'running' || wikiResponse.status === 'pending') {
         setIsGenerating(true);
       }
     } catch (err) {
-      console.error("Error checking documentation status:", err);
-      setError("Failed to check documentation status");
+      console.error('Error checking documentation status:', err);
+      setError('Failed to check documentation status');
     }
   }, [session?.jwt_token, currentRepoId]);
 
@@ -81,24 +71,21 @@ export default function DocumentationButton({
       interval = setInterval(async () => {
         try {
           setIsCheckingStatus(true);
-          const statusResponse = await getWikiGenerationStatus(
-            session?.jwt_token,
-            currentRepoId
-          );
+          const statusResponse = await getWikiGenerationStatus(session?.jwt_token, currentRepoId);
 
           setCurrentStatus(statusResponse.status);
 
-          if (statusResponse.status === "completed") {
+          if (statusResponse.status === 'completed') {
             setIsGenerating(false);
             setIsDocGenerated(true);
             setError(null);
-          } else if (statusResponse.status === "failed") {
+          } else if (statusResponse.status === 'failed') {
             setIsGenerating(false);
-            setError(statusResponse.error || "Documentation generation failed");
+            setError(statusResponse.error || 'Documentation generation failed');
           }
           // Continue polling for 'pending' and 'running' statuses
         } catch (err) {
-          console.error("Error checking status:", err);
+          console.error('Error checking status:', err);
           // Don't stop polling on status check errors, just log them
         } finally {
           setIsCheckingStatus(false);
@@ -117,30 +104,28 @@ export default function DocumentationButton({
     try {
       setIsGenerating(true);
       setError(null);
-      setCurrentStatus("pending");
+      setCurrentStatus('pending');
 
       // Get repository URL from sourceData
-      let repositoryUrl = "";
-      if (sourceType === "github" && sourceData.repo_url) {
+      let repositoryUrl = '';
+      if (sourceType === 'github' && sourceData.repo_url) {
         repositoryUrl = sourceData.repo_url;
       } else {
-        throw new Error("Repository URL not available");
+        throw new Error('Repository URL not available');
       }
 
       await generateWikiDocumentation(
         session?.jwt_token,
         repositoryUrl,
-        "en", // language
-        true // comprehensive
+        'en', // language
+        true, // comprehensive
       );
 
       // Status polling will be handled by the useEffect above
     } catch (err) {
-      console.error("Error generating documentation:", err);
+      console.error('Error generating documentation:', err);
       setIsGenerating(false);
-      setError(
-        err instanceof Error ? err.message : "Failed to generate documentation"
-      );
+      setError(err instanceof Error ? err.message : 'Failed to generate documentation');
     }
   };
 
@@ -152,7 +137,7 @@ export default function DocumentationButton({
 
   const handleClick = () => {
     if (!session?.jwt_token) {
-      router.push("/signin");
+      router.push('/signin');
       return;
     }
 
@@ -166,18 +151,18 @@ export default function DocumentationButton({
   const getButtonText = () => {
     if (isGenerating) {
       if (isCheckingStatus) {
-        return "Checking Status...";
+        return 'Checking Status...';
       }
       switch (currentStatus) {
-        case "pending":
-          return "Queued...";
-        case "running":
-          return "Generating...";
+        case 'pending':
+          return 'Queued...';
+        case 'running':
+          return 'Generating...';
         default:
-          return "Generating...";
+          return 'Generating...';
       }
     }
-    return isDocGenerated ? "Show Documentation" : "Generate Documentation";
+    return isDocGenerated ? 'Show Documentation' : 'Generate Documentation';
   };
 
   const getButtonIcon = () => {
@@ -199,10 +184,10 @@ export default function DocumentationButton({
         onClick={handleClick}
         disabled={isGenerating}
         className={cn(
-          "rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-300 flex items-center gap-2",
-          !session?.jwt_token && "opacity-60",
-          isDocGenerated && "bg-green-600 hover:bg-green-700 text-white",
-          isGenerating && "opacity-75 cursor-not-allowed"
+          'rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-300 flex items-center gap-2',
+          !session?.jwt_token && 'opacity-60',
+          isDocGenerated && 'bg-green-600 hover:bg-green-700 text-white',
+          isGenerating && 'opacity-75 cursor-not-allowed',
         )}
       >
         {getButtonIcon()}
@@ -212,9 +197,7 @@ export default function DocumentationButton({
       {error && <p className="text-xs text-red-500 mt-1 px-2">{error}</p>}
 
       {currentStatus && !isDocGenerated && !error && (
-        <p className="text-xs text-gray-500 mt-1 px-2 capitalize">
-          Status: {currentStatus}
-        </p>
+        <p className="text-xs text-gray-500 mt-1 px-2 capitalize">Status: {currentStatus}</p>
       )}
     </div>
   );
