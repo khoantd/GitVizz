@@ -58,12 +58,13 @@ class DocumentationGenerator:
         
         output_dir = Path(output_dir).resolve()  # Make it absolute
         repo_root = output_dir.parent            # Go one level up
-        
+        repo_zip_path = repo_root / "repository.zip"
+
         # modified the repo_root to temp_repo
         repo_root = repo_root / "temp_repo"
 
         # Step 1: Process repository
-        self.documents = self.parser.process_repository(repo_url_or_path, repo_root)
+        self.documents = self.parser.process_repository(repo_zip_path, repo_root)
         self.repo_info = self.parser.repo_info
 
         # Step 1.2: Clean up existing documents

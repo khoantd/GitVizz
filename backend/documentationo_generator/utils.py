@@ -5,6 +5,11 @@ from typing import List, Dict, Any
 from datetime import datetime
 from pathlib import Path
 
+import zipfile
+import shutil
+from pathlib import Path
+
+
 # Use absolute imports to avoid relative import issues
 try:
     from structures import WikiPage, WikiStructure, Document, RepositoryAnalysis
@@ -39,6 +44,47 @@ def download_repo(repo_url: str, local_path: str) -> str:
         return result.stdout
     except subprocess.CalledProcessError as e:
         return f"Git clone failed:\n{e.stderr}"
+
+def setup_repository_from_zip(zip_path: str, extract_to: str) -> str:
+    """
+    Unzips a repository archive and flattens the directory structure
+    by removing the top-level parent folder if one exists.
+    """
+    zip_p = Path(zip_path)
+    extract_p = Path(extract_to)
+
+    if not zip_p.is_file():
+        raise FileNotFoundError(f"The specified zip file was not found: {zip_path}")
+
+    # Ensure a clean extraction destination
+    if extract_p.exists():
+        shutil.rmtree(extract_p)
+    
+    extract_p.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with zipfile.ZipFile(zip_p, 'r') as zip_ref:
+            zip_ref.extractall(extract_p)
+
+        # Check if the zip extracted into a single sub-directory (e.g., temp_repo/repo-name/)
+        items_in_extract_dir = list(extract_p.iterdir())
+        if len(items_in_extract_dir) == 1 and items_in_extract_dir[0].is_dir():
+            # This is the single sub-directory (e.g., /path/to/temp_repo/repo-name)
+            inner_dir = items_in_extract_dir[0]
+            
+            # Move all contents from the inner directory up to the parent (extract_p)
+            for item in inner_dir.iterdir():
+                shutil.move(str(item), str(extract_p))
+            
+            # Remove the now-empty inner directory
+            inner_dir.rmdir()
+
+        return f"✅ Successfully unzipped and flattened repository to {extract_p.resolve()}"
+
+    except zipfile.BadZipFile:
+        raise zipfile.BadZipFile(f"Error: The file at {zip_path} is not a valid zip file.")
+    except Exception as e:
+        raise IOError(f"An unexpected error occurred during unzipping: {e}")
 
 def read_documents(path: str, max_tokens: int = 8000) -> List[Document]:
     """Read documents from directory"""
