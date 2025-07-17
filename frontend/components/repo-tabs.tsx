@@ -343,8 +343,8 @@ export function RepoTabs() {
 
   // --- Render Method ---
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="space-y-6 sm:space-y-8">
+    <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
+      <div className="space-y-4 sm:space-y-6 md:space-y-8">
         <Tabs
           defaultValue="github"
           className="space-y-6 sm:space-y-8"
@@ -357,11 +357,11 @@ export function RepoTabs() {
           }}
         >
           {/* Tab Navigation */}
-          <div className="flex justify-center">
-            <TabsList className="bg-background/80 backdrop-blur-xl border border-border/60 rounded-2xl p-1 sm:p-2 shadow-lg min-h-[50px] sm:min-h-[60px] w-full sm:w-auto">
+          <div className="flex justify-center w-full">
+            <TabsList className="bg-background/80 backdrop-blur-xl border border-border/60 rounded-2xl p-1 sm:p-2 shadow-lg min-h-[44px] sm:min-h-[50px] w-full sm:w-auto flex flex-wrap gap-2">
               <TabsTrigger
                 value="github"
-                className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
+                className="rounded-xl px-2 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[100px] sm:min-w-[140px] justify-center"
               >
                 <Github className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="hidden xs:inline">GitHub Repository</span>
@@ -369,7 +369,7 @@ export function RepoTabs() {
               </TabsTrigger>
               <TabsTrigger
                 value="upload"
-                className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
+                className="rounded-xl px-2 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[100px] sm:min-w-[140px] justify-center"
               >
                 <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="hidden xs:inline">ZIP Upload</span>
@@ -377,7 +377,7 @@ export function RepoTabs() {
               </TabsTrigger>
               <TabsTrigger
                 value="my-repos"
-                className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
+                className="rounded-xl px-2 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[100px] sm:min-w-[140px] justify-center"
               >
                 <GitBranch className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="hidden xs:inline">My Repositories</span>
@@ -391,8 +391,8 @@ export function RepoTabs() {
             value="github"
             className="animate-in fade-in-50 duration-300 max-h-[70vh] overflow-y-auto"
           >
-            <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-              <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+            <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden w-full">
+              <div className="px-2 sm:px-6 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                 <div className="flex items-center gap-3">
                   <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                     <Github className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -407,10 +407,10 @@ export function RepoTabs() {
                   </div>
                 </div>
               </div>
-              <div className="p-4 sm:p-8">
-                <form onSubmit={handleGitHubSubmit} className="space-y-4 sm:space-y-6">
+              <div className="p-2 sm:p-6">
+                <form onSubmit={handleGitHubSubmit} className="space-y-3 sm:space-y-5">
                   <div className="space-y-2 sm:space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-0">
                       <Label
                         htmlFor="repo-url"
                         className="flex items-center gap-2 text-sm font-medium"
@@ -428,7 +428,7 @@ export function RepoTabs() {
                       required
                     />
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-2">
                     <Button
                       type="button"
                       variant="ghost"
@@ -447,7 +447,7 @@ export function RepoTabs() {
                   </div>
                   {showAdvanced && (
                     <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                      <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2 sm:space-y-3">
                           <Label
                             htmlFor="access-token"
@@ -505,7 +505,7 @@ export function RepoTabs() {
                   <Button
                     type="submit"
                     disabled={loading || !repoUrl.trim()}
-                    className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
+                    className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02] mt-2"
                     size="lg"
                   >
                     {loading && activeMainTab === 'github' ? (
@@ -533,8 +533,8 @@ export function RepoTabs() {
             className="animate-in fade-in-50 duration-300 max-h-[70vh] overflow-y-auto"
           >
             {/* ... (Existing Upload tab content is unchanged) ... */}
-            <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-              <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+            <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden w-full">
+              <div className="px-2 sm:px-6 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                 <div className="flex items-center gap-3">
                   <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                     <Upload className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -549,15 +549,15 @@ export function RepoTabs() {
                   </div>
                 </div>
               </div>
-              <div className="p-4 sm:p-8">
-                <form onSubmit={handleZipSubmit} className="space-y-4 sm:space-y-6">
-                  <div className="flex items-center justify-between mb-2">
+              <div className="p-2 sm:p-6">
+                <form onSubmit={handleZipSubmit} className="space-y-3 sm:space-y-5">
+                  <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-0 mb-2">
                     <span className="text-sm font-medium">Upload File</span>
                     <SupportedLanguages languages={SUPPORTED_LANGUAGES} />
                   </div>
                   <div
                     className={cn(
-                      'relative border-2 border-dashed rounded-xl sm:rounded-2xl p-6 sm:p-12 text-center transition-all duration-300',
+                      'relative border-2 border-dashed rounded-xl sm:rounded-2xl p-4 sm:p-10 text-center transition-all duration-300',
                       dragActive
                         ? 'border-primary bg-primary/5 scale-[1.02]'
                         : 'border-border/50 hover:border-primary/50 hover:bg-muted/20',
@@ -591,7 +591,7 @@ export function RepoTabs() {
                     </div>
                   </div>
                   {zipFile && (
-                    <div className="bg-muted/30 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-border/30 animate-in slide-in-from-top-2 duration-300">
+                    <div className="bg-muted/30 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-border/30 animate-in slide-in-from-top-2 duration-300 mt-2">
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg sm:rounded-xl flex-shrink-0">
                           <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
@@ -622,7 +622,7 @@ export function RepoTabs() {
                   <Button
                     type="submit"
                     disabled={loading || !zipFile}
-                    className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
+                    className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02] mt-2"
                     size="lg"
                   >
                     {loading && activeMainTab === 'upload' ? (
@@ -646,21 +646,21 @@ export function RepoTabs() {
 
           {/* My Repositories Tab */}
           <TabsContent value="my-repos" className="animate-in fade-in-50 duration-300">
-            <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+            <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden w-full">
               {isReposLoading ? (
-                <div className="p-4 sm:p-8 space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="p-2 sm:p-6 space-y-3 sm:space-y-4">
+                  <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-0">
                     <Skeleton className="h-10 w-64 rounded-xl" />
                     <Skeleton className="h-10 w-32 rounded-xl" />
                   </div>
                   <Skeleton className="h-12 w-full rounded-2xl" />
                   {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                    <Skeleton key={i} className="h-16 w-full rounded-xl" />
                   ))}
                 </div>
               ) : !isAppInstalled ? (
                 <>
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  <div className="px-2 sm:px-6 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex items-center gap-3">
                       <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                         <Github className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -675,8 +675,8 @@ export function RepoTabs() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-8">
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="p-2 sm:p-6">
+                    <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
                       <div className="rounded-full bg-primary/10 p-4 mb-6">
                         <Github className="h-8 w-8 text-primary" />
                       </div>
@@ -687,7 +687,7 @@ export function RepoTabs() {
                       </p>
                       <Button
                         size="lg"
-                        className="w-full max-w-sm h-12 text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
+                        className="w-full max-w-xs h-12 text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
                         onClick={handleInstallApp}
                       >
                         <Github className="h-5 w-5 mr-2" /> Set up GitHub App{' '}
@@ -697,8 +697,8 @@ export function RepoTabs() {
                   </div>
                 </>
               ) : (
-                <div className="p-4 sm:p-8 space-y-6">
-                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div className="p-2 sm:p-6 space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between w-full">
                     <div className="relative w-full sm:max-w-md">
                       <Input
                         placeholder="Search repositories..."
@@ -710,7 +710,7 @@ export function RepoTabs() {
                     </div>
                     <Button
                       variant="outline"
-                      className="h-10 px-4 text-sm rounded-xl hover:bg-muted/50 transition-all duration-200 self-end sm:self-auto"
+                      className="h-10 px-4 text-sm rounded-xl hover:bg-muted/50 transition-all duration-200 w-full sm:w-auto self-end sm:self-auto"
                       onClick={handleManageAccess}
                     >
                       Manage Access <ExternalLink className="h-4 w-4 ml-2" />
@@ -718,8 +718,8 @@ export function RepoTabs() {
                   </div>
 
                   <Tabs defaultValue="all" className="w-full" onValueChange={setActiveRepoFilter}>
-                    <div className="flex justify-center border-b border-border/30">
-                      <TabsList className="bg-transparent p-0 h-auto">
+                    <div className="flex justify-center border-b border-border/30 overflow-x-auto">
+                      <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-2">
                         <TabsTrigger
                           value="all"
                           className="text-sm data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
@@ -740,15 +740,15 @@ export function RepoTabs() {
                         </TabsTrigger>
                       </TabsList>
                     </div>
-                    <div className="mt-6">
+                    <div className="mt-4 sm:mt-6">
                       {filteredRepositories.length > 0 ? (
                         <div className="divide-y divide-border/30 border border-border/50 rounded-xl overflow-hidden bg-background/20 max-h-[45vh] overflow-y-auto">
                           {filteredRepositories.map((repo) => (
                             <div
                               key={repo.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 hover:bg-muted/20 transition-colors"
+                              className="flex flex-col md:flex-row md:items-center justify-between p-3 sm:p-4 hover:bg-muted/20 transition-colors gap-2 md:gap-0"
                             >
-                              <div className="flex items-center gap-4 mb-3 sm:mb-0 min-w-0">
+                              <div className="flex items-center gap-3 sm:gap-4 mb-2 md:mb-0 min-w-0 w-full md:w-auto">
                                 <div className="p-2 rounded-xl bg-primary/10 shrink-0">
                                   {repo.private ? (
                                     <Lock className="h-4 w-4 text-primary" />
@@ -782,9 +782,9 @@ export function RepoTabs() {
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 self-end sm:self-center">
+                              <div className="flex items-center gap-2 self-end md:self-center w-full md:w-auto">
                                 <Button
-                                  className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90"
+                                  className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90 w-full md:w-auto"
                                   onClick={() => handleVizifyRepo(repo)}
                                   disabled={processingRepos.includes(repo.id) || loading}
                                 >
@@ -805,7 +805,7 @@ export function RepoTabs() {
                           ))}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-xl">
+                        <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center border border-dashed rounded-xl">
                           <div className="rounded-full bg-muted p-3 mb-4">
                             <AlertCircle className="h-6 w-6 text-muted-foreground" />
                           </div>
