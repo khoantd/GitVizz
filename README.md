@@ -2,21 +2,113 @@
   <img src="./frontend/public/logo.svg" width="150" alt="GitViz Logo" />
 </p>
 
-<h1 align="center">GitViz</h1>
+# GitViz
 
-<p align="center">Visualize and analyze GitHub or local repositories using LLM-friendly summaries, file structure, and interactive dependency graphs.</p>
+**Visualize and analyze GitHub or local repositories with LLM-friendly summaries, file structure, interactive dependency graphs, generate documentation and chat with your repositories.**
+
+---
+
+## 🚀 What is GitViz?
+
+GitViz is a full-stack application for developers and teams to:
+- Upload or link GitHub/local repositories
+- Instantly visualize code structure and dependencies
+- Generate LLM-friendly summaries and documentation
+- Explore codebases with interactive graphs and a modern UI
+- Chat with your repositories to ask questions and get insights
+- Generate documentation paths and code navigation
+
+## 📝 Prerequisites
+
+Before using GitViz, ensure you have the following:
+
+- **GitHub Personal Access Token (optional, but recommended):**  
+   See the [GitHub Personal Access Token Guide](./GitHub%20Personal%20Access%20Token%20Guide.md) for instructions on creating and configuring your token.
+
+- **GitHub App (mandatory for advanced features):**  
+   Follow the [Creating a New GitHub App Guide](./Creating%20a%20New%20Github%20App.md) to set up a GitHub App if you want deeper integration.
 
 ---
 
 ## 🧱 Project Overview
 
-GitViz is a full-stack application that allows users to upload or link repositories and receive structured insights. It is split into:
-
-- **Frontend**: A modern UI built with Next.js, TailwindCSS, and ShadCN.
-- **Backend**: A Python API that parses, processes, and generates visualizable data from codebases.
+GitViz consists of:
+- **Frontend**: Next.js, TailwindCSS, ShadCN UI
+- **Backend**: Python FastAPI for parsing, analysis, and graph generation
 
 ---
 
+## ⚡ Quick Start
+
+You can run GitViz using **Docker Compose** (recommended) or set up manually.
+
+### Option 1: Docker Compose (Recommended)
+
+1. **Copy environment variable templates:**
+   - Backend: `cp backend/.env.example backend/.env` (edit as needed)
+   - Frontend: `cp frontend/.example.env frontend/.env.local` (edit as needed)
+
+2. **Start all services:**
+   ```bash
+   docker-compose up --build
+   ```
+
+3. Access the app:
+   - Frontend: [http://localhost:3000](http://localhost:3000)
+   - Backend API: [http://localhost:8003](http://localhost:8003)
+
+---
+
+### Option 2: Manual Setup
+
+#### Backend
+1. **Create a virtual environment:**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+2. **Install dependencies:**
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+3. **Copy and edit environment variables:**
+   ```bash
+   cp backend/.env.example backend/.env
+   # Edit backend/.env as needed
+   ```
+4. **Run the API server:**
+   ```bash
+   uvicorn backend.server:app --host 0.0.0.0 --port 8003 --reload
+   ```
+   The API will be available at [http://localhost:8003](http://localhost:8003)
+
+#### Frontend
+1. **Install dependencies:**
+   ```bash
+   cd frontend
+   pnpm install
+   ```
+2. **Copy and edit environment variables:**
+   ```bash
+   cp .example.env .env.local
+   # Edit .env.local as needed
+   ```
+3. **Run the dev server:**
+   ```bash
+   pnpm dev
+   ```
+   The frontend will be available at [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🛠️ Environment Variables
+
+Both backend and frontend require environment variables for configuration (API keys, ports, etc.).
+
+- **Backend:** Edit `backend/.env` (see `backend/.env.example` for required variables)
+- **Frontend:** Edit `frontend/.env.local` (see `frontend/.example.env` for required variables)
+
+---
 
 ## 🗂️ Folder Structure
 
@@ -50,69 +142,6 @@ GitViz is a full-stack application that allows users to upload or link repositor
 
 ---
 
-
-## ⚙️ Backend Setup
-
-### 1. Create a virtual environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
-pip install -r backend/requirements.txt
-```
-
-### 3. Run the API Server (with FastAPI + Uvicorn)
-
-```bash
-uvicorn backend.server:app --host 0.0.0.0 --port 8003 --reload
-```
-
-The API will be available at: [http://localhost:8003](http://localhost:8003)
-
----
-
-
-## 🧑‍🎨 Frontend Setup
-
-Please refer to `frontend/README.md` for full frontend setup instructions.
-
-**TL;DR:**
-- Install dependencies: `pnpm install`
-- Copy `.example.env` → `.env.local`
-- Run dev server: `pnpm dev`
-
----
-
-
-## 🔧 API & Features Overview
-
-The backend supports:
-
-- Parsing and analyzing ZIP uploads or GitHub repositories
-- Generating:
-  - LLM-friendly summaries for codebases and files
-  - File structure trees and repository overviews
-  - AST and interactive dependency graphs (HTML/JS)
-  - Documentation path integration and code navigation
-- User authentication and chat endpoints
-- OpenAPI schema for API client generation
-
-The frontend provides:
-
-- Modern UI for uploading/linking repositories
-- Interactive graph visualizations (vis.js)
-- File explorer and code summaries
-- Chat interface for code Q&A
-
----
-
 ## 📝 Contributing & More
-
-See `TODO.md` for planned features and improvements.
 
 For questions, see the [GitHub Personal Access Token Guide](./GitHub%20Personal%20Access%20Token%20Guide.md) or open an issue.
