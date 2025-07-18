@@ -83,23 +83,25 @@ class GeminiAIClient:
                         messages=[{"role": "user", "content": prompt}],
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        stream=True,
+                        stream=False,
                         api_key=self.api_key,
                         timeout=timeout_seconds
                     )
+                    
+                    content = response.choices[0].message.content
 
-                    content = ""
-                    for chunk in response:
-                        if time.time() - start_time > timeout_seconds:
-                            raise TimeoutError(f"Generation timeout after {timeout_seconds} seconds")
+                    # content = ""
+                    # for chunk in response:
+                    #     if time.time() - start_time > timeout_seconds:
+                    #         raise TimeoutError(f"Generation timeout after {timeout_seconds} seconds")
                         
-                        # Handle streaming chunks with null checks
-                        if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
-                            if chunk.choices[0].delta.content is not None:
-                                content += chunk.choices[0].delta.content
-                        elif hasattr(chunk.choices[0], "message") and hasattr(chunk.choices[0].message, "content"):
-                            if chunk.choices[0].message.content is not None:
-                                content += chunk.choices[0].message.content
+                    #     # Handle streaming chunks with null checks
+                    #     if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
+                    #         if chunk.choices[0].delta.content is not None:
+                    #             content += chunk.choices[0].delta.content
+                    #     elif hasattr(chunk.choices[0], "message") and hasattr(chunk.choices[0].message, "content"):
+                    #         if chunk.choices[0].message.content is not None:
+                    #             content += chunk.choices[0].message.content
 
                     if progress_callback:
                         progress_callback(f"  Generated ({len(content)} chars)")
