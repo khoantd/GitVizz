@@ -515,7 +515,7 @@ export default function RepositoriesPage() {
                       Connect to GitHub
                     </h3>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                      Install the GitViz GitHub App to get started
+                      Install the gitvizz GitHub App to get started
                     </p>
                   </div>
                 </div>
@@ -529,7 +529,7 @@ export default function RepositoriesPage() {
                   </div>
                   <h2 className="text-2xl font-semibold mb-2">Connect to GitHub</h2>
                   <p className="text-muted-foreground max-w-md mb-8">
-                    To view your repositories, please install the GitViz GitHub App and grant access
+                    To view your repositories, please install the gitvizz GitHub App and grant access
                     to the appropriate repositories.
                   </p>
                   <Button
@@ -542,7 +542,7 @@ export default function RepositoriesPage() {
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                   <p className="text-xs text-muted-foreground mt-6 max-w-sm">
-                    GitViz requires read-only access to your repositories to provide visualization
+                    gitvizz requires read-only access to your repositories to provide visualization
                     and analysis features.
                   </p>
                 </div>

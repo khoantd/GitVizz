@@ -14,7 +14,7 @@ services:
     depends_on:
       - mongo
     networks:
-      - gitviz-network
+      - gitvizz-network
 
   frontend:
     build:
@@ -27,7 +27,7 @@ services:
     depends_on:
       - backend
     networks:
-      - gitviz-network
+      - gitvizz-network
 
   mongo:
     image: mongo:5.0
@@ -37,11 +37,11 @@ services:
     volumes:
       - mongo-data:/data/db
     networks:
-      - gitviz-network
+      - gitvizz-network
 
 networks:
-  gitviz-network:
-    name: gitviz-network
+  gitvizz-network:
+    name: gitvizz-network
     driver: bridge
 
 volumes:

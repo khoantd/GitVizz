@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     await db_instance.close_db()
 
 app = FastAPI(
-    title="GitViz API",
+    title="gitvizz API",
     description="API for generating text, graphs, and structure from code repositories.",
     lifespan=lifespan
 )

@@ -1,7 +1,7 @@
 # Documentation Base Path Integration
 
 ## Overview
-This document describes the integration of the `documentation_base_path` field into the GitViz repository caching and documentation generation system.
+This document describes the integration of the `documentation_base_path` field into the gitvizz repository caching and documentation generation system.
 
 ## Changes Made
 
