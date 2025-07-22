@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="./frontend/public/logo.svg" width="150" alt="GitViz Logo" />
+  <img src="./frontend/public/logo.svg" width="150" alt="GitVizz Logo" />
 </p>
 
-# GitViz
+# GitVizz
 
 **Visualize and analyze GitHub or local repositories with LLM-friendly summaries, file structure, interactive dependency graphs, generate documentation and chat with your repositories.**
 
 ---
 
-## 🚀 What is GitViz?
+## 🚀 What is GitVizz?
 
-GitViz is a full-stack application for developers and teams to:
+GitVizz is a full-stack application for developers and teams to:
 - Upload or link GitHub/local repositories
 - Instantly visualize code structure and dependencies
 - Generate LLM-friendly summaries and documentation
@@ -20,7 +20,7 @@ GitViz is a full-stack application for developers and teams to:
 
 ## 📝 Prerequisites
 
-Before using GitViz, ensure you have the following:
+Before using GitVizz, ensure you have the following:
 
 - **GitHub Personal Access Token (optional, but recommended):**  
    See the [GitHub Personal Access Token Guide](./GitHub%20Personal%20Access%20Token%20Guide.md) for instructions on creating and configuring your token.
@@ -32,7 +32,7 @@ Before using GitViz, ensure you have the following:
 
 ## 🧱 Project Overview
 
-GitViz consists of:
+GitVizz consists of:
 - **Frontend**: Next.js, TailwindCSS, ShadCN UI
 - **Backend**: Python FastAPI for parsing, analysis, and graph generation
 
@@ -40,7 +40,7 @@ GitViz consists of:
 
 ## ⚡ Quick Start
 
-You can run GitViz using **Docker Compose** (recommended) or set up manually.
+You can run GitVizz using **Docker Compose** (recommended) or set up manually.
 
 ### Option 1: Docker Compose (Recommended)
 

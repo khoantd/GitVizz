@@ -8,7 +8,7 @@ const Footer = () => {
           {/* Left: Primary links */}
           <div className="flex items-center gap-6 mb-2 md:mb-0">
             <a
-              href="https://github.com/adithya-s-k/GitViz"
+              href="https://github.com/adithya-s-k/gitvizz"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub Repository"
@@ -45,7 +45,7 @@ const Footer = () => {
           </div>
         </div>
         <p className="text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} GitViz - From Repo to Reasoning — Instantly.
+          &copy; {new Date().getFullYear()} gitvizz - From Repo to Reasoning — Instantly.
         </p>
       </div>
     </footer>

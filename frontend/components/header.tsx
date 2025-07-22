@@ -30,7 +30,7 @@ const Header = () => {
             <div className="p-2 bg-primary/10 rounded-xl backdrop-blur-sm transition-all duration-300 group-hover:bg-primary/15">
               <Image
                 src={Logo || '/placeholder.svg'}
-                alt="GitViz"
+                alt="gitvizz"
                 width={36}
                 height={36}
                 className="h-9 w-9"
@@ -38,7 +38,7 @@ const Header = () => {
               />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">GitViz</h1>
+              <h1 className="text-2xl font-bold tracking-tight">gitvizz</h1>
               <p className="text-xs text-muted-foreground">From Repo to Reasoning — Instantly.</p>
             </div>
           </Link>

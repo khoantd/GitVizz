@@ -1,4 +1,4 @@
-# GitViz – Frontend
+# gitvizz – Frontend
 
 A production-ready frontend built with **Next.js**, **TypeScript**, **TailwindCSS**, **ShadCN UI**, and **Auth.js**. This app visualizes repository structures and content by interacting with backend APIs.
 
@@ -20,8 +20,8 @@ A production-ready frontend built with **Next.js**, **TypeScript**, **TailwindCS
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/adithya-s-k/gitviz.git
-cd gitviz
+git clone https://github.com/adithya-s-k/gitvizz.git
+cd gitvizz
 ```
 
 ### 2. Install Dependencies

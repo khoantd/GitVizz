@@ -682,7 +682,7 @@ export function RepoTabs() {
                       </div>
                       <h2 className="text-2xl font-semibold mb-2">Connect Your Repositories</h2>
                       <p className="text-muted-foreground max-w-md mb-8">
-                        Install the GitViz GitHub App to securely access and analyze your
+                        Install the gitvizz GitHub App to securely access and analyze your
                         repositories with one click.
                       </p>
                       <Button

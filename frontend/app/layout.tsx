@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'GitViz - From Repo to Reasoning Instantly',
+  title: 'gitvizz - From Repo to Reasoning Instantly',
   description:
-    'GitViz helps you understand repository content easily and extract AI-ready plain text from GitHub or local files.',
+    'gitvizz helps you understand repository content easily and extract AI-ready plain text from GitHub or local files.',
   keywords: [
-    'GitViz',
+    'gitvizz',
     'GitHub Visualization',
     'Repo to Text',
     'Code to Text',
@@ -29,27 +29,27 @@ export const metadata: Metadata = {
     'Code Understanding',
     'Plain Text Conversion',
   ],
-  authors: [{ name: 'GitViz Team', url: 'https://gitviz.app' }],
-  metadataBase: new URL('https://gitviz.app'), //FIXME: replace with actual domain
+  authors: [{ name: 'gitvizz Team', url: 'https://gitvizz.app' }],
+  metadataBase: new URL('https://gitvizz.app'), //FIXME: replace with actual domain
   openGraph: {
-    title: 'GitViz - From Repo to Reasoning Instantly',
+    title: 'gitvizz - From Repo to Reasoning Instantly',
     description:
-      'Visualize and extract code structure effortlessly. Convert repositories to AI-friendly plain text with GitViz.',
-    url: 'https://gitviz.app', //FIXME: replace with actual domain
-    siteName: 'GitViz',
+      'Visualize and extract code structure effortlessly. Convert repositories to AI-friendly plain text with gitvizz.',
+    url: 'https://gitvizz.app', //FIXME: replace with actual domain
+    siteName: 'gitvizz',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'GitViz - From Repo to Reasoning Instantly',
+        alt: 'gitvizz - From Repo to Reasoning Instantly',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'GitViz - From Repo to Reasoning Instantly',
+    title: 'gitvizz - From Repo to Reasoning Instantly',
     description: 'Understand GitHub repositories visually and convert them into AI-ready formats.',
     creator: '@yourhandle', // FIXME: Replace with Twitter handle
     images: ['/og-image.png'],
