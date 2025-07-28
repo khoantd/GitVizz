@@ -75,10 +75,19 @@ export async function GET(req: NextRequest): Promise<Response> {
     
     console.log(`[DEBUG] Filtered repositories (user has access to): ${filteredRepositories.length}`);
 
+    // Sort repositories by updated_at in descending order (most recent first)
+    const sortedRepositories = filteredRepositories.sort((a, b) => {
+      const dateA = new Date(a.updated_at ?? 0);
+      const dateB = new Date(b.updated_at ?? 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    console.log(`[DEBUG] Repositories sorted by updated_at (descending)`);
+
     return new Response(
       JSON.stringify({
-        repositories: filteredRepositories,
-        total_count: filteredRepositories.length,
+        repositories: sortedRepositories,
+        total_count: sortedRepositories.length,
       }),
       {
         status: 200,

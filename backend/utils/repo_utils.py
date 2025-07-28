@@ -18,10 +18,6 @@ def parse_repo_url(repo_url: str) -> Dict[str, str]:
     pattern = r"github.com[:/](?P<owner>[^/]+)/(?P<repo>[^/#]+)(?:/(tree|blob)/(?P<last_string>.+))?"
     m = re.search(pattern, repo_url)
     if not m:
-        # Allow non-GitHub URLs to pass through for now, but they won't be auto-parsed for owner/repo names
-        # This means graph naming might be more generic for non-GitHub zip URLs.
-        # Consider raising HTTPException if strictly GitHub URLs are expected for repo_url parameter.
-        # For now, we assume repo_url if provided implies a downloadable zip.
         return {
             "owner": "unknown",
             "repo": "repository",
@@ -29,6 +25,27 @@ def parse_repo_url(repo_url: str) -> Dict[str, str]:
         }  # Default for non-matching URLs
     return m.groupdict(default="")
 
+
+async def get_default_branch(owner: str, repo: str, access_token: Optional[str] = None) -> str:
+    """Get the default branch of a GitHub repository."""
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    headers = {
+        "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
+        "Accept": "application/vnd.github.v3+json",
+    }
+    
+    if access_token:
+        headers["Authorization"] = f"token {access_token}"
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            repo_data = response.json()
+            return repo_data.get("default_branch", "main")
+    except Exception:
+        pass
+    
+    return "main"  # fallback
 
 async def _process_input(
     repo_url: Optional[str],
@@ -52,20 +69,42 @@ async def _process_input(
                     owner, repo_name_from_url = repo_info["owner"], repo_info["repo"]
 
                     if owner != "unknown":
-                        # Use GitHub API zipball URL for better support
-                        actual_zip_url = f"https://api.github.com/repos/{owner}/{repo_name_from_url}/zipball/{branch or 'main'}"
-                        headers = {
-                            "Authorization": f"token {access_token}" if access_token else "",
-                            "Accept": "application/vnd.github.v3+json",
-                            "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
-                        }
+                        # Get default branch if none specified
+                        if not branch:
+                            branch = await get_default_branch(owner, repo_name_from_url, access_token)
+                        
+                        # Use GitHub zipball URL (direct download, not API)
+                        actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/{branch}.zip"
+                        
+                        # Set headers for authentication if token provided
+                        if access_token:
+                            headers = {
+                                "Authorization": f"token {access_token}",
+                                "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
+                            }
 
+                print(f"Downloading from: {actual_zip_url}")  # Debug logging
+                
                 r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
                 if r.status_code != 200:
-                    raise HTTPException(
-                        status_code=r.status_code,
-                        detail=f"Could not download ZIP from GitHub API (status={r.status_code}). URL: {actual_zip_url}",
-                    )
+                    # Try alternative approaches
+                    if r.status_code == 404:
+                        # Try with 'main' if branch failed
+                        if branch != 'main':
+                            actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/main.zip"
+                            r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
+                        
+                        # Try with 'master' if 'main' failed
+                        if r.status_code == 404 and branch != 'master':
+                            actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/master.zip"
+                            r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
+                    
+                    if r.status_code != 200:
+                        raise HTTPException(
+                            status_code=r.status_code,
+                            detail=f"Could not download ZIP from GitHub (status={r.status_code}). URL: {actual_zip_url}. "
+                                   f"Check if the repository exists and is accessible.",
+                        )
 
                 for chunk in r.iter_content(chunk_size=8192):
                     temp_zip_obj.write(chunk)
@@ -93,7 +132,7 @@ async def _process_input(
         )
     finally:
         if temp_zip_file_path and os.path.exists(temp_zip_file_path):
-            os.unlink(temp_zip_file_path)  
+            os.unlink(temp_zip_file_path)
                      
 
 def extract_zip_contents(zip_file_path: str) -> tuple[List[dict], str]:
