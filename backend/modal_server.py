@@ -3,13 +3,44 @@ import modal
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .add_local_dir(".", "/root", copy=True)
-    .run_commands(
-        "pip install --upgrade pip",
-        "pip install -r /root/requirements.txt",
+    .add_local_dir(
+        ".",
+        "/root",
+        copy=True,
+        ignore=[
+            "__pycache__",
+            "*.pyc",
+            "*.pyo",
+            "*.pyd",
+            ".Python",
+            "env",
+            "venv",
+            ".venv",
+            ".env",
+            ".git",
+            ".gitignore",
+            "*.log",
+            ".DS_Store",
+            "node_modules",
+            "*.egg-info",
+            "build",
+            "dist",
+            ".pytest_cache",
+            ".coverage",
+            "htmlcov",
+            ".mypy_cache",
+            ".tox",
+            "storage/users/*",  # Ignore user storage directory
+            "static/*",  # Ignore static files
+            "*.sqlite",
+            "*.db",
+        ],
     )
+    .run_commands("pip install --upgrade pip")
+    .run_commands("pip install uv")
+    .run_commands("cd /root && uv pip install . --system")
 )
-vol = modal.Volume.from_name("omniparse_backend")
+vol = modal.Volume.from_name("omniparse_backend", create_if_missing=True)
 
 # Create a Modal app
 app = modal.App("omniparse-code", image=image)
@@ -17,6 +48,7 @@ app = modal.App("omniparse-code", image=image)
 
 @app.function(
     secrets=[modal.Secret.from_name("omniparse_cloud"), modal.Secret.from_dotenv()],
+    # secrets=[modal.Secret.from_dotenv()],
     volumes={"/data": vol},
 )
 @modal.asgi_app()
