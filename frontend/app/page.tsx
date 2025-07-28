@@ -1,7 +1,8 @@
 'use client';
 
 import { useResultData } from '@/context/ResultDataContext';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 // Custom Components
 import { RepoTabs } from '@/components/repo-tabs';
@@ -9,8 +10,10 @@ import { showToast } from '@/components/toaster';
 import Footer from '@/components/footer';
 import Header from '@/components/header';
 
-export default function Home() {
+function HomeContent() {
   const { error, outputMessage, setError, setOutputMessage } = useResultData();
+  const searchParams = useSearchParams();
+  const prefilledRepo = searchParams.get('repo');
 
   useEffect(() => {
     if (error) {
@@ -34,8 +37,25 @@ export default function Home() {
       {/* Header */}
       <Header />
 
-      <main className="flex items-center content-center w-full relative z-10 max-w-5xl mx-auto px-6 pb-16">
-        <RepoTabs />
+      <main className="flex flex-col items-center w-full relative z-10 max-w-5xl mx-auto px-6 pb-16">
+        {/* Subtle Hero Section */}
+        <div className="text-center mb-8 max-w-3xl">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+            From Repo to Reasoning — <span className="text-primary">Instantly</span>
+          </h1>
+          <p className="text-lg text-muted-foreground mb-6">
+            Transform any GitHub repository into comprehensive documentation and interactive insights.
+          </p>
+          
+          {/* Hub to Vizz Hint */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-sm text-muted-foreground">
+            <span className="font-mono">github.com/user/repo</span>
+            <span>→</span>
+            <span className="font-mono text-primary">gitvizz.com/user/repo</span>
+          </div>
+        </div>
+
+        <RepoTabs prefilledRepo={prefilledRepo} />
       </main>
 
       {/* Visual Anchor - Bottom Gradient */}
@@ -44,5 +64,20 @@ export default function Home() {
       {/* Footer */}
       <Footer />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

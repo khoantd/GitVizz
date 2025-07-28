@@ -693,8 +693,51 @@ export default function EnhancedReagraphVisualization({
     );
   }
 
+  // Check for large graphs and show warnings or prevent rendering
+  const nodeCount = reagraphData.nodes.length;
+  
+  // Don't render graph if too large (1200+ nodes)
+  if (nodeCount >= 1200) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <div className="text-center space-y-4 p-8 max-w-md">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-orange-50 dark:bg-orange-950/20 flex items-center justify-center">
+            <Network className="h-6 w-6 sm:h-8 sm:w-8 text-orange-500" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm sm:text-base font-medium text-foreground">
+              Graph Too Large to Display
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              This repository has {nodeCount} nodes, which is too large to display efficiently. 
+              We&apos;re working on optimizations for very large codebases.
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
+            Try using the Structure or Documentation tabs instead for exploring this repository.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-[70vh] w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
+      {/* Performance Warning Banner */}
+      {nodeCount >= 500 && (
+        <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-50">
+          <div className={`px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm border ${
+            nodeCount >= 1000 
+              ? 'bg-orange-50/90 dark:bg-orange-950/90 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
+              : 'bg-yellow-50/90 dark:bg-yellow-950/90 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800'
+          }`}>
+            {nodeCount >= 1000 
+              ? `⚠️ Very large graph (${nodeCount} nodes) - we&apos;re working on optimization`
+              : `⚠️ Large graph detected (${nodeCount} nodes) - may affect performance`
+            }
+          </div>
+        </div>
+      )}
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">

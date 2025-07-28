@@ -58,7 +58,7 @@ interface Repository {
   branch: string;
 }
 
-export function RepoTabs() {
+export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   // --- Hooks & Context ---
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -76,7 +76,7 @@ export function RepoTabs() {
   const uploadLocalZipWithAuth = useApiWithAuth(uploadLocalZip);
 
   // --- State for GitHub URL & ZIP Upload Tabs ---
-  const [repoUrl, setRepoUrl] = useState('');
+  const [repoUrl, setRepoUrl] = useState(prefilledRepo || '');
   const [accessToken, setAccessToken] = useState('');
   const [branch, setBranch] = useState('main');
   const [zipFile, setZipFile] = useState<File | null>(null);
@@ -217,7 +217,9 @@ export function RepoTabs() {
         repo_url: repo.html_url,
         branch: repo.branch || 'main',
         jwt_token: session?.jwt_token,
+        access_token: session?.accessToken, // Use the user's personal access token for now
       };
+
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
 
       setCurrentRepoId(repo_id);
