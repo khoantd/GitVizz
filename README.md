@@ -23,10 +23,10 @@ GitVizz is a full-stack application for developers and teams to:
 Before using GitVizz, ensure you have the following:
 
 - **GitHub Personal Access Token (optional, but recommended):**  
-   See the [GitHub Personal Access Token Guide](./GitHub%20Personal%20Access%20Token%20Guide.md) for instructions on creating and configuring your token.
+   See the [GitHub Personal Access Token Guide](./docs/github_personal_token.md) for instructions on creating and configuring your token.
 
 - **GitHub App (mandatory for advanced features):**  
-   Follow the [Creating a New GitHub App Guide](./Creating%20a%20New%20Github%20App.md) to set up a GitHub App if you want deeper integration.
+   Follow the [Creating a New GitHub App Guide](./docs/create_github_app.md) to set up a GitHub App if you want deeper integration.
 
 ---
 

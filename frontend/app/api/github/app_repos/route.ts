@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server';
 import { Octokit } from 'octokit';
 import { createAppAuth } from '@octokit/auth-app';
+import { auth } from '@/utils/auth';
 
 export async function GET(req: NextRequest): Promise<Response> {
   const { searchParams } = new URL(req.url);
@@ -14,40 +15,70 @@ export async function GET(req: NextRequest): Promise<Response> {
     });
   }
 
+  // Check authentication and get user session
+  const session = await auth();
+  if (!session?.accessToken) {
+    return new Response(JSON.stringify({ error: 'Unauthorized - missing session or access token' }), {
+      status: 401,
+    });
+  }
+
   try {
-    const auth = createAppAuth({
+    // Create GitHub App authentication for installation access
+    const appAuth = createAppAuth({
       appId: process.env.GITHUB_APP_ID!,
       privateKey: process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, '\n'),
       clientId: process.env.AUTH_GITHUB_ID!,
       clientSecret: process.env.AUTH_GITHUB_SECRET!,
     });
 
-    const installationAuth = await auth({
+    const installationAuth = await appAuth({
       type: 'installation',
       installationId: Number(installationId),
     });
 
-    const octokit = new Octokit({ auth: installationAuth.token });
+    // Create Octokit instances - one for installation, one for user
+    const installationOctokit = new Octokit({ auth: installationAuth.token });
+    const userOctokit = new Octokit({ auth: session.accessToken });
 
     console.log(`[DEBUG] Installation ID: ${installationId}`);
 
-    // Fetch all repositories with pagination using iterator
-    const allRepositories = [];
-
-    for await (const response of octokit.paginate.iterator(
-      octokit.rest.apps.listReposAccessibleToInstallation,
+    // Fetch installation repositories (all repositories accessible to the GitHub App)
+    const installationRepositories = [];
+    for await (const response of installationOctokit.paginate.iterator(
+      installationOctokit.rest.apps.listReposAccessibleToInstallation,
       { per_page: 500 },
     )) {
-      console.log(`[DEBUG] Fetched ${response.data.length} repositories in this page`);
-      allRepositories.push(...response.data);
+      console.log(`[DEBUG] Fetched ${response.data.length} installation repositories in this page`);
+      installationRepositories.push(...response.data);
     }
 
-    console.log(`[DEBUG] Total repositories fetched: ${allRepositories.length}`);
+    // Fetch user repositories (repositories the authenticated user has access to)
+    const userRepositories = [];
+    for await (const response of userOctokit.paginate.iterator(
+      userOctokit.rest.repos.listForAuthenticatedUser,
+      { per_page: 500 },
+    )) {
+      console.log(`[DEBUG] Fetched ${response.data.length} user repositories in this page`);
+      userRepositories.push(...response.data);
+    }
+
+    console.log(`[DEBUG] Total installation repositories: ${installationRepositories.length}`);
+    console.log(`[DEBUG] Total user repositories: ${userRepositories.length}`);
+
+    // Filter repositories: only return installation repositories that the user has access to
+    // Create a Set of user repository IDs for efficient lookup
+    const userRepoIds = new Set(userRepositories.map(repo => repo.id));
+    
+    // Filter installation repositories to only include those the user has access to
+    const filteredRepositories = installationRepositories.filter(repo => userRepoIds.has(repo.id));
+    
+    console.log(`[DEBUG] Filtered repositories (user has access to): ${filteredRepositories.length}`);
 
     return new Response(
       JSON.stringify({
-        repositories: allRepositories,
-        total_count: allRepositories.length,
+        repositories: filteredRepositories,
+        total_count: filteredRepositories.length,
       }),
       {
         status: 200,
