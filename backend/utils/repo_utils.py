@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 from fastapi import UploadFile, HTTPException
 import requests
+from urllib.parse import urlparse
 from config import CONFIG
 
 # =====================
@@ -25,28 +26,6 @@ def parse_repo_url(repo_url: str) -> Dict[str, str]:
         }  # Default for non-matching URLs
     return m.groupdict(default="")
 
-
-async def get_default_branch(owner: str, repo: str, access_token: Optional[str] = None) -> str:
-    """Get the default branch of a GitHub repository."""
-    url = f"https://api.github.com/repos/{owner}/{repo}"
-    headers = {
-        "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
-        "Accept": "application/vnd.github.v3+json",
-    }
-    
-    if access_token:
-        headers["Authorization"] = f"token {access_token}"
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            repo_data = response.json()
-            return repo_data.get("default_branch", "main")
-    except Exception:
-        pass
-    
-    return "main"  # fallback
-
 async def _process_input(
     repo_url: Optional[str],
     branch: Optional[str],
@@ -62,49 +41,38 @@ async def _process_input(
             temp_zip_file_path = temp_zip_obj.name
 
             if repo_url:
-                actual_zip_url = repo_url  # fallback
+                parsed = urlparse(repo_url)
+                if "github.com" in parsed.netloc.lower():
+                    # Normalize repo URL
+                    path_parts = parsed.path.strip("/").split("/")
+                    if len(path_parts) < 2:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Invalid GitHub repo URL format. Expected 'https://github.com/owner/repo'.",
+                        )
 
-                if "github.com" in repo_url:
-                    repo_info = parse_repo_url(repo_url)
-                    owner, repo_name_from_url = repo_info["owner"], repo_info["repo"]
+                    owner, repo = path_parts[:2]
+                    safe_branch = branch or "main"
 
-                    if owner != "unknown":
-                        # Get default branch if none specified
-                        if not branch:
-                            branch = await get_default_branch(owner, repo_name_from_url, access_token)
-                        
-                        # Use GitHub zipball URL (direct download, not API)
-                        actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/{branch}.zip"
-                        
-                        # Set headers for authentication if token provided
-                        if access_token:
-                            headers = {
-                                "Authorization": f"token {access_token}",
-                                "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app"),
-                            }
+                    actual_zip_url = f"https://api.github.com/repos/{owner}/{repo}/zipball/{safe_branch}"
 
-                print(f"Downloading from: {actual_zip_url}")  # Debug logging
-                
+                    headers = {
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": os.getenv("GITHUB_USER_AGENT", "fastapi-app")
+                    }
+                    if access_token:
+                        headers["Authorization"] = f"Bearer {access_token}"
+                else:
+                    # Direct ZIP link or unknown host
+                    actual_zip_url = repo_url
+
+                # Download ZIP
                 r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
                 if r.status_code != 200:
-                    # Try alternative approaches
-                    if r.status_code == 404:
-                        # Try with 'main' if branch failed
-                        if branch != 'main':
-                            actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/main.zip"
-                            r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
-                        
-                        # Try with 'master' if 'main' failed
-                        if r.status_code == 404 and branch != 'master':
-                            actual_zip_url = f"https://github.com/{owner}/{repo_name_from_url}/archive/master.zip"
-                            r = requests.get(actual_zip_url, stream=True, timeout=60, headers=headers)
-                    
-                    if r.status_code != 200:
-                        raise HTTPException(
-                            status_code=r.status_code,
-                            detail=f"Could not download ZIP from GitHub (status={r.status_code}). URL: {actual_zip_url}. "
-                                   f"Check if the repository exists and is accessible.",
-                        )
+                    raise HTTPException(
+                        status_code=r.status_code,
+                        detail=f"Failed to download ZIP. Status: {r.status_code} URL: {actual_zip_url}"
+                    )
 
                 for chunk in r.iter_content(chunk_size=8192):
                     temp_zip_obj.write(chunk)
@@ -113,18 +81,21 @@ async def _process_input(
                 content = await zip_file.read()
                 temp_zip_obj.write(content)
                 await zip_file.close()
+
             else:
                 raise HTTPException(
                     status_code=400,
-                    detail="Either repo_url or zip_file must be provided.",
+                    detail="Either 'repo_url' or 'zip_file' must be provided."
                 )
 
-        # Now extract
+        # Extract
         extracted_files, temp_extract_dir_path = extract_zip_contents(temp_zip_file_path)
         created_dirs_for_rmtree.append(temp_extract_dir_path)
 
         return extracted_files, temp_extract_dir_path, created_dirs_for_rmtree
 
+    except HTTPException:
+        raise  # Pass through expected errors
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -133,6 +104,7 @@ async def _process_input(
     finally:
         if temp_zip_file_path and os.path.exists(temp_zip_file_path):
             os.unlink(temp_zip_file_path)
+  
                      
 
 def extract_zip_contents(zip_file_path: str) -> tuple[List[dict], str]:
