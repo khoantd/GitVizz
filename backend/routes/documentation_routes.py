@@ -12,6 +12,7 @@ from beanie.operators import Or
 from beanie import PydanticObjectId
 from datetime import datetime
 import re
+from cryptography.fernet import Fernet
 
 # from utils.file_utils import get_user
 
@@ -22,6 +23,8 @@ from schemas.documentation_schemas import (
     IsWikiGeneratedRequest,
     IsWikiGeneratedResponse,
 )
+
+from models.chat import UserApiKey
 
 router = APIRouter(prefix="/documentation")
 
@@ -110,6 +113,9 @@ async def generate_wiki(
     comprehensive: Optional[bool] = Form(
         True, description="Whether to generate comprehensive documentation"
     ),
+    provider_name: Optional[str] = Form(
+        "", description="Provider name for the documentation generation"
+    )
 ):
     """Generate wiki documentation for a repository"""
 
@@ -145,6 +151,31 @@ async def generate_wiki(
             status_code=400, detail=f"Failed to parse repository URL: {str(e)}"
         )
 
+    # --- API Key Logic ---
+    api_key = None
+    user_api_key = await UserApiKey.find_one(
+        UserApiKey.user.id == user.id,
+        UserApiKey.provider == provider_name,
+    )
+
+    if user_api_key:
+        encryption_key = os.getenv("ENCRYPTION_KEY", Fernet.generate_key())
+        cipher_suite = Fernet(encryption_key)
+        api_key = cipher_suite.decrypt(user_api_key.encrypted_key).decode()
+
+    # Fallback to system key if user is not using their own or no session exists
+    if not api_key:
+        api_key = os.getenv("GEMINI_API_KEY")
+
+    # If no key is found from any source, raise an error
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="No Gemini API key found. Please configure your API key in settings or ensure a system key is available."
+        )
+    # --- End of API Key Logic ---
+
+
     try:
         # Generate unique task ID
         task_id = f"wiki_{hash(repository_url)}_{int(time.time())}"
@@ -164,7 +195,7 @@ async def generate_wiki(
         # Start the background task using asyncio.create_task (better approach)
         asyncio.create_task(
             _generate_wiki_background(
-                task_id, repository_url, output_dir, language, comprehensive
+                task_id, repository_url, output_dir, language, comprehensive, api_key
             )
         )
 
@@ -177,7 +208,7 @@ async def generate_wiki(
 
 
 async def _generate_wiki_background(
-    task_id: str, repo_url: str, output_dir: str, language: str, comprehensive: bool
+    task_id: str, repo_url: str, output_dir: str, language: str, comprehensive: bool, api_key: str
 ):
     """Background task for wiki generation using asyncio"""
     try:
@@ -194,6 +225,7 @@ async def _generate_wiki_background(
             output_dir,
             language,
             comprehensive,
+            api_key
         )
 
         # Update task status on success
@@ -218,14 +250,14 @@ async def _generate_wiki_background(
 
 
 def _run_wiki_generation(
-    repo_url: str, output_dir: str, language: str, comprehensive: bool
+    repo_url: str, output_dir: str, language: str, comprehensive: bool, api_key: str
 ):
     """Synchronous function to run the actual wiki generation"""
     try:
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
 
-        generator = DocumentationGenerator()
+        generator = DocumentationGenerator(api_key=api_key)
         result = generator.generate_complete_wiki(
             repo_url_or_path=repo_url, output_dir=output_dir, language=language
         )

@@ -30,9 +30,9 @@ class DocumentationGenerator:
     """Main documentation generator - simplified like GraphGenerator"""
     
     def __init__(self, api_key: str = None, progress_callback: Callable[[str], None] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            raise ValueError("GEMINI_API_KEY environment variable is required")
+        if not api_key:
+            raise ValueError("A Gemini API key is required. Please provide your API key to proceed.")
+        self.api_key = api_key
             
         # Initialize components (like graph_generator's parsers)
         self.ai_client = GeminiAIClient(self.api_key)
