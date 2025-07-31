@@ -85,6 +85,7 @@ interface DocumentationTabProps {
     repo_url?: string;
   };
   sourceType: string;
+  selectedModel?: string;
 }
 
 // Helper function moved outside the component
@@ -431,6 +432,7 @@ export default function Documentation({
   currentRepoId,
   sourceData,
   sourceType,
+  selectedModel,
 }: DocumentationTabProps) {
   const { data: session } = useSession();
   const [isDocGenerated, setIsDocGenerated] = useState(false);
@@ -581,7 +583,7 @@ export default function Documentation({
     });
   };
 
-  // Generate documentation
+  // Generate documentation, passing selectedModel from props to the API
   const handleGenerateDocumentation = async () => {
     if (!session?.jwt_token || !currentRepoId || !sourceData) return;
 
@@ -597,7 +599,8 @@ export default function Documentation({
         throw new Error('Repository URL not available');
       }
 
-      await generateWikiDocumentation(session?.jwt_token, repositoryUrl, 'en', true);
+      // Pass selectedModel from props to the API
+      await generateWikiDocumentation(session?.jwt_token, repositoryUrl, 'en', true, selectedModel);
     } catch (err) {
       console.error('Error generating documentation:', err);
       setIsGenerating(false);
@@ -635,7 +638,9 @@ export default function Documentation({
             setError(null);
           } else if (statusResponse.status === 'failed') {
             setIsGenerating(false);
-            setError(statusResponse.error || 'Documentation generation failed');
+            setError(
+              'Please Provide Valid API Key for the selected model or try again later',
+            );
           }
         } catch (err) {
           console.error('Error checking status:', err);

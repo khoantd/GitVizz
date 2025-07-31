@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { useResultData } from '@/context/ResultDataContext';
 import { showToast } from '@/components/toaster';
 import { useSession } from 'next-auth/react';
+import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function ResultsPage() {
     userKeyPreferences,
   } = useResultData();
   const { data: session } = useSession();
+  const { currentModel } = useChatSidebar(currentRepoId, userKeyPreferences);
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';
@@ -567,6 +569,7 @@ export default function ResultsPage() {
                           currentRepoId={currentRepoId}
                           sourceData={sourceData}
                           sourceType={sourceType}
+                          selectedModel={currentModel.provider}
                         />
                       </div>
                     ) : (
