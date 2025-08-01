@@ -22,11 +22,14 @@ import {
   ChevronUp,
   Sparkles,
   ExternalLink,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatHistory } from './chat-history';
 import { ChatMessage } from './chat-message';
 import { ModelSelector } from './model-selector';
+import { ContextIndicator } from './context-indicator';
+import { ContextControls, type ContextSettings } from './context-controls';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 
 interface ChatSidebarProps {
@@ -57,11 +60,14 @@ export function ChatSidebar({
     setModel,
     refreshModels,
     isLoadingHistory,
+    contextSettings,
+    setContextSettings,
   } = useChatSidebar(repositoryId, userKeyPreferences); // Pass preferences to hook
 
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showContextControls, setShowContextControls] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -346,6 +352,37 @@ export function ChatSidebar({
               )}
             </CollapsibleContent>
           </Collapsible>
+
+          {/* Context Controls Section */}
+          <Collapsible open={showContextControls} onOpenChange={setShowContextControls}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between p-4 h-auto rounded-none hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4" />
+                  <span className="text-sm font-medium">Smart Context</span>
+                  <Badge variant="outline" className="text-xs">
+                    {contextSettings.scope}
+                  </Badge>
+                </div>
+                {showContextControls ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
+              <ContextControls
+                settings={contextSettings}
+                onSettingsChange={setContextSettings}
+                disabled={isLoading}
+                isProcessing={isLoading}
+              />
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         {/* Messages Area - Primary Focus */}
@@ -386,8 +423,17 @@ export function ChatSidebar({
               ) : (
                 <>
                   {messages.map((message, index) => (
-                    <div key={`${index}-${message.timestamp.getTime()}`} className="w-full">
+                    <div key={`${index}-${message.timestamp.getTime()}`} className="w-full space-y-2">
                       <ChatMessage message={message} />
+                      {/* Show context indicator for assistant messages with context metadata */}
+                      {message.role === 'assistant' && message.context_metadata && (
+                        <div className="ml-2 mr-1">
+                          <ContextIndicator
+                            contextMetadata={message.context_metadata}
+                            className="text-xs"
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
 

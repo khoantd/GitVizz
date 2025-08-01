@@ -16,12 +16,22 @@ import {
 } from '@/lib/streaming-chat';
 import { showToast } from '@/components/toaster';
 
+interface ContextSettings {
+  scope: 'focused' | 'moderate' | 'comprehensive';
+  includeFullContext: boolean;
+  maxTokens: number;
+  includeDependencies: boolean;
+  traversalDepth: number;
+  relevanceThreshold: number;
+}
+
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
   context_used?: string | null;
   metadata?: Record<string, any> | null;
+  context_metadata?: Record<string, any> | null;
 }
 
 interface ChatState {
@@ -55,6 +65,14 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>(userKeyPreferences);
+  const [contextSettings, setContextSettings] = useState<ContextSettings>({
+    scope: 'moderate',
+    includeFullContext: false,
+    maxTokens: 4000,
+    includeDependencies: true,
+    traversalDepth: 2,
+    relevanceThreshold: 0.3
+  });
 
   useEffect(() => {
     setUseUserKeys(userKeyPreferences);
@@ -140,7 +158,9 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
         provider: modelState.provider,
         model: modelState.model,
         temperature: modelState.temperature,
-        include_full_context: false,
+        include_full_context: contextSettings.includeFullContext,
+        scope_preference: contextSettings.scope,
+        max_tokens: contextSettings.maxTokens,
       };
 
       const response = await createStreamingChatRequest(streamingRequest);
@@ -214,6 +234,27 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
             }
           } else if (chunk.type === 'complete') {
             console.log('Stream completed successfully');
+            
+            // Update the final assistant message with context metadata if available
+            if (chunk.context_metadata) {
+              setChatState((prev) => {
+                const newMessages = [...prev.messages];
+                const lastMessage = newMessages[newMessages.length - 1];
+
+                if (lastMessage?.role === 'assistant') {
+                  newMessages[newMessages.length - 1] = {
+                    ...lastMessage,
+                    context_metadata: chunk.context_metadata,
+                  };
+                }
+
+                return {
+                  ...prev,
+                  messages: newMessages,
+                };
+              });
+            }
+            
             break;
           } else if (chunk.type === 'error') {
             const errorMessage = chunk.message || 'Streaming error occurred';
@@ -387,5 +428,8 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
     currentConversationId: chatState.currentConversationId,
     useUserKeys,
     setUseUserKeys,
+    // Context settings
+    contextSettings,
+    setContextSettings,
   };
 }

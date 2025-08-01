@@ -12,6 +12,7 @@ export interface StreamingChatRequest {
   max_tokens?: number;
   include_full_context?: boolean;
   context_search_query?: string;
+  scope_preference?: string;
 }
 
 export interface StreamingChunk {
@@ -30,6 +31,7 @@ export interface StreamingChunk {
   };
   provider?: string;
   model?: string;
+  context_metadata?: Record<string, any>;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
@@ -54,6 +56,8 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
     formData.append('include_full_context', request.include_full_context.toString());
   if (request.context_search_query)
     formData.append('context_search_query', request.context_search_query);
+  if (request.scope_preference)
+    formData.append('scope_preference', request.scope_preference);
 
   // Make the request to your backend
   const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {
