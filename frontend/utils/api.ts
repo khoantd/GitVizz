@@ -625,18 +625,22 @@ function isTokenExpiredError(error: any): boolean {
  * Starts the process of generating wiki documentation. The task runs in the background.
  */
 export async function generateWikiDocumentation(
+
   jwt_token: string,
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
+  selectedModel: string | string[],
 ): Promise<any> {
-  try {
+  try {    
+    // Only skip if selectedModel is an empty array, null, or undefined
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
         jwt_token,
         repository_url,
         language,
         comprehensive,
+        provider_name: selectedModel,
       },
     });
 

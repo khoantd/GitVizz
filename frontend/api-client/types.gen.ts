@@ -172,6 +172,11 @@ export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
    * Whether to generate comprehensive documentation
    */
   comprehensive?: boolean | null;
+  /**
+   * Provider Name
+   * Provider name for the documentation generation
+   */
+  provider_name?: string | null;
 };
 
 /**
@@ -1053,6 +1058,10 @@ export type RepositoryDocsData = {
   repository: RepositoryInfo;
   analysis: RepositoryAnalysis;
   navigation: NavigationData;
+  /**
+   * Folder Structure
+   */
+  folder_structure: unknown;
   /**
    * Content
    */

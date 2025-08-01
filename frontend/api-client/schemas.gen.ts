@@ -350,6 +350,19 @@ export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {
       description: 'Whether to generate comprehensive documentation',
       default: true,
     },
+    provider_name: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Provider Name',
+      description: 'Provider name for the documentation generation',
+      default: '',
+    },
   },
   type: 'object',
   required: ['jwt_token', 'repository_url'],
@@ -1689,6 +1702,9 @@ export const RepositoryDocsDataSchema = {
     navigation: {
       $ref: '#/components/schemas/NavigationData',
     },
+    folder_structure: {
+      title: 'Folder Structure',
+    },
     content: {
       additionalProperties: {
         $ref: '#/components/schemas/DocumentationFile',
@@ -1698,7 +1714,7 @@ export const RepositoryDocsDataSchema = {
     },
   },
   type: 'object',
-  required: ['repository', 'analysis', 'navigation', 'content'],
+  required: ['repository', 'analysis', 'navigation', 'folder_structure', 'content'],
   title: 'RepositoryDocsData',
 } as const;
 

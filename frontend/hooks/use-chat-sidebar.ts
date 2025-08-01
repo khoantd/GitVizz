@@ -31,11 +31,13 @@ interface ChatState {
   currentConversationId?: string;
 }
 
-interface ModelState {
+interface ModelApiState {
   provider: string;
   model: string;
   temperature: number;
 }
+
+type ModelState = ModelApiState | {};
 
 export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<string, boolean>) {
   const { data: session } = useSession();
@@ -43,11 +45,7 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
     messages: [],
     isLoading: false,
   });
-  const [modelState, setModelState] = useState<ModelState>({
-    provider: 'openai',
-    model: 'gpt-3.5-turbo',
-    temperature: 0.7,
-  });
+  const [modelState, setModelState] = useState<ModelState>({});
   const [availableModels, setAvailableModels] = useState<AvailableModelsResponse>({
     providers: {},
     current_limits: {},
@@ -231,7 +229,7 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
                 'API quota limit reached. Please try again later or use your own API key.',
               );
             } else if (errorMessage.toLowerCase().includes('authentication')) {
-              throw new Error('Authentication failed. Please try logging in again.');
+              throw new Error('Authentication failed. Please Provide your API key.');
             } else {
               throw new Error(errorMessage);
             }
