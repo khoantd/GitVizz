@@ -72,20 +72,23 @@ export default function ResultsPage() {
   // Handle restricted tab clicks
   const handleTabChange = (value: string) => {
     if (
-      (value === 'graph' || value === 'explorer' || value === 'documentation' || value === 'video') &&
+      (value === 'graph' ||
+        value === 'explorer' ||
+        value === 'documentation' ||
+        value === 'video') &&
       !session?.accessToken
     ) {
       // Redirect to sign in page for restricted tabs
       router.push('/signin');
       return;
     }
-    
+
     // Show coming soon message for video tab
     if (value === 'video') {
-      showToast.info('🎬 Video analysis is coming soon! Stay tuned for this exciting feature.');
+      showToast.info('🎬 Code walk through Video generation, Coming Soon !!');
       return;
     }
-    
+
     setActiveTab(value);
   };
 
@@ -666,9 +669,9 @@ export default function ResultsPage() {
                           Video Analysis Coming Soon
                         </h3>
                         <p className="text-sm text-muted-foreground leading-relaxed">
-                          We&apos;re working on an exciting new feature that will generate video explanations
-                          of your codebase, including code walkthroughs, architecture overviews, and
-                          interactive tutorials.
+                          We&apos;re working on an exciting new feature that will generate video
+                          explanations of your codebase, including code walkthroughs, architecture
+                          overviews, and interactive tutorials.
                         </p>
                       </div>
                       <div className="bg-orange-50/80 dark:bg-orange-950/30 rounded-xl p-4 border border-orange-200/60 dark:border-orange-800/60">
