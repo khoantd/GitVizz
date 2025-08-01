@@ -48,10 +48,10 @@ function HomeContent() {
           </p>
           
           {/* Hub to Vizz Hint */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-sm text-muted-foreground">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-sm text-muted-foreground hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 cursor-default">
             <span className="font-mono">github.com/user/repo</span>
-            <span>→</span>
-            <span className="font-mono text-primary">gitvizz.com/user/repo</span>
+            <span className="text-primary">→</span>
+            <span className="font-mono text-primary font-medium">gitvizz.com/user/repo</span>
           </div>
         </div>
 

@@ -82,6 +82,13 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isAutoFilled, setIsAutoFilled] = useState(false);
+  const [showAutoFillBadge, setShowAutoFillBadge] = useState(false);
+  const [shouldPulse, setShouldPulse] = useState(false);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState(0);
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
+  const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- State for "My Repositories" Tab ---
@@ -110,6 +117,122 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const handleSuccess = useCallback((message: string) => {
     showToast.success(message);
   }, []);
+
+  // Validate GitHub URL
+  const isValidGitHubUrl = useCallback((url: string) => {
+    if (!url.trim()) return false;
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.hostname === 'github.com' && parsedUrl.pathname.split('/').filter(Boolean).length >= 2;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Auto-submit form
+  const triggerAutoSubmit = useCallback(async () => {
+    if (!isValidGitHubUrl(repoUrl)) return;
+    
+    setLoading(true);
+    setError(null);
+    setOutput(null);
+    setOutputMessage(null);
+
+    try {
+      const requestData = {
+        repo_url: repoUrl.trim(),
+        access_token: accessToken.trim() || undefined,
+        branch: branch.trim() || 'main',
+        jwt_token: session?.jwt_token || undefined,
+      };
+      const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
+      setCurrentRepoId(repo_id);
+      setOutput(formattedText);
+      setSourceType('github');
+      setSourceData(requestData);
+      setOutputMessage('Repository analysis successful!');
+      router.push('/results');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to analyze repository.');
+      }
+    } finally {
+      setLoading(false);
+      setIsAutoSubmitting(false);
+    }
+  }, [repoUrl, accessToken, branch, session?.jwt_token, fetchGithubRepoWithAuth, setCurrentRepoId, setOutput, setSourceType, setSourceData, setOutputMessage, router, setLoading, setError, isValidGitHubUrl]);
+
+  // Cancel auto-submit
+  const cancelAutoSubmit = useCallback(() => {
+    if (autoSubmitTimerRef.current) {
+      clearTimeout(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setIsAutoSubmitting(false);
+    setAutoSubmitCountdown(0);
+  }, []);
+
+  // Handle URL auto-fill detection and animation
+  useEffect(() => {
+    if (prefilledRepo && prefilledRepo.trim() !== '') {
+      setIsAutoFilled(true);
+      setShowAutoFillBadge(true);
+      setShouldPulse(true);
+      
+      // Show success toast for auto-fill
+      setTimeout(() => {
+        handleSuccess('🚀 Repository URL auto-filled from gitvizz.com link!');
+      }, 500);
+      
+      // Stop pulse animation after 2 seconds
+      const pulseTimer = setTimeout(() => {
+        setShouldPulse(false);
+      }, 2000);
+      
+      // Show the badge for 4 seconds, then fade it out
+      const badgeTimer = setTimeout(() => {
+        setShowAutoFillBadge(false);
+      }, 4000);
+
+      // Start auto-submit countdown if it's a valid GitHub URL
+      if (isValidGitHubUrl(prefilledRepo)) {
+        setIsAutoSubmitting(true);
+        setAutoSubmitCountdown(5);
+        
+        // Countdown interval
+        countdownIntervalRef.current = setInterval(() => {
+          setAutoSubmitCountdown((prev) => {
+            if (prev <= 1) {
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+
+        // Auto-submit timer
+        autoSubmitTimerRef.current = setTimeout(() => {
+          triggerAutoSubmit();
+        }, 5000);
+      }
+
+      return () => {
+        clearTimeout(pulseTimer);
+        clearTimeout(badgeTimer);
+        if (autoSubmitTimerRef.current) {
+          clearTimeout(autoSubmitTimerRef.current);
+        }
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+        }
+      };
+    }
+  }, [prefilledRepo, handleSuccess, isValidGitHubUrl, triggerAutoSubmit]);
 
   useEffect(() => {
     // Only run this effect when the "My Repositories" tab is active
@@ -421,15 +544,96 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                       </Label>
                       <SupportedLanguages languages={SUPPORTED_LANGUAGES} />
                     </div>
-                    <Input
-                      id="repo-url"
-                      placeholder="https://github.com/username/repository"
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                      className="h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base"
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="repo-url"
+                        placeholder="https://github.com/username/repository"
+                        value={repoUrl}
+                        onChange={(e) => {
+                          setRepoUrl(e.target.value);
+                          // Clear auto-fill state when user manually edits
+                          if (isAutoFilled) {
+                            setIsAutoFilled(false);
+                            setShowAutoFillBadge(false);
+                            setShouldPulse(false);
+                          }
+                          // Cancel auto-submit when user edits
+                          if (isAutoSubmitting) {
+                            cancelAutoSubmit();
+                          }
+                        }}
+                        className={cn(
+                          "h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base transition-all duration-700",
+                          isAutoFilled && "ring-2 ring-primary/30 border-primary/60 bg-primary/8 shadow-lg shadow-primary/10",
+                          shouldPulse && "animate-pulse"
+                        )}
+                        required
+                      />
+                      
+                      {/* Auto-fill indication badge */}
+                      {showAutoFillBadge && !isAutoSubmitting && (
+                        <div className="absolute -top-2 right-2 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                          <Badge className="bg-primary/90 text-primary-foreground border-primary/20 rounded-xl px-3 py-1 text-xs font-medium shadow-lg backdrop-blur-sm">
+                            <Zap className="h-3 w-3 mr-1.5" />
+                            Auto-filled from URL
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {/* Auto-submit countdown */}
+                      {isAutoSubmitting && autoSubmitCountdown > 0 && (
+                        <div className="absolute -top-2 right-2 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                          <Badge className="bg-orange-500/90 text-white border-orange-400/20 rounded-xl px-3 py-1 text-xs font-medium shadow-lg backdrop-blur-sm">
+                            <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            Auto-analyzing in {autoSubmitCountdown}s
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  
+                  {/* Auto-submit cancel button */}
+                  {isAutoSubmitting && (
+                    <div className="animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                      <div className="bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/60 dark:border-orange-800/60 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                              <Loader2 className="w-4 h-4 text-orange-600 dark:text-orange-400 animate-spin" />
+                            </div>
+                            <div className="absolute inset-0 rounded-full border-2 border-orange-500/30 animate-pulse"></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                              Auto-analyzing repository in {autoSubmitCountdown} seconds...
+                            </p>
+                            <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                              We detected a GitHub URL and will start analysis automatically
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={cancelAutoSubmit}
+                            className="rounded-xl border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/50"
+                          >
+                            <X className="h-3 w-3 mr-1.5" />
+                            Cancel
+                          </Button>
+                          <div className="flex-1 bg-orange-200/50 dark:bg-orange-800/50 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="h-full bg-orange-500 rounded-full transition-all duration-1000 ease-linear"
+                              style={{ width: `${((5 - autoSubmitCountdown) / 5) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
                     <Button
                       type="button"
@@ -506,7 +710,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                   )}
                   <Button
                     type="submit"
-                    disabled={loading || !repoUrl.trim()}
+                    disabled={loading || !repoUrl.trim() || isAutoSubmitting}
                     className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
                     size="lg"
                   >
