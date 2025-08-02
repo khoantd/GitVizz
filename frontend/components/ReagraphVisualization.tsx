@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from 'next-auth/react';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
+import { useGraphSearch } from '@/hooks/useGraphSearch';
 import {
   Network,
   FileText,
@@ -29,10 +30,12 @@ import {
   EyeOff,
   Menu,
   X,
+  Search,
 } from 'lucide-react';
 import { CodeReferenceAnalyzer } from '@/components/code-reference-analyzer';
 import { HierarchyTab } from '@/components/hierarchy-tab';
 import type { CodeReference, GraphData } from '@/types/code-analysis';
+import { type GraphNode as SearchGraphNode } from '@/lib/search-utils';
 
 // Properly import GraphCanvas with Next.js SSR handling
 const GraphCanvas = dynamic(() => import('reagraph').then((mod) => mod.GraphCanvas), {
@@ -266,76 +269,375 @@ function isCacheValid(entry: CacheEntry): boolean {
   return Date.now() - entry.timestamp < CACHE_DURATION;
 }
 
-// Overview Tab Component with improved scroll
+// Enhanced Overview Tab with Improved Search UX
 const OverviewTab = memo(
   ({
     categoryData,
+    nodes,
+    onNodeClick,
   }: {
     categoryData: Array<{ key: string; config: CategoryConfig; count: number }>;
-  }) => (
-    <div className="h-full flex flex-col">
-      <ScrollArea className="flex-1">
-        <div className="p-3 sm:p-4 space-y-4 sm:space-y-6">
-          <div className="space-y-3">
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground">Node Types</h3>
-            <div className="space-y-2">
-              {categoryData.map(({ key, config, count }) => {
-                const Icon = config.icon;
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center gap-2 sm:gap-3 p-2 rounded-lg sm:rounded-xl hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div
-                        className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: config.color }}
-                      />
-                      <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-foreground truncate">
-                          {config.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {config.description}
-                        </p>
-                      </div>
-                    </div>
-                    {count > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
-                      >
-                        {count}
-                      </Badge>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+    nodes: SearchGraphNode[];
+    onNodeClick?: (node: SearchGraphNode) => void;
+  }) => {
+    const search = useGraphSearch({
+      nodes,
+      debounceMs: 300,
+      maxResults: 50,
+    });
 
-          <div className="space-y-3">
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground">Interaction</h3>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
-                <span>Click nodes to view enhanced code analysis</span>
+    const handleResultClick = useCallback(
+      (node: SearchGraphNode) => {
+        onNodeClick?.(node);
+      },
+      [onNodeClick],
+    );
+
+    const handleCategoryClick = useCallback(
+      (category: string) => {
+        search.searchByCategory(category);
+      },
+      [search],
+    );
+
+    // Determine if we're in search mode
+    const isSearchMode = search.query.length > 0;
+    const hasResults = search.hasResults;
+
+    return (
+      <div className="h-full flex flex-col bg-background/20">
+        {/* Enhanced Search Header - Fixed Height */}
+        <div className="flex-shrink-0 border-b border-border/30 bg-background/60 backdrop-blur-md">
+          <div className="p-4 space-y-3">
+            {/* Search Input with better styling */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search nodes, files, functions, or categories..."
+                  value={search.query}
+                  onChange={(e) => search.setQuery(e.target.value)}
+                  className="w-full h-11 pl-12 pr-12 rounded-xl border border-border/60 bg-background/80 backdrop-blur-sm text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-200 shadow-sm"
+                />
+                {search.query && (
+                  <button
+                    onClick={search.clearSearch}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 h-6 w-6 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-all duration-200"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
-                <span>Drag to pan the graph</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary flex-shrink-0"></div>
-                <span>Scroll to zoom in/out</span>
+            </div>
+
+            {/* Search Status Bar */}
+            <div 
+              className={`transition-all duration-300 overflow-hidden ${
+                isSearchMode ? 'max-h-8 opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  {search.isSearching ? (
+                    <div className="flex items-center gap-2 text-primary">
+                      <div className="w-3 h-3 border border-primary/30 border-t-primary rounded-full animate-spin" />
+                      <span>Searching...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      <span>
+                        {search.results.length} result{search.results.length !== 1 ? 's' : ''} found
+                        {search.results.length === 50 && ' (showing first 50)'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={search.clearSearch}
+                  className="text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
+                >
+                  Clear search
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </ScrollArea>
-    </div>
-  ),
+
+        {/* Content Area with proper scroll boundaries */}
+        <div className="flex-1 min-h-0 relative">
+          {/* Search Mode - Improved Layout */}
+          <div 
+            className={`absolute inset-0 transition-all duration-300 ease-in-out ${
+              isSearchMode 
+                ? 'translate-y-0 opacity-100 pointer-events-auto' 
+                : 'translate-y-4 opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="h-full bg-background/40 backdrop-blur-sm border-t border-border/20">
+              <ScrollArea className="h-full">
+                <div className="p-4 pb-20"> {/* Extra padding bottom for mobile */}
+                  {/* Search Results */}
+                  {hasResults ? (
+                    <div className="space-y-4">
+                      {/* Results Header */}
+                      <div className="flex items-center gap-2 pb-3 border-b border-border/30 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
+                        <Search className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Search Results</h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {search.results.length}
+                        </Badge>
+                      </div>
+
+                      {/* Results List with improved spacing */}
+                      <div className="space-y-3">
+                        {search.results.map((result) => {
+                          const categoryConfig = categoryData.find(
+                            (c) => c.key === result.node.category?.toLowerCase(),
+                          )?.config;
+                          const Icon = categoryConfig?.icon || Code;
+
+                          return (
+                            <div
+                              key={result.node.id}
+                              onClick={() => handleResultClick(result.node)}
+                              className="group relative overflow-hidden rounded-xl border border-border/40 bg-background/60 hover:bg-background/80 hover:border-primary/30 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-primary/5"
+                            >
+                              {/* Gradient overlay on hover */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                              <div className="relative p-4">
+                                <div className="flex items-start gap-3">
+                                  {/* Category indicator */}
+                                  <div className="flex-shrink-0 mt-1">
+                                    <div
+                                      className="w-3 h-3 rounded-full ring-2 ring-background"
+                                      style={{
+                                        backgroundColor: categoryConfig?.color || '#90A4AE',
+                                      }}
+                                    />
+                                  </div>
+
+                                  {/* Icon */}
+                                  <div className="flex-shrink-0 mt-0.5">
+                                    <div className="w-8 h-8 rounded-lg bg-muted/30 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+                                      <Icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                    </div>
+                                  </div>
+
+                                  {/* Content */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                      <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                        {result.node.name}
+                                      </h4>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs h-5 px-2 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                      >
+                                        {Math.round(result.score * 100)}%
+                                      </Badge>
+                                    </div>
+
+                                    {/* File path */}
+                                    {result.node.file && (
+                                      <div className="flex items-center gap-1 mb-2">
+                                        <FileText className="h-3 w-3 text-muted-foreground" />
+                                        <p className="text-xs text-muted-foreground truncate">
+                                          {result.node.file}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Category and action hint */}
+                                    <div className="flex items-center justify-between">
+                                      {result.node.category && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {result.node.category}
+                                        </Badge>
+                                      )}
+                                      <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Click to explore →
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Show more hint if at limit */}
+                      {search.results.length === 50 && (
+                        <div className="text-center py-4">
+                          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                            <Network className="h-3 w-3" />
+                            Showing first 50 results. Try refining your search for more specific
+                            results.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* No Results State */
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
+                        <Search className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                      <h3 className="text-sm font-medium text-foreground mb-2">No results found</h3>
+                      <p className="text-xs text-muted-foreground max-w-sm mb-4">
+                        Try different keywords, check your spelling, or browse the categories below
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={search.clearSearch}
+                        className="text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Clear search
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          {/* Browse Mode - Improved Layout */}
+          <div 
+            className={`absolute inset-0 transition-all duration-300 ease-in-out ${
+              !isSearchMode 
+                ? 'translate-y-0 opacity-100 pointer-events-auto' 
+                : 'translate-y-4 opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="h-full">
+              <ScrollArea className="h-full">
+                <div className="p-4 space-y-6 pb-20"> {/* Extra padding bottom for mobile */}
+                  {/* Welcome Section */}
+                  <div className="text-center py-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-3">
+                      <Layers className="h-6 w-6 text-primary" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-foreground mb-2">
+                      Code Structure Overview
+                    </h2>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                      Explore your codebase by searching above or browsing the node categories below
+                    </p>
+                  </div>
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <div className="text-xs text-muted-foreground mb-1">Total Nodes</div>
+                      <div className="text-lg font-semibold text-foreground">
+                        {nodes.length.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <div className="text-xs text-muted-foreground mb-1">Categories</div>
+                      <div className="text-lg font-semibold text-foreground">
+                        {categoryData.filter((c) => c.count > 0).length}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Node Categories */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-6 bg-primary rounded-full" />
+                      <h3 className="text-sm font-semibold text-foreground">Browse by Category</h3>
+                    </div>
+
+                    <div className="grid gap-3">
+                      {categoryData
+                        .filter(({ count }) => count > 0)
+                        .map(({ key, config, count }) => {
+                          const Icon = config.icon;
+                          return (
+                            <div
+                              key={key}
+                              onClick={() => handleCategoryClick(key)}
+                              className="group relative overflow-hidden rounded-xl border border-border/40 bg-background/40 hover:bg-background/60 hover:border-primary/30 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-primary/5"
+                            >
+                              {/* Gradient overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                              <div className="relative p-4">
+                                <div className="flex items-center gap-3">
+                                  {/* Color indicator */}
+                                  <div
+                                    className="w-4 h-4 rounded-full ring-2 ring-background/50 flex-shrink-0"
+                                    style={{ backgroundColor: config.color }}
+                                  />
+
+                                  {/* Icon */}
+                                  <div className="w-10 h-10 rounded-lg bg-muted/30 group-hover:bg-primary/10 flex items-center justify-center transition-colors flex-shrink-0">
+                                    <Icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                  </div>
+
+                                  {/* Content */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                                        {config.label}
+                                      </h4>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs px-2 py-1 bg-muted/30 group-hover:bg-primary/10 transition-colors flex-shrink-0"
+                                      >
+                                        {count.toLocaleString()}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground truncate mb-2">
+                                      {config.description}
+                                    </p>
+                                    <div className="flex items-center justify-between">
+                                      <div className="text-xs text-muted-foreground">
+                                        Click to search this category
+                                      </div>
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Search className="h-3 w-3 text-muted-foreground" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Tips Section */}
+                  <div className="mt-8 p-4 rounded-xl bg-muted/10 border border-border/30">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Search className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-2">Search Tips</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          <li>• Search by function names, file paths, or code elements</li>
+                          <li>• Use category names to filter results</li>
+                          <li>• Results are ranked by relevance</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  },
 );
 OverviewTab.displayName = 'OverviewTab';
 
@@ -411,7 +713,10 @@ export default function EnhancedReagraphVisualization({
       try {
         let data: GraphResponse;
         if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
-          data = await generateGraphFromGithubWithAuth(sourceData, session?.jwt_token || '');
+          data = await generateGraphFromGithubWithAuth({
+            ...sourceData,
+            jwt_token: session?.jwt_token || '',
+          });
         } else if (sourceType === 'zip' && sourceData instanceof File) {
           data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
         } else {
@@ -557,8 +862,8 @@ export default function EnhancedReagraphVisualization({
         size: Math.max(8, Math.min(16, node.name.length * 0.6 + 6)),
       })),
       edges:
-        graphData.edges?.map((edge, index) => ({
-          id: `edge-${index}`,
+        graphData.edges?.map((edge, edgeIndex) => ({
+          id: `edge-${edgeIndex}`,
           source: edge.source,
           target: edge.target,
           label: edge.relationship,
@@ -588,6 +893,20 @@ export default function EnhancedReagraphVisualization({
     currentRequestKeyRef.current = null;
     window.location.reload();
   }, [requestKey]);
+
+  // Handle search node click - switch to hierarchy tab
+  const handleSearchNodeClick = useCallback(
+    (node: SearchGraphNode) => {
+      const graphNode = graphData?.nodes.find((n) => n.id === node.id);
+      if (graphNode) {
+        setSelectedNode(graphNode);
+        setActiveTab('hierarchy');
+        setIsMobileSidebarOpen(true);
+        onNodeClick?.(graphNode);
+      }
+    },
+    [graphData?.nodes, onNodeClick],
+  );
 
   // Convert GraphNode to CodeReference for the analyzer
   const selectedCodeReference: CodeReference | null = useMemo(() => {
@@ -697,7 +1016,7 @@ export default function EnhancedReagraphVisualization({
 
   // Check for large graphs and show warnings or prevent rendering
   const nodeCount = reagraphData.nodes.length;
-  
+
   // Don't render graph if too large (1200+ nodes)
   if (nodeCount >= 1200) {
     return (
@@ -711,7 +1030,7 @@ export default function EnhancedReagraphVisualization({
               Graph Too Large to Display
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              This repository has {nodeCount} nodes, which is too large to display efficiently. 
+              This repository has {nodeCount} nodes, which is too large to display efficiently.
               We&apos;re working on optimizations for very large codebases.
             </p>
           </div>
@@ -728,15 +1047,16 @@ export default function EnhancedReagraphVisualization({
       {/* Performance Warning Banner */}
       {nodeCount >= 500 && (
         <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-50">
-          <div className={`px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm border ${
-            nodeCount >= 1000 
-              ? 'bg-orange-50/90 dark:bg-orange-950/90 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
-              : 'bg-yellow-50/90 dark:bg-yellow-950/90 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800'
-          }`}>
-            {nodeCount >= 1000 
+          <div
+            className={`px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm border ${
+              nodeCount >= 1000
+                ? 'bg-orange-50/90 dark:bg-orange-950/90 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
+                : 'bg-yellow-50/90 dark:bg-yellow-950/90 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800'
+            }`}
+          >
+            {nodeCount >= 1000
               ? `⚠️ Very large graph (${nodeCount} nodes) - we&apos;re working on optimization`
-              : `⚠️ Large graph detected (${nodeCount} nodes) - may affect performance`
-            }
+              : `⚠️ Large graph detected (${nodeCount} nodes) - may affect performance`}
           </div>
         </div>
       )}
@@ -795,7 +1115,11 @@ export default function EnhancedReagraphVisualization({
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <TabsContent value="overview" className="h-full m-0 p-0">
-                    <OverviewTab categoryData={categoryData} />
+                    <OverviewTab
+                      categoryData={categoryData}
+                      nodes={graphData?.nodes || []}
+                      onNodeClick={handleSearchNodeClick}
+                    />
                   </TabsContent>
                   <TabsContent value="analysis" className="h-full m-0 p-0">
                     <div className="h-full" ref={analysisScrollRef}>
@@ -964,7 +1288,11 @@ export default function EnhancedReagraphVisualization({
             {/* Desktop Tab Content */}
             <div className="flex-1 overflow-hidden">
               <TabsContent value="overview" className="h-full m-0 p-0">
-                <OverviewTab categoryData={categoryData} />
+                <OverviewTab
+                  categoryData={categoryData}
+                  nodes={graphData?.nodes || []}
+                  onNodeClick={handleSearchNodeClick}
+                />
               </TabsContent>
 
               <TabsContent value="analysis" className="h-full m-0 p-0">

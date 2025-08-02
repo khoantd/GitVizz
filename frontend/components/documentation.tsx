@@ -322,7 +322,7 @@ const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) =>
         {...props}
       />
     ),
-    // eslint-disable-next-line @next/next/no-img-element
+     
     img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
       <img
         className="max-w-full h-auto rounded-lg shadow-md my-4"
