@@ -1,107 +1,761 @@
-// API utilities for interacting with the backend
+// API utilities for interacting with the backend using Hey-API generated SDK
 
-// Base URL for the API - direct connection to backend
-const API_BASE_URL = 'http://localhost:8003/api';
+import { auth_client } from '@/api-client/client.gen';
+import {
+  generateTextEndpointApiRepoGenerateTextPost,
+  generateGraphEndpointApiRepoGenerateGraphPost,
+  generateStructureEndpointApiRepoGenerateStructurePost,
+  loginUserApiBackendAuthLoginPost,
+  processChatMessageApiBackendChatChatPost,
+  streamChatResponseApiBackendChatChatStreamPost,
+  getConversationHistoryApiBackendChatConversationsConversationIdPost,
+  getChatSessionApiBackendChatSessionsChatIdPost,
+  saveUserApiKeyApiBackendChatKeysSavePost,
+  getAvailableModelsApiBackendChatModelsPost,
+  updateChatSettingsApiBackendChatSettingsPost,
+  searchContextApiBackendChatContextSearchPost,
+  listUserChatSessionsApiBackendChatSessionsPost,
+  generateWikiApiDocumentationGenerateWikiPost,
+  getWikiStatusApiDocumentationWikiStatusPost,
+  listRepositoryDocsApiDocumentationRepositoryDocsPost,
+  isWikiGeneratedApiDocumentationIsWikiGeneratedPost,
+} from '../api-client/sdk.gen';
 
-// Types
+import type {
+  GraphResponse,
+  StructureResponse,
+  LoginResponse,
+  ChatResponse,
+  ChatSessionResponse,
+  ConversationHistoryResponse,
+  ApiKeyResponse,
+  AvailableModelsResponse,
+  ChatSettingsResponse,
+  ContextSearchResponse,
+  TextResponse,
+  ChatSessionListResponse,
+  ChatSessionListItem,
+  IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse,
+} from '../api-client/types.gen';
+
+// Types for convenience
 export interface RepoRequest {
-  repo_url: string;
+  repo_url?: string;
+  branch?: string;
   access_token?: string;
+  jwt_token?: string;
+  zip_file?: File;
 }
 
-// API functions for GitHub tab
+export type {
+  ConversationHistoryResponse,
+  AvailableModelsResponse,
+  ChatSessionListResponse,
+  ChatSessionResponse,
+  ChatSessionListItem,
+};
+
+export interface ChatRequest {
+  token: string;
+  message: string;
+  repository_id: string;
+  use_user?: boolean;
+  chat_id?: string;
+  conversation_id?: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  include_full_context?: boolean;
+  context_search_query?: string;
+}
+
+export interface ApiKeyRequest {
+  token: string;
+  provider: string;
+  api_key: string;
+  key_name?: string;
+}
+
+// Enum for operation types
+export enum OperationType {
+  TEXT = 'text',
+  GRAPH = 'graph',
+  STRUCTURE = 'structure',
+}
+
+// Type mapping for responses
+type ResponseMap = {
+  [OperationType.TEXT]: TextResponse;
+  [OperationType.GRAPH]: GraphResponse;
+  [OperationType.STRUCTURE]: StructureResponse;
+};
+
+// Type mapping for API functions
+type ApiFunctionMap = {
+  [OperationType.TEXT]: typeof generateTextEndpointApiRepoGenerateTextPost;
+  [OperationType.GRAPH]: typeof generateGraphEndpointApiRepoGenerateGraphPost;
+  [OperationType.STRUCTURE]: typeof generateStructureEndpointApiRepoGenerateStructurePost;
+};
+
+// API function mapping
+const API_FUNCTIONS: ApiFunctionMap = {
+  [OperationType.TEXT]: generateTextEndpointApiRepoGenerateTextPost,
+  [OperationType.GRAPH]: generateGraphEndpointApiRepoGenerateGraphPost,
+  [OperationType.STRUCTURE]: generateStructureEndpointApiRepoGenerateStructurePost,
+};
+
+// Error messages mapping
+const ERROR_MESSAGES = {
+  [OperationType.TEXT]: {
+    repo: 'Failed to fetch repository',
+    zip: 'Failed to process zip file',
+  },
+  [OperationType.GRAPH]: {
+    repo: 'Failed to generate graph from GitHub repository',
+    zip: 'Failed to generate graph from ZIP file',
+  },
+  [OperationType.STRUCTURE]: {
+    repo: 'Failed to generate structure from GitHub repository',
+    zip: 'Failed to generate structure from ZIP file',
+  },
+};
 
 /**
- * Fetch GitHub repository as ZIP
- * POST /api/github/fetch-zip
+ * Generic function to handle all API operations (text, graph, structure)
+ * for both GitHub repos and ZIP files
  */
-export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/github/fetch-zip`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(repoRequest),
-  });
+async function executeOperation<T extends OperationType>(
+  operationType: T,
+  request: RepoRequest,
+): Promise<ResponseMap[T]> {
+  try {
+    // Prepare the request data
+    const requestData = {
+      repo_url: request.repo_url || null,
+      branch: request.branch || 'main',
+      access_token: request.access_token || null,
+      jwt_token: request.jwt_token || null,
+      zip_file: request.zip_file || null,
+    };
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to fetch repository');
+    // Get the appropriate API function
+    const apiFunction = API_FUNCTIONS[operationType];
+
+    // Execute the API call with proper options structure
+    const response = await apiFunction({
+      body: requestData,
+    });
+
+    // Handle errors
+    if (response.error) {
+      const errorMessage = extractErrorMessage(response.error, operationType, request.zip_file);
+      throw new Error(errorMessage);
+    }
+
+    // Validate response data
+    if (!response.data) {
+      throw new Error('No data received from server');
+    }
+
+    return response.data as ResponseMap[T];
+  } catch (error) {
+    handleApiError(error, operationType, request.zip_file);
+    throw error; // This won't execute but TypeScript needs it
+  }
+}
+
+/**
+ * Extract error message from API response
+ */
+function extractErrorMessage(error: any, operationType: OperationType, isZipFile?: File): string {
+  if (typeof error === 'string') {
+    return error;
   }
 
-  return response.text();
+  if (error?.detail) {
+    if (typeof error.detail === 'string') {
+      return error.detail;
+    }
+    if (Array.isArray(error.detail)) {
+      return error.detail.map((err: any) => err.msg || err.message || String(err)).join(', ');
+    }
+  }
+
+  return ERROR_MESSAGES[operationType][isZipFile ? 'zip' : 'repo'];
+}
+
+/**
+ * Handle API errors with proper error types
+ */
+function handleApiError(error: any, operationType: OperationType, isZipFile?: File): never {
+  if (isTokenExpiredError(error)) {
+    throw new TokenExpiredError();
+  }
+  if (error instanceof Error) {
+    throw error;
+  }
+  throw new Error(ERROR_MESSAGES[operationType][isZipFile ? 'zip' : 'repo']);
+}
+
+// =============================================================================
+// REPOSITORY OPERATIONS
+// =============================================================================
+
+/**
+ * Generate LLM-friendly text from a GitHub repository
+ */
+export async function fetchGithubRepo(repoRequest: RepoRequest): Promise<TextResponse> {
+  const response = await executeOperation(OperationType.TEXT, repoRequest);
+  return {
+    text_content: response.text_content || '',
+    repo_id: response.repo_id || '',
+    filename_suggestion: response.filename_suggestion,
+  };
 }
 
 /**
  * Generate graph from GitHub repository
- * POST /api/github/generate-graph
  */
-export async function generateGraphFromGithub(repoRequest: RepoRequest): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/github/generate-graph`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(repoRequest),
-  });
-
-  if (!response.ok) {
-    try {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to generate graph from GitHub repository');
-    } catch {
-      throw new Error('Failed to generate graph from GitHub repository');
-    }
-  }
-
-  return response.json();
+export async function generateGraphFromGithub(repoRequest: RepoRequest): Promise<GraphResponse> {
+  return executeOperation(OperationType.GRAPH, repoRequest);
 }
 
-// API functions for Local ZIP tab
+/**
+ * Generate structure from GitHub repository
+ */
+export async function generateStructureFromGithub(
+  repoRequest: RepoRequest,
+): Promise<StructureResponse> {
+  return executeOperation(OperationType.STRUCTURE, repoRequest);
+}
 
 /**
- * Upload local ZIP file
- * POST /api/local/upload-zip
+ * Upload and process local ZIP file to generate text
  */
-export async function uploadLocalZip(file: File): Promise<{ text: string }> {
-  const formData = new FormData();
-  formData.append('zip_file', file);
-
-  const response = await fetch(`${API_BASE_URL}/local/upload-zip`, {
-    method: 'POST',
-    body: formData,
+export async function uploadLocalZip(file: File, jwt_token: string): Promise<TextResponse> {
+  const response = await executeOperation(OperationType.TEXT, {
+    zip_file: file,
+    jwt_token,
+    branch: 'main',
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to process zip file');
-  }
-
-  const text = await response.text();
-  return { text };
+  return {
+    text_content: response.text_content || '',
+    repo_id: response.repo_id || '',
+    filename_suggestion: response.filename_suggestion,
+  };
 }
 
 /**
  * Generate graph from uploaded ZIP file
- * POST /api/local/generate-graph
  */
-export async function generateGraphFromZip(file: File): Promise<any> {
-  const formData = new FormData();
-  formData.append('zip_file', file);
-
-  const response = await fetch(`${API_BASE_URL}/local/generate-graph`, {
-    method: 'POST',
-    body: formData,
+export async function generateGraphFromZip(file: File, jwt_token: string): Promise<GraphResponse> {
+  return executeOperation(OperationType.GRAPH, {
+    zip_file: file,
+    jwt_token,
+    branch: 'main',
   });
+}
 
-  if (!response.ok) {
-    try {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to generate graph from ZIP file');
-    } catch {
-      throw new Error('Failed to generate graph from ZIP file');
+/**
+ * Generate structure from uploaded ZIP file
+ */
+export async function generateStructureFromZip(
+  file: File,
+  jwt_token: string,
+): Promise<StructureResponse> {
+  return executeOperation(OperationType.STRUCTURE, {
+    zip_file: file,
+    jwt_token,
+    branch: 'main',
+  });
+}
+
+/**
+ * Get filename suggestion from repository
+ */
+export async function getFilenameSuggestion(repoRequest: RepoRequest): Promise<string> {
+  const response = await executeOperation(OperationType.TEXT, repoRequest);
+  return response.filename_suggestion || 'repository.txt';
+}
+
+// =============================================================================
+// AUTHENTICATION
+// =============================================================================
+
+/**
+ * Get JWT token for authenticated user
+ */
+export async function getJwtToken(access_token: string): Promise<LoginResponse> {
+  try {
+    const response = await loginUserApiBackendAuthLoginPost({
+      client: auth_client,
+      body: { access_token },
+    });
+
+    if (response.error) {
+      const errorMessage = extractErrorMessage(response.error, OperationType.TEXT);
+      throw new Error(errorMessage);
     }
-  }
 
-  return response.json();
+    if (!response.data) {
+      throw new Error('No authentication data received');
+    }
+
+    return response.data;
+  } catch (error) {
+    if (isTokenExpiredError(error)) {
+      throw new TokenExpiredError();
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to get JWT token');
+  }
+}
+
+// =============================================================================
+// CHAT OPERATIONS
+// =============================================================================
+
+/**
+ * Send a chat message and get response
+ */
+export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatResponse> {
+  try {
+    const response = await processChatMessageApiBackendChatChatPost({
+      body: {
+        token: chatRequest.token,
+        message: chatRequest.message,
+        repository_id: chatRequest.repository_id,
+        use_user: chatRequest.use_user || false,
+        chat_id: chatRequest.chat_id || null,
+        conversation_id: chatRequest.conversation_id || null,
+        provider: chatRequest.provider || 'openai',
+        model: chatRequest.model || 'gpt-3.5-turbo',
+        temperature: chatRequest.temperature || 0.7,
+        max_tokens: chatRequest.max_tokens || null,
+        include_full_context: chatRequest.include_full_context || false,
+        context_search_query: chatRequest.context_search_query || null,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No chat response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Stream chat response
+ */
+export async function streamChatResponse(chatRequest: ChatRequest): Promise<Response> {
+  try {
+    const response = await streamChatResponseApiBackendChatChatStreamPost({
+      body: {
+        token: chatRequest.token,
+        message: chatRequest.message,
+        repository_id: chatRequest.repository_id,
+        use_user: chatRequest.use_user || false,
+        chat_id: chatRequest.chat_id || null,
+        conversation_id: chatRequest.conversation_id || null,
+        provider: chatRequest.provider || 'openai',
+        model: chatRequest.model || 'gpt-3.5-turbo',
+        temperature: chatRequest.temperature || 0.7,
+        max_tokens: chatRequest.max_tokens || null,
+        include_full_context: chatRequest.include_full_context || false,
+        context_search_query: chatRequest.context_search_query || null,
+      },
+    });
+
+    // For streaming, we return the raw response
+    return response as any;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get list of user's chat sessions
+ */
+export async function getUserChatSessions(
+  jwt_token: string,
+  repo_id: string,
+): Promise<ChatSessionListResponse> {
+  try {
+    const response = await listUserChatSessionsApiBackendChatSessionsPost({
+      body: { jwt_token, repo_id },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No chat sessions data received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get conversation history
+ */
+export async function getConversationHistory(
+  token: string,
+  conversationId: string,
+): Promise<ConversationHistoryResponse> {
+  try {
+    const response = await getConversationHistoryApiBackendChatConversationsConversationIdPost({
+      path: { conversation_id: conversationId },
+      body: { token },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No conversation history received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get chat session details
+ */
+export async function getChatSession(token: string, chatId: string): Promise<ChatSessionResponse> {
+  try {
+    const response = await getChatSessionApiBackendChatSessionsChatIdPost({
+      path: { chat_id: chatId },
+      body: { token },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No chat session data received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
+// API KEY MANAGEMENT
+// =============================================================================
+
+/**
+ * Save user API key
+ */
+export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyResponse> {
+  try {
+    const response = await saveUserApiKeyApiBackendChatKeysSavePost({
+      body: {
+        token: apiKeyRequest.token,
+        provider: apiKeyRequest.provider,
+        api_key: apiKeyRequest.api_key,
+        key_name: apiKeyRequest.key_name || null,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No API key response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get available models
+ */
+export async function getAvailableModels(token: string): Promise<AvailableModelsResponse> {
+  try {
+    const response = await getAvailableModelsApiBackendChatModelsPost({
+      body: { token },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No models data received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
+// CHAT SETTINGS
+// =============================================================================
+
+/**
+ * Update chat settings
+ */
+export async function updateChatSettings(
+  token: string,
+  chatId: string,
+  settings: {
+    title?: string;
+    default_provider?: string;
+    default_model?: string;
+    default_temperature?: number;
+  },
+): Promise<ChatSettingsResponse> {
+  try {
+    const response = await updateChatSettingsApiBackendChatSettingsPost({
+      body: {
+        token,
+        chat_id: chatId,
+        title: settings.title || null,
+        default_provider: settings.default_provider || null,
+        default_model: settings.default_model || null,
+        default_temperature: settings.default_temperature || null,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No settings response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
+// CONTEXT SEARCH
+// =============================================================================
+
+/**
+ * Search repository context
+ */
+export async function searchContext(
+  token: string,
+  repositoryId: string,
+  query: string,
+  maxResults: number = 5,
+): Promise<ContextSearchResponse> {
+  try {
+    const response = await searchContextApiBackendChatContextSearchPost({
+      body: {
+        token,
+        repository_id: repositoryId,
+        query,
+        max_results: Math.min(Math.max(maxResults, 1), 20), // Ensure between 1-20
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No search results received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
+// UTILITY FUNCTIONS AND ERROR HANDLING
+// =============================================================================
+
+export class TokenExpiredError extends Error {
+  constructor(message = 'Token expired') {
+    super(message);
+    this.name = 'TokenExpiredError';
+  }
+}
+
+function isTokenExpiredError(error: any): boolean {
+  if (!error) return false;
+  const msg = typeof error === 'string' ? error : error?.message || error?.toString();
+  return (
+    msg?.toLowerCase().includes('token has expired') ||
+    msg?.toLowerCase().includes('jwt expired') ||
+    msg?.toLowerCase().includes('expired token') ||
+    msg?.toLowerCase().includes('unauthorized')
+  );
+}
+
+// =============================================================================
+// WIKI DOCUMENTATION OPERATIONS
+// =============================================================================
+/**
+ * Generate wiki documentation for a repository
+ * Starts the process of generating wiki documentation. The task runs in the background.
+ */
+export async function generateWikiDocumentation(
+
+  jwt_token: string,
+  repository_url: string,
+  language: string = 'en',
+  comprehensive: boolean = true,
+  selectedModel: string | string[],
+): Promise<any> {
+  try {    
+    // Only skip if selectedModel is an empty array, null, or undefined
+    const response = await generateWikiApiDocumentationGenerateWikiPost({
+      body: {
+        jwt_token,
+        repository_url,
+        language,
+        comprehensive,
+        provider_name: selectedModel,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No wiki generation response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get wiki generation status
+ * Retrieves the current status of a wiki generation task using the provided task ID.
+ */
+export async function getWikiGenerationStatus(jwt_token: string, repo_id: string): Promise<any> {
+  try {
+    const response = await getWikiStatusApiDocumentationWikiStatusPost({
+      body: {
+        jwt_token,
+        repo_id,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No wiki status response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * List repository documentation files
+ * Lists all documentation files for a specific repository with parsed content.
+ */
+export async function getRepositoryDocumentation(jwt_token: string, repo_id: string): Promise<any> {
+  try {
+    const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
+      body: {
+        jwt_token,
+        repo_id,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No repository documentation response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Is wiki documentation generated?
+ * Checks if wiki documentation has been generated for a specific repository.
+ */
+export async function isWikiGenerated(
+  jwt_token: string,
+  repo_id: string,
+): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
+  console.log(jwt_token);
+  try {
+    const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
+      body: {
+        jwt_token,
+        repo_id,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    }
+
+    if (!response.data) {
+      throw new Error('No wiki generation status response received');
+    }
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
+// UNIVERSAL PROCESSING FUNCTION
+// =============================================================================
+
+/**
+ * Universal function that can handle any operation type and source (repo/zip)
+ * Usage examples:
+ *   - processRepository('text', { repo_url: 'https://github.com/user/repo', jwt_token: 'xxx' })
+ *   - processRepository('graph', { zip_file: file, jwt_token: 'xxx' })
+ */
+export async function processRepository<T extends OperationType>(
+  operationType: T,
+  request: RepoRequest,
+): Promise<ResponseMap[T]> {
+  return executeOperation(operationType, request);
 }

@@ -1,21 +1,59 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Providers } from "./providers";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
+import { Providers } from './providers';
+import { SessionProvider } from 'next-auth/react';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "Repo2Txt - Convert Repositories to Text",
-  description: "Convert GitHub repositories or local files to plain text",
+  title: 'gitvizz - From Repo to Reasoning Instantly',
+  description:
+    'gitvizz helps you understand repository content easily and extract AI-ready plain text from GitHub or local files.',
+  keywords: [
+    'gitvizz',
+    'GitHub Visualization',
+    'Repo to Text',
+    'Code to Text',
+    'AI Ready Code',
+    'GitHub Summary Tool',
+    'Repository Analysis',
+    'Code Understanding',
+    'Plain Text Conversion',
+  ],
+  authors: [{ name: 'gitvizz Team', url: 'https://gitvizz.app' }],
+  metadataBase: new URL('https://gitvizz.app'), //FIXME: replace with actual domain
+  openGraph: {
+    title: 'gitvizz - From Repo to Reasoning Instantly',
+    description:
+      'Visualize and extract code structure effortlessly. Convert repositories to AI-friendly plain text with gitvizz.',
+    url: 'https://gitvizz.app', //FIXME: replace with actual domain
+    siteName: 'gitvizz',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'gitvizz - From Repo to Reasoning Instantly',
+      },
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'gitvizz - From Repo to Reasoning Instantly',
+    description: 'Understand GitHub repositories visually and convert them into AI-ready formats.',
+    creator: '@yourhandle', // FIXME: Replace with Twitter handle
+    images: ['/og-image.png'],
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +66,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <Providers>{children}</Providers>
+        <SessionProvider>
+          <Providers>{children}</Providers>
+        </SessionProvider>
       </body>
     </html>
   );

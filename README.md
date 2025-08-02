@@ -1,158 +1,147 @@
-# Code Repository Analysis and Visualization API
+<p align="center">
+  <img src="./frontend/public/logo.svg" width="150" alt="GitVizz Logo" />
+</p>
 
-This project provides a Python-based FastAPI backend designed to process, analyze, and visualize code repositories. It can ingest repositories from GitHub URLs or uploaded ZIP files, generating textual summaries, dependency graphs, and detailed file structures. This tool aims to make it easier to understand the architecture and relationships within codebases.
+# GitVizz
 
-## Features
+**Visualize and analyze GitHub or local repositories with LLM-friendly summaries, file structure, interactive dependency graphs, generate documentation and chat with your repositories.**
 
-- **Repository Ingestion**: Supports fetching code from GitHub repositories (via URL) and processing local repositories (via ZIP upload).
-- **Text Generation**: Converts repository contents into a consolidated text format, suitable for LLM processing or quick overviews.
-- **Dependency Graph Generation**: Analyzes code (initially Python, with extensibility for other languages via tree-sitter) to create interactive dependency graphs showing relationships between modules, classes, and functions.
-- **File Structure Extraction**: Provides a clear view of the repository's directory tree and the content of individual files.
-- **FastAPI Backend**: Built with FastAPI, offering a modern, high-performance API.
-- **Modal Integration**: Includes configuration for deploying the server as a Modal app for serverless execution (see `modal_server.py`).
-- **Next.js Frontend**: Comes with a Next.js frontend (in the `frontend/` directory) for interacting with the API and visualizing the generated outputs.
+---
 
-## Frontend Features
+## 🚀 What is GitVizz?
 
-The Next.js frontend provides a user-friendly interface to interact with the API and explore code repositories:
+GitVizz is a full-stack application for developers and teams to:
+- Upload or link GitHub/local repositories
+- Instantly visualize code structure and dependencies
+- Generate LLM-friendly summaries and documentation
+- Explore codebases with interactive graphs and a modern UI
+- Chat with your repositories to ask questions and get insights
+- Generate documentation paths and code navigation
 
-- **Interactive Graph Visualization**: Displays the generated dependency graph, allowing users to pan, zoom, and click on nodes to see details.
-- **Structured Code Viewing**: Presents the repository's file structure in a navigable tree, similar to an IDE, with a code viewer to display file contents.
-- **Dual Input Methods**: Users can either provide a GitHub repository URL (with an optional branch and access token for private repos) or upload a ZIP archive of a repository.
-- **Dynamic Data Display**: Shows repository structure, code, and graph data in separate, manageable tabs.
-- **Node Properties**: Displays detailed information about selected nodes in the graph (e.g., file, lines of code, category).
-- **Graph Legend**: Helps users understand the different types of nodes and edges in the dependency graph.
-- **Theme Customization**: Includes a theme toggle for light/dark mode.
+## 📝 Prerequisites
 
-## Project Structure
+Before using GitVizz, ensure you have the following:
 
-Here's an overview of the main files and directories in this project:
+- **GitHub Personal Access Token (optional, but recommended):**  
+   See the [GitHub Personal Access Token Guide](./docs/github_personal_token.md) for instructions on creating and configuring your token.
+
+- **GitHub App (mandatory for advanced features):**  
+   Follow the [Creating a New GitHub App Guide](./docs/create_github_app.md) to set up a GitHub App if you want deeper integration.
+
+---
+
+## 🧱 Project Overview
+
+GitVizz consists of:
+- **Frontend**: Next.js, TailwindCSS, ShadCN UI
+- **Backend**: Python FastAPI for parsing, analysis, and graph generation
+
+---
+
+## ⚡ Quick Start
+
+You can run GitVizz using **Docker Compose** (recommended) or set up manually.
+
+### Option 1: Docker Compose (Recommended)
+
+1. **Copy environment variable templates:**
+   - Backend: `cp backend/.env.example backend/.env` (edit as needed)
+   - Frontend: `cp frontend/.example.env frontend/.env.local` (edit as needed)
+
+2. **Start all services:**
+   ```bash
+   docker-compose up --build
+   ```
+
+3. Access the app:
+   - Frontend: [http://localhost:3000](http://localhost:3000)
+   - Backend API: [http://localhost:8003](http://localhost:8003)
+
+---
+
+### Option 2: Manual Setup
+
+#### Backend
+1. **Create a virtual environment:**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+2. **Install dependencies:**
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+3. **Copy and edit environment variables:**
+   ```bash
+   cp backend/.env.example backend/.env
+   # Edit backend/.env as needed
+   ```
+4. **Run the API server:**
+   ```bash
+   uvicorn backend.server:app --host 0.0.0.0 --port 8003 --reload
+   ```
+   The API will be available at [http://localhost:8003](http://localhost:8003)
+
+#### Frontend
+1. **Install dependencies:**
+   ```bash
+   cd frontend
+   pnpm install
+   ```
+2. **Copy and edit environment variables:**
+   ```bash
+   cp .example.env .env.local
+   # Edit .env.local as needed
+   ```
+3. **Run the dev server:**
+   ```bash
+   pnpm dev
+   ```
+   The frontend will be available at [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🛠️ Environment Variables
+
+Both backend and frontend require environment variables for configuration (API keys, ports, etc.).
+
+- **Backend:** Edit `backend/.env` (see `backend/.env.example` for required variables)
+- **Frontend:** Edit `frontend/.env.local` (see `frontend/.example.env` for required variables)
+
+---
+
+## 🗂️ Folder Structure
 
 ```
 .
-├── server.py               # Main FastAPI application: defines API endpoints, request handling, and core logic.
-├── modal_server.py         # Configuration for deploying the FastAPI app using Modal.
-├── graph_generator.py      # Contains logic for parsing code and generating graph data (nodes and edges).
-├── custom_ast_parser.py    # Implements the tree-sitter based parsing logic for code analysis.
-├── requirements.txt        # Python dependencies for the backend server.
-├── README.md               # This file: project overview, setup, and usage instructions.
-│
-├── frontend/               # Contains the Next.js frontend application.
-│   ├── app/                # Core application files for the frontend (pages, layout).
-│   ├── components/         # Reusable React components for the UI.
-│   ├── utils/              # Utility functions for the frontend.
-│   ├── public/             # Static assets for the frontend.
-│   ├── package.json        # Frontend dependencies and scripts.
-│   └── ...                 # Other Next.js configuration files.
-│
-├── static/                 # Directory to serve static files, e.g., generated HTML graph visualizations.
-├── archives/               # (Potentially) For storing or processing archived repository versions.
-├── examples/               # Contains example ZIP files for testing.
-├── lib/                    # (Potentially) For third-party client-side libraries if not managed by frontend's package manager.
-├── templates/              # (Potentially) For HTML templates if the server rendered HTML directly (not primary use).
-└── __pycache__/            # Python bytecode cache (auto-generated).
+├── backend/                # Main backend FastAPI app and modules
+│   ├── config.py           # Configuration and settings
+│   ├── server.py           # FastAPI app entry point
+│   ├── controllers/        # API controllers (auth, chat, repo, etc.)
+│   ├── documentationo_generator/ # Documentation and code analysis logic
+│   ├── graphing/           # AST and dependency graph generation
+│   ├── models/             # Pydantic models and ORM classes
+│   ├── routes/             # API route definitions
+│   ├── schemas/            # Request/response schemas
+│   ├── storage/            # User and repo storage
+│   ├── utils/              # Utility functions (db, jwt, file, etc.)
+│   └── requirements.txt    # Python dependencies
+├── frontend/               # Next.js frontend (see frontend/README.md)
+│   ├── app/                # Main app pages and logic
+│   ├── components/         # React UI components
+│   ├── api-client/         # OpenAPI-generated client
+│   ├── public/             # Static assets (logo, etc.)
+│   └── ...                 # Other frontend folders
+├── archives/               # Old codebases or processed repositories
+├── examples/               # Sample inputs or test repos
+├── static/                 # Static files (dependency graphs, etc.)
+├── docker-compose.yaml     # Docker orchestration
+├── README.md               # You are here
+└── ...                     # Other project files
 ```
 
-## Installation
+---
 
-1. Clone the repository
-2. Install the required dependencies:
+## 📝 Contributing & More
 
-```bash
-pip install -r requirements.txt
-```
-
-## Usage
-
-### Running the server
-
-```bash
-uvicorn server:app --host 0.0.0.0 --port 8003 --reload
-```
-
-Or simply run:
-
-```bash
-python server.py
-```
-
-The server will be available at http://localhost:8003
-
-### API Documentation
-
-Once the server is running, you can access the auto-generated API documentation at:
-- Swagger UI: http://localhost:8003/docs
-- ReDoc: http://localhost:8003/redoc
-
-## API Endpoints
-
-The API provides the following endpoints for processing code repositories:
-
-- `POST /api/generate-text`: Generates LLM-friendly text from a code repository. Accepts either a `repo_url` (for remote repositories, e.g., GitHub) or a `zip_file` (for uploaded archives) as form data.
-- `POST /api/generate-graph`: Generates a dependency graph from a code repository. Accepts either a `repo_url` or a `zip_file` as form data.
-- `POST /api/generate-structure`: Generates the file structure and content of a code repository. Accepts either a `repo_url` or a `zip_file` as form data.
-
-Each endpoint processes the input and returns the respective output (text content, graph data, or file structure).
-
-## Example Usage
-
-### Generating Text from a GitHub Repository
-
-To generate text from a GitHub repository, send a POST request with `repo_url` and optionally `branch` as form data:
-
-```
-POST /api/generate-text
-Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
-
-------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="repo_url"
-
-https://github.com/username/repository
-------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="branch"
-
-main
-------WebKitFormBoundary7MA4YWxkTrZu0gW--
-```
-The server will respond with a JSON object containing the repository content and a suggested filename.
-
-### Generating Structure from an Uploaded ZIP File
-
-To generate the file structure from an uploaded ZIP file, send a POST request with `zip_file` as form data:
-
-```
-POST /api/generate-structure
-Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
-
-------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="zip_file"; filename="my_repo.zip"
-Content-Type: application/zip
-
-(binary content of my_repo.zip)
-------WebKitFormBoundary7MA4YWxkTrZu0gW--
-```
-The server will respond with a JSON object containing the repository's directory tree and file contents.
-
-### Generating a Dependency Graph
-
-Similarly, to generate a dependency graph, use the `/api/generate-graph` endpoint with either `repo_url` or `zip_file` as form data, similar to the examples above.
-
-## Frontend Workflow
-
-1.  **Access the Application**: The user navigates to the frontend URL in their web browser.
-2.  **Input Repository**:
-    *   The user chooses to either input a GitHub repository URL or upload a ZIP file.
-    *   For GitHub URLs, they can specify a branch and, if necessary (for private repositories or to avoid rate limits), provide a GitHub personal access token.
-3.  **Submit for Analysis**: The user submits the form.
-4.  **API Interaction**: The frontend sends the repository information to the backend API (e.g., `/api/generate-graph`, `/api/generate-structure`).
-5.  **Visualize Results**:
-    *   **Dependency Graph**: If graph generation is successful, an interactive graph is displayed. Users can explore connections between different code entities.
-    *   **File Structure & Code**: The repository's file tree is shown. Users can click on files to view their content in a code viewer, often with syntax highlighting.
-    *   **Text Summary**: If text generation is requested, the summarized text is displayed.
-6.  **Interaction**:
-    *   Users can click on nodes in the graph to see more details or navigate to the corresponding code.
-    *   Users can browse the file structure and read code.
-
-## Frontend Integration
-
-This API is designed to be easily integrated with frontend applications. You can build a custom frontend or use the existing JavaScript-based frontend with minimal modifications to point to these API endpoints.
+For questions, see the [GitHub Personal Access Token Guide](./GitHub%20Personal%20Access%20Token%20Guide.md) or open an issue.
