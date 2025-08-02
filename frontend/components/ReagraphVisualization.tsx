@@ -367,9 +367,9 @@ const OverviewTab = memo(
 
             {/* Filter Status Bar */}
             {search.filters && (
-              (search.filters.categories?.length > 0) || 
-              (search.filters.fileExtensions?.length > 0) || 
-              (search.filters.directories?.length > 0) ||
+              (search.filters.categories?.length || 0) > 0 || 
+              (search.filters.fileExtensions?.length || 0) > 0 || 
+              (search.filters.directories?.length || 0) > 0 ||
               (search.filters.minConnections !== undefined) ||
               (search.filters.maxConnections !== undefined)
             ) && (

@@ -91,7 +91,7 @@ export function useGraphSearch({
   });
 
   // Refs for debouncing and search engine
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | undefined>();
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const searchEngineRef = useRef<GraphSearchEngine | null>(null);
   const lastSearchRef = useRef<string>('');
 
