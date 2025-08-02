@@ -52,8 +52,13 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   if (request.temperature !== undefined)
     formData.append('temperature', request.temperature.toString());
   if (request.max_tokens) formData.append('max_tokens', request.max_tokens.toString());
-  if (request.include_full_context !== undefined)
-    formData.append('include_full_context', request.include_full_context.toString());
+  
+  // Handle boolean fields properly - only append if explicitly true to avoid FastAPI parsing "false" as truthy
+  if (request.include_full_context === true) {
+    formData.append('include_full_context', 'true');
+  }
+  // Don't append if false or undefined - let it default to False on backend
+  
   if (request.context_search_query)
     formData.append('context_search_query', request.context_search_query);
   if (request.scope_preference)

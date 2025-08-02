@@ -159,6 +159,7 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
         model: modelState.model,
         temperature: modelState.temperature,
         include_full_context: contextSettings.includeFullContext,
+        context_search_query: content, // Send user message as context search query for smart search
         scope_preference: contextSettings.scope,
         max_tokens: contextSettings.maxTokens,
       };
