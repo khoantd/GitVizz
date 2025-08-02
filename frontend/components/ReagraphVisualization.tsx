@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import { CodeReferenceAnalyzer } from '@/components/code-reference-analyzer';
+import { HierarchyTab } from '@/components/hierarchy-tab';
 import type { CodeReference, GraphData } from '@/types/code-analysis';
 
 // Properly import GraphCanvas with Next.js SSR handling
@@ -357,7 +358,7 @@ export default function EnhancedReagraphVisualization({
   const [isClient, setIsClient] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'map'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'hierarchy'>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
@@ -519,7 +520,8 @@ export default function EnhancedReagraphVisualization({
       const graphNode = graphData?.nodes.find((n) => n.id === node.id);
       if (graphNode) {
         setSelectedNode(graphNode);
-        setActiveTab('analysis');
+        // Set hierarchy as default for better UX
+        setActiveTab('hierarchy');
         setIsMobileSidebarOpen(true);
         onNodeClick?.(graphNode);
 
@@ -763,11 +765,11 @@ export default function EnhancedReagraphVisualization({
             <div className="flex-1 overflow-hidden">
               <Tabs
                 value={activeTab}
-                onValueChange={(v) => setActiveTab(v as 'overview' | 'analysis')}
+                onValueChange={(v) => setActiveTab(v as 'overview' | 'analysis' | 'hierarchy')}
                 className="flex-1 flex flex-col h-full"
               >
                 <div className="p-3 border-b border-border/30 flex-shrink-0">
-                  <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
+                  <TabsList className="grid w-full grid-cols-3 bg-muted/30 backdrop-blur-sm rounded-xl">
                     <TabsTrigger
                       value="overview"
                       className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs"
@@ -782,6 +784,13 @@ export default function EnhancedReagraphVisualization({
                       <Code className="w-3 h-3 mr-1" />
                       Analysis
                     </TabsTrigger>
+                    <TabsTrigger
+                      value="hierarchy"
+                      className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs"
+                    >
+                      <Layers className="w-3 h-3 mr-1" />
+                      Hierarchy
+                    </TabsTrigger>
                   </TabsList>
                 </div>
                 <div className="flex-1 overflow-hidden">
@@ -795,6 +804,19 @@ export default function EnhancedReagraphVisualization({
                           selectedNode={selectedCodeReference}
                           graphData={analysisGraphData}
                           maxDepth={3}
+                          onOpenFile={handleOpenFile}
+                        />
+                      )}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="hierarchy" className="h-full m-0 p-0">
+                    <div className="h-full">
+                      {selectedCodeReference && analysisGraphData && (
+                        <HierarchyTab
+                          selectedNode={selectedCodeReference}
+                          graphData={analysisGraphData}
+                          maxDepth={3}
+                          onDepthChange={() => {}}
                           onOpenFile={handleOpenFile}
                         />
                       )}
@@ -909,12 +931,12 @@ export default function EnhancedReagraphVisualization({
 
           <Tabs
             value={activeTab}
-            onValueChange={(v) => setActiveTab(v as 'overview' | 'analysis')}
+            onValueChange={(v) => setActiveTab(v as 'overview' | 'analysis' | 'hierarchy')}
             className="flex-1 flex flex-col h-full"
           >
             {/* Desktop Tab Navigation */}
             <div className="p-4 border-b border-border/30 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-2 bg-muted/30 backdrop-blur-sm rounded-xl">
+              <TabsList className="grid w-full grid-cols-3 bg-muted/30 backdrop-blur-sm rounded-xl">
                 <TabsTrigger
                   value="overview"
                   className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"
@@ -928,6 +950,13 @@ export default function EnhancedReagraphVisualization({
                 >
                   <Code className="w-4 h-4 mr-1.5" />
                   Analysis
+                </TabsTrigger>
+                <TabsTrigger
+                  value="hierarchy"
+                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"
+                >
+                  <Layers className="w-4 h-4 mr-1.5" />
+                  Hierarchy
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -945,6 +974,20 @@ export default function EnhancedReagraphVisualization({
                       selectedNode={selectedCodeReference}
                       graphData={analysisGraphData}
                       maxDepth={3}
+                      onOpenFile={handleOpenFile}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="hierarchy" className="h-full m-0 p-0">
+                <div className="h-full">
+                  {selectedCodeReference && analysisGraphData && (
+                    <HierarchyTab
+                      selectedNode={selectedCodeReference}
+                      graphData={analysisGraphData}
+                      maxDepth={3}
+                      onDepthChange={() => {}}
                       onOpenFile={handleOpenFile}
                     />
                   )}

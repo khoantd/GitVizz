@@ -82,6 +82,9 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isAutoFilled, setIsAutoFilled] = useState(false);
+  const [showAutoFillBadge, setShowAutoFillBadge] = useState(false);
+  const [shouldPulse, setShouldPulse] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- State for "My Repositories" Tab ---
@@ -110,6 +113,37 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const handleSuccess = useCallback((message: string) => {
     showToast.success(message);
   }, []);
+
+
+
+  // Handle URL auto-fill detection and animation
+  useEffect(() => {
+    if (prefilledRepo && prefilledRepo.trim() !== '') {
+      setIsAutoFilled(true);
+      setShowAutoFillBadge(true);
+      setShouldPulse(true);
+
+      // Show success toast for auto-fill
+      setTimeout(() => {
+        handleSuccess('🚀 Repository URL auto-filled from gitvizz.com link!');
+      }, 500);
+
+      // Stop pulse animation after 2 seconds
+      const pulseTimer = setTimeout(() => {
+        setShouldPulse(false);
+      }, 2000);
+
+      // Show the badge for 4 seconds, then fade it out
+      const badgeTimer = setTimeout(() => {
+        setShowAutoFillBadge(false);
+      }, 4000);
+
+      return () => {
+        clearTimeout(pulseTimer);
+        clearTimeout(badgeTimer);
+      };
+    }
+  }, [prefilledRepo, handleSuccess]);
 
   useEffect(() => {
     // Only run this effect when the "My Repositories" tab is active
@@ -421,15 +455,41 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                       </Label>
                       <SupportedLanguages languages={SUPPORTED_LANGUAGES} />
                     </div>
-                    <Input
-                      id="repo-url"
-                      placeholder="https://github.com/username/repository"
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                      className="h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base"
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="repo-url"
+                        placeholder="https://github.com/username/repository"
+                        value={repoUrl}
+                        onChange={(e) => {
+                          setRepoUrl(e.target.value);
+                          // Clear auto-fill state when user manually edits
+                          if (isAutoFilled) {
+                            setIsAutoFilled(false);
+                            setShowAutoFillBadge(false);
+                            setShouldPulse(false);
+                          }
+                        }}
+                        className={cn(
+                          'h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base transition-all duration-700',
+                          isAutoFilled &&
+                            'ring-2 ring-primary/30 border-primary/60 bg-primary/8 shadow-lg shadow-primary/10',
+                          shouldPulse && 'animate-pulse',
+                        )}
+                        required
+                      />
+
+                      {/* Auto-fill indication badge */}
+                      {showAutoFillBadge && (
+                        <div className="absolute -top-2 right-2 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                          <Badge className="bg-primary/90 text-primary-foreground border-primary/20 rounded-xl px-3 py-1 text-xs font-medium shadow-lg backdrop-blur-sm">
+                            <Zap className="h-3 w-3 mr-1.5" />
+                            Auto-filled from URL
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
                   <div className="flex items-center justify-between">
                     <Button
                       type="button"

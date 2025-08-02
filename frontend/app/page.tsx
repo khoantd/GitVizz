@@ -2,7 +2,7 @@
 
 import { useResultData } from '@/context/ResultDataContext';
 import { useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 // Custom Components
 import { RepoTabs } from '@/components/repo-tabs';
@@ -13,7 +13,16 @@ import Header from '@/components/header';
 function HomeContent() {
   const { error, outputMessage, setError, setOutputMessage } = useResultData();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const prefilledRepo = searchParams.get('repo');
+
+  // Clean up URL after prefill is detected and processed
+  useEffect(() => {
+    if (prefilledRepo) {
+      // Remove the query parameter from URL to prevent refresh issues
+      router.replace('/', { scroll: false });
+    }
+  }, [prefilledRepo, router]);
 
   useEffect(() => {
     if (error) {
@@ -44,14 +53,15 @@ function HomeContent() {
             From Repo to Reasoning — <span className="text-primary">Instantly</span>
           </h1>
           <p className="text-lg text-muted-foreground mb-6">
-            Transform any GitHub repository into comprehensive documentation and interactive insights.
+            Transform any GitHub repository into comprehensive documentation and interactive
+            insights.
           </p>
-          
+
           {/* Hub to Vizz Hint */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-sm text-muted-foreground">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-sm text-muted-foreground hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 cursor-default">
             <span className="font-mono">github.com/user/repo</span>
-            <span>→</span>
-            <span className="font-mono text-primary">gitvizz.com/user/repo</span>
+            <span className="text-primary">→</span>
+            <span className="font-mono text-primary font-medium">gitvizz.com/user/repo</span>
           </div>
         </div>
 
@@ -69,14 +79,16 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <HomeContent />
     </Suspense>
   );

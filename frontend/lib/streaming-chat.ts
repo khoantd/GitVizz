@@ -12,6 +12,7 @@ export interface StreamingChatRequest {
   max_tokens?: number;
   include_full_context?: boolean;
   context_search_query?: string;
+  scope_preference?: string;
 }
 
 export interface StreamingChunk {
@@ -30,6 +31,7 @@ export interface StreamingChunk {
   };
   provider?: string;
   model?: string;
+  context_metadata?: Record<string, unknown>;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
@@ -50,10 +52,17 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   if (request.temperature !== undefined)
     formData.append('temperature', request.temperature.toString());
   if (request.max_tokens) formData.append('max_tokens', request.max_tokens.toString());
-  if (request.include_full_context !== undefined)
-    formData.append('include_full_context', request.include_full_context.toString());
+  
+  // Handle boolean fields properly - only append if explicitly true to avoid FastAPI parsing "false" as truthy
+  if (request.include_full_context === true) {
+    formData.append('include_full_context', 'true');
+  }
+  // Don't append if false or undefined - let it default to False on backend
+  
   if (request.context_search_query)
     formData.append('context_search_query', request.context_search_query);
+  if (request.scope_preference)
+    formData.append('scope_preference', request.scope_preference);
 
   // Make the request to your backend
   const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {

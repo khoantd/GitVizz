@@ -26,6 +26,7 @@ import {
   Lock,
   BookOpen,
   Key,
+  Play,
 } from 'lucide-react';
 import { CodeViewer } from '@/components/CodeViewer';
 import { cn } from '@/lib/utils';
@@ -71,13 +72,23 @@ export default function ResultsPage() {
   // Handle restricted tab clicks
   const handleTabChange = (value: string) => {
     if (
-      (value === 'graph' || value === 'explorer' || value === 'documentation') &&
+      (value === 'graph' ||
+        value === 'explorer' ||
+        value === 'documentation' ||
+        value === 'video') &&
       !session?.accessToken
     ) {
       // Redirect to sign in page for restricted tabs
       router.push('/signin');
       return;
     }
+
+    // Show coming soon message for video tab
+    if (value === 'video') {
+      showToast.info('🎬 Code walk through Video generation, Coming Soon !!');
+      return;
+    }
+
     setActiveTab(value);
   };
 
@@ -315,7 +326,7 @@ export default function ResultsPage() {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-8">
           {/* Mobile Tab Navigation */}
           <div className="lg:hidden">
-            <TabsList className="grid w-full grid-cols-4 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
+            <TabsList className="grid w-full grid-cols-5 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
               <TabsTrigger
                 value="graph"
                 className={cn(
@@ -348,6 +359,17 @@ export default function ResultsPage() {
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
                 <BookOpen className="h-4 w-4" />
                 <span className="hidden xs:inline">Docs</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="video"
+                className={cn(
+                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 opacity-60',
+                  !session?.accessToken && 'opacity-40',
+                )}
+              >
+                {!session?.accessToken && <Lock className="h-3 w-3" />}
+                <Play className="h-4 w-4" />
+                <span className="hidden xs:inline">Video</span>
               </TabsTrigger>
               <TabsTrigger
                 value="structure"
@@ -395,6 +417,20 @@ export default function ResultsPage() {
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
                 <BookOpen className="h-5 w-5" />
                 <span>Documentation</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="video"
+                className={cn(
+                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center opacity-60 relative',
+                  !session?.accessToken && 'opacity-40',
+                )}
+              >
+                {!session?.accessToken && <Lock className="h-4 w-4" />}
+                <Play className="h-5 w-5" />
+                <span>Video</span>
+                <Badge className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  Soon
+                </Badge>
               </TabsTrigger>
               <TabsTrigger
                 value="structure"
@@ -587,6 +623,69 @@ export default function ResultsPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              ) : null}
+            </TabsContent>
+
+            {/* Video Tab - Coming Soon */}
+            <TabsContent value="video" className="mt-0 animate-in fade-in-50 duration-300">
+              {session?.accessToken ? (
+                <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-orange-500/10">
+                        <Play className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                            Video Analysis
+                          </h2>
+                          <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 rounded-xl px-2 py-1 text-xs font-medium">
+                            Coming Soon
+                          </Badge>
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          AI-powered video explanations and walkthroughs of your codebase
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-[500px] sm:h-[600px] lg:h-[700px] flex items-center justify-center">
+                    <div className="text-center space-y-6 p-8 max-w-md">
+                      <div className="relative">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
+                          <Play className="h-10 w-10 sm:h-12 sm:w-12 text-orange-500" />
+                        </div>
+                        <div className="absolute -top-2 -right-2">
+                          <Badge className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                            Soon
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <h3 className="text-lg sm:text-xl font-semibold text-foreground">
+                          Video Analysis Coming Soon
+                        </h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          We&apos;re working on an exciting new feature that will generate video
+                          explanations of your codebase, including code walkthroughs, architecture
+                          overviews, and interactive tutorials.
+                        </p>
+                      </div>
+                      <div className="bg-orange-50/80 dark:bg-orange-950/30 rounded-xl p-4 border border-orange-200/60 dark:border-orange-800/60">
+                        <h4 className="font-medium text-orange-800 dark:text-orange-200 mb-2">
+                          What to expect:
+                        </h4>
+                        <ul className="text-xs text-orange-700 dark:text-orange-300 space-y-1 text-left">
+                          <li>• AI-narrated code explanations</li>
+                          <li>• Visual architecture diagrams</li>
+                          <li>• Step-by-step feature walkthroughs</li>
+                          <li>• Interactive code tutorials</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : null}

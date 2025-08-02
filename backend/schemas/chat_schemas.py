@@ -69,6 +69,7 @@ class StreamChatResponse(BaseModel):
     model: Optional[str] = Field(None, description="Model name for all events")
     chat_id: Optional[str] = Field(None, description="Chat session ID")
     conversation_id: Optional[str] = Field(None, description="Conversation thread ID")
+    context_metadata: Optional[Dict[str, Any]] = Field(None, description="Smart context selection metadata")
 
 
 # Chat Request Models
@@ -89,6 +90,7 @@ class ChatRequest(BaseModel):
     # Context settings
     include_full_context: bool = Field(False, description="Include full repository content as context")
     context_search_query: Optional[str] = Field(None, description="Specific search query for context retrieval")
+    scope_preference: str = Field("moderate", description="Context scope preference: focused, moderate, or comprehensive")
 
     @validator('provider', pre=True)
     def validate_provider(cls, v):
@@ -109,6 +111,9 @@ class ChatResponse(BaseResponse):
     # Response content
     ai_response: Optional[str] = None
     context_used: Optional[str] = None
+    
+    # Context metadata
+    context_metadata: Optional[Dict[str, Any]] = Field(None, description="Smart context selection metadata")
     
     # Metadata
     usage: Optional[TokenUsage] = None
@@ -285,6 +290,7 @@ class StreamingChatRequest(BaseModel):
     # Context settings
     include_full_context: bool = Field(False, description="Include full repository content as context")
     context_search_query: Optional[str] = Field(None, description="Specific search query for context retrieval")
+    scope_preference: str = Field("moderate", description="Context scope preference: focused, moderate, or comprehensive")
 
     @validator('provider', pre=True)
     def validate_provider(cls, v):
@@ -312,6 +318,7 @@ class ChatFormData(BaseModel):
     max_tokens: Optional[int] = None
     include_full_context: bool = False
     context_search_query: Optional[str] = None
+    scope_preference: str = "moderate"
 
 
 class StreamingChatFormData(BaseModel):
@@ -327,6 +334,7 @@ class StreamingChatFormData(BaseModel):
     max_tokens: Optional[int] = None
     include_full_context: bool = False
     context_search_query: Optional[str] = None
+    scope_preference: str = "moderate"
 
 
 class ConversationHistoryFormData(BaseModel):

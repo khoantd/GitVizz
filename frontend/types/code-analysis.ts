@@ -49,3 +49,33 @@ export interface CodeReferenceProps {
   maxDepth?: number;
   onOpenFile: (filePath: string, line?: number) => void;
 }
+
+export interface HierarchyNode {
+  id: string;
+  name: string;
+  file: string;
+  code: string;
+  category: string;
+  start_line?: number;
+  end_line?: number;
+  depth: number;
+  relationship?: string;
+  children: HierarchyNode[];
+  isExpanded: boolean;
+  parentId?: string;
+}
+
+export interface HierarchyTree {
+  rootNode: HierarchyNode;
+  totalNodes: number;
+  maxDepth: number;
+  relationshipTypes: string[];
+}
+
+export interface HierarchyTabProps {
+  selectedNode: CodeReference;
+  graphData: GraphData;
+  maxDepth: number;
+  onDepthChange: (depth: number) => void;
+  onOpenFile: (filePath: string, line?: number) => void;
+}

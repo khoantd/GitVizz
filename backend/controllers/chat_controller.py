@@ -1,11 +1,16 @@
 import json
+import os
 from fastapi import HTTPException, Form, Depends
 from typing import Optional, AsyncGenerator, Annotated
 import uuid
 import time
 from datetime import datetime, timedelta
 import re
+import logging
 from beanie import BeanieObjectId
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 from models.chat import ChatSession, Conversation, UserApiKey
 from models.repository import Repository
@@ -13,6 +18,7 @@ from models.user import User
 from utils.llm_utils import llm_service
 from utils.file_utils import file_manager
 from utils.jwt_utils import get_current_user
+from services.graph_search_service import graph_search_service
 from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
     ChatSessionResponse, ApiKeyResponse,
@@ -73,26 +79,109 @@ class ChatController:
         self, 
         repository: Repository, 
         include_full: bool = False,
-        search_query: Optional[str] = None
-    ) -> str:
-        """Get repository context for the conversation"""
+        search_query: Optional[str] = None,
+        user_query: Optional[str] = None,
+        max_context_tokens: int = 4000,
+        scope_preference: str = "moderate"
+    ) -> tuple[str, Optional[dict]]:
+        """Get repository context for the conversation using smart graph search"""
+        logger.info("🗨️ Getting repository context for chat...")
+        logger.info(f"   Include full: {include_full} (type: {type(include_full)})")
+        logger.info(f"   Search query: '{search_query[:50] if search_query else 'None'}{'...' if search_query and len(search_query) > 50 else ''}'")
+        logger.info(f"   User query: '{user_query[:50] if user_query else 'None'}{'...' if user_query and len(user_query) > 50 else ''}'")
+        logger.info(f"   Max tokens: {max_context_tokens}")
+        logger.info(f"   Scope: {scope_preference}")
+        
+        # Check if graph data files exist
+        if hasattr(repository, 'file_paths') and hasattr(repository.file_paths, 'json_file'):
+            graph_file_exists = os.path.exists(repository.file_paths.json_file) if repository.file_paths.json_file else False
+            logger.info(f"   Graph data file exists: {graph_file_exists} ({repository.file_paths.json_file})")
+        else:
+            logger.warning("   Repository doesn't have graph file paths configured")
+        
         try:
             # Ensure we have a full Repository object, not just a Link
             if hasattr(repository, 'id') and not hasattr(repository, 'file_paths'):
                 # It's a Link object, fetch the full repository
                 repository = await Repository.get(repository.id)
                 if not repository:
-                    return "Repository not found."
+                    return "Repository not found.", None
             
-            # For now, always return the entire repository content
-            # from the text file (as per requirements)
-            full_content = await file_manager.load_text_content(repository.file_paths.text)
-            if full_content:
-                return full_content
-            return "Repository content not available."
+            # Decision logic for smart context vs full content
+            should_use_smart_context = (
+                not include_full and  # Don't force full context
+                (user_query or search_query) and  # Have a query to analyze
+                hasattr(repository.file_paths, 'json_file') and  # Graph data configured
+                repository.file_paths.json_file and  # Graph file path exists
+                os.path.exists(repository.file_paths.json_file)  # Graph file actually exists
+            )
+            
+            logger.info(f"🤔 Smart context decision:")
+            logger.info(f"   - include_full: {include_full}")
+            logger.info(f"   - has user_query: {bool(user_query)}")
+            logger.info(f"   - has search_query: {bool(search_query)}")
+            logger.info(f"   - graph file configured: {hasattr(repository.file_paths, 'json_file') and bool(repository.file_paths.json_file)}")
+            logger.info(f"   - graph file exists: {os.path.exists(repository.file_paths.json_file) if hasattr(repository.file_paths, 'json_file') and repository.file_paths.json_file else False}")
+            logger.info(f"   - DECISION: {'SMART CONTEXT' if should_use_smart_context else 'FULL CONTENT'}")
+            
+            if not should_use_smart_context:
+                reason = "forced full context" if include_full else "no query or missing graph data"
+                logger.info(f"📄 Using full repository content ({reason})")
+                full_content = await file_manager.load_text_content(repository.file_paths.text)
+                if full_content:
+                    logger.info(f"✅ Loaded full content: {len(full_content)} characters, ~{len(full_content.split())} tokens")
+                    return full_content, None
+                logger.warning("❌ Repository content not available")
+                return "Repository content not available.", None
+            
+            # Use smart graph search for context
+            logger.info("🧠 Using smart graph search for context...")
+            try:
+                # Use search_query if available, otherwise fall back to user_query
+                query_for_search = search_query or user_query
+                logger.info(f"   Using query for search: '{query_for_search[:100]}{'...' if len(query_for_search) > 100 else ''}'")
+                
+                smart_context_result = await graph_search_service.build_smart_context(
+                    repository=repository,
+                    user_query=query_for_search,
+                    max_context_tokens=max_context_tokens,
+                    scope_preference=scope_preference
+                )
+                
+                # Return both context and metadata
+                context_metadata = {
+                    "query_analysis": smart_context_result.metadata.query_analysis.model_dump(),
+                    "nodes_selected": smart_context_result.metadata.nodes_selected,
+                    "total_nodes_available": smart_context_result.metadata.total_nodes_available,
+                    "context_completeness": smart_context_result.metadata.context_completeness,
+                    "token_usage_estimate": smart_context_result.metadata.token_usage_estimate,
+                    "selection_strategy": smart_context_result.metadata.selection_strategy,
+                    "processing_time_ms": smart_context_result.metadata.processing_time_ms,
+                    "context_nodes": [node.model_dump() for node in smart_context_result.context_nodes]
+                }
+                
+                logger.info(f"✅ Smart context generated successfully!")
+                logger.info(f"   Strategy: {smart_context_result.metadata.selection_strategy}")
+                logger.info(f"   Nodes: {smart_context_result.metadata.nodes_selected}")
+                logger.info(f"   Tokens: {smart_context_result.metadata.token_usage_estimate}")
+                logger.info(f"   Processing time: {smart_context_result.metadata.processing_time_ms}ms")
+                
+                return smart_context_result.context_text, context_metadata
+                
+            except Exception as graph_error:
+                logger.error(f"❌ Error in smart graph search: {graph_error}")
+                logger.info("🔄 Falling back to full repository content...")
+                # Fallback to original behavior if graph search fails
+                full_content = await file_manager.load_text_content(repository.file_paths.text)
+                if full_content:
+                    logger.info(f"✅ Fallback successful: {len(full_content)} characters")
+                    return full_content, None
+                logger.warning("❌ Fallback failed - no content available")
+                return "Repository content not available.", None
+            
         except Exception as e:
-            print(f"Error loading repository context: {e}")
-            return "Error loading repository context."
+            logger.error(f"❌ Critical error loading repository context: {e}")
+            return "Error loading repository context.", None
     
     def generate_conversation_title(self, message: str) -> str:
         """Generate a meaningful and unique title for a conversation based on the user's query"""
@@ -120,7 +209,8 @@ class ChatController:
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
         include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
-        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None
+        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
+        scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
     ) -> ChatResponse:
         """Process a chat message and generate AI response"""
         
@@ -166,10 +256,13 @@ class ChatController:
             conversation.add_message("user", message)
             
             # Get repository context
-            context = await self.get_repository_context(
+            context, context_metadata = await self.get_repository_context(
                 chat_session.repository,
                 include_full_context,
-                context_search_query
+                context_search_query,
+                user_query=message,
+                max_context_tokens=max_tokens or 4000,
+                scope_preference=scope_preference
             )
             
             # Prepare messages for LLM
@@ -231,6 +324,7 @@ class ChatController:
                 conversation_id=conversation_id,
                 ai_response=llm_response["content"],
                 context_used=context[:500] + "..." if len(context) > 500 else context,
+                context_metadata=context_metadata,
                 usage=llm_response.get("usage"),
                 model_used=llm_response.get("model_used"),
                 provider=llm_response.get("provider"),
@@ -260,7 +354,8 @@ class ChatController:
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
         include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
-        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None
+        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
+        scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
     ) -> AsyncGenerator[str, None]:
         """Process a chat message with streaming response - yields JSON strings"""
         try:
@@ -340,10 +435,13 @@ class ChatController:
             conversation.add_message("user", message)
             
             # Get repository context - use the repository from chat_session which we know is fully loaded
-            context = await self.get_repository_context(
+            context, context_metadata = await self.get_repository_context(
                 chat_session.repository,
                 include_full_context,
-                context_search_query
+                context_search_query,
+                user_query=message,
+                max_context_tokens=max_tokens or 4000,
+                scope_preference=scope_preference
             )
             
             # Prepare messages for LLM
@@ -411,7 +509,8 @@ class ChatController:
                             model=chunk.get("model", model),
                             usage=final_usage,
                             chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
+                            conversation_id=conversation_id,
+                            context_metadata=context_metadata
                         ).model_dump()) + "\n"
                         
                     elif chunk.get("type") == "error":
