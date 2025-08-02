@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -54,15 +54,11 @@ interface ContextMetadata {
 
 interface ContextIndicatorProps {
   contextMetadata?: ContextMetadata;
-  isVisible?: boolean;
-  onToggle?: () => void;
   className?: string;
 }
 
 export function ContextIndicator({
   contextMetadata,
-  isVisible = false,
-  onToggle,
   className
 }: ContextIndicatorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -186,7 +182,7 @@ export function ContextIndicator({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
+                      onClick={() => setActiveTab(tab.id as 'overview' | 'nodes' | 'analysis')}
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors border-b-2 border-transparent",
                         activeTab === tab.id 

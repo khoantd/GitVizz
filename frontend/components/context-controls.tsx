@@ -16,7 +16,6 @@ import {
   Zap,
   Brain,
   FileText,
-  Code2,
   Search,
   RotateCcw,
   Info,

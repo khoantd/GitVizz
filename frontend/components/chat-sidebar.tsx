@@ -29,7 +29,7 @@ import { ChatHistory } from './chat-history';
 import { ChatMessage } from './chat-message';
 import { ModelSelector } from './model-selector';
 import { ContextIndicator } from './context-indicator';
-import { ContextControls, type ContextSettings } from './context-controls';
+import { ContextControls } from './context-controls';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 
 interface ChatSidebarProps {

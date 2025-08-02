@@ -31,7 +31,7 @@ export interface StreamingChunk {
   };
   provider?: string;
   model?: string;
-  context_metadata?: Record<string, any>;
+  context_metadata?: Record<string, unknown>;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {

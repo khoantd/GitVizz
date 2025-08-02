@@ -114,31 +114,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     showToast.success(message);
   }, []);
 
-  // Validate GitHub URL
-  const isValidGitHubUrl = useCallback((url: string) => {
-    if (!url.trim()) return false;
-    try {
-      const parsedUrl = new URL(url);
-      return (
-        parsedUrl.hostname === 'github.com' &&
-        parsedUrl.pathname.split('/').filter(Boolean).length >= 2
-      );
-    } catch {
-      return false;
-    }
-  }, []);
 
-  // Auto-submit form - REMOVED to keep it simple
-  const triggerAutoSubmit = useCallback(async () => {
-    // This function is no longer used but kept for compatibility
-    return;
-  }, []);
-
-  // Cancel auto-submit - REMOVED to keep it simple
-  const cancelAutoSubmit = useCallback(() => {
-    // This function is no longer used but kept for compatibility
-    return;
-  }, []);
 
   // Handle URL auto-fill detection and animation
   useEffect(() => {
