@@ -1,11 +1,16 @@
 import json
+import os
 from fastapi import HTTPException, Form, Depends
 from typing import Optional, AsyncGenerator, Annotated
 import uuid
 import time
 from datetime import datetime, timedelta
 import re
+import logging
 from beanie import BeanieObjectId
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 from models.chat import ChatSession, Conversation, UserApiKey
 from models.repository import Repository
@@ -80,6 +85,20 @@ class ChatController:
         scope_preference: str = "moderate"
     ) -> tuple[str, Optional[dict]]:
         """Get repository context for the conversation using smart graph search"""
+        logger.info("🗨️ Getting repository context for chat...")
+        logger.info(f"   Include full: {include_full} (type: {type(include_full)})")
+        logger.info(f"   Search query: '{search_query[:50] if search_query else 'None'}{'...' if search_query and len(search_query) > 50 else ''}'")
+        logger.info(f"   User query: '{user_query[:50] if user_query else 'None'}{'...' if user_query and len(user_query) > 50 else ''}'")
+        logger.info(f"   Max tokens: {max_context_tokens}")
+        logger.info(f"   Scope: {scope_preference}")
+        
+        # Check if graph data files exist
+        if hasattr(repository, 'file_paths') and hasattr(repository.file_paths, 'json_file'):
+            graph_file_exists = os.path.exists(repository.file_paths.json_file) if repository.file_paths.json_file else False
+            logger.info(f"   Graph data file exists: {graph_file_exists} ({repository.file_paths.json_file})")
+        else:
+            logger.warning("   Repository doesn't have graph file paths configured")
+        
         try:
             # Ensure we have a full Repository object, not just a Link
             if hasattr(repository, 'id') and not hasattr(repository, 'file_paths'):
@@ -88,18 +107,43 @@ class ChatController:
                 if not repository:
                     return "Repository not found.", None
             
-            # If include_full is True or user_query is not provided, fall back to original behavior
-            if include_full or not user_query:
+            # Decision logic for smart context vs full content
+            should_use_smart_context = (
+                not include_full and  # Don't force full context
+                (user_query or search_query) and  # Have a query to analyze
+                hasattr(repository.file_paths, 'json_file') and  # Graph data configured
+                repository.file_paths.json_file and  # Graph file path exists
+                os.path.exists(repository.file_paths.json_file)  # Graph file actually exists
+            )
+            
+            logger.info(f"🤔 Smart context decision:")
+            logger.info(f"   - include_full: {include_full}")
+            logger.info(f"   - has user_query: {bool(user_query)}")
+            logger.info(f"   - has search_query: {bool(search_query)}")
+            logger.info(f"   - graph file configured: {hasattr(repository.file_paths, 'json_file') and bool(repository.file_paths.json_file)}")
+            logger.info(f"   - graph file exists: {os.path.exists(repository.file_paths.json_file) if hasattr(repository.file_paths, 'json_file') and repository.file_paths.json_file else False}")
+            logger.info(f"   - DECISION: {'SMART CONTEXT' if should_use_smart_context else 'FULL CONTENT'}")
+            
+            if not should_use_smart_context:
+                reason = "forced full context" if include_full else "no query or missing graph data"
+                logger.info(f"📄 Using full repository content ({reason})")
                 full_content = await file_manager.load_text_content(repository.file_paths.text)
                 if full_content:
+                    logger.info(f"✅ Loaded full content: {len(full_content)} characters, ~{len(full_content.split())} tokens")
                     return full_content, None
+                logger.warning("❌ Repository content not available")
                 return "Repository content not available.", None
             
             # Use smart graph search for context
+            logger.info("🧠 Using smart graph search for context...")
             try:
+                # Use search_query if available, otherwise fall back to user_query
+                query_for_search = search_query or user_query
+                logger.info(f"   Using query for search: '{query_for_search[:100]}{'...' if len(query_for_search) > 100 else ''}'")
+                
                 smart_context_result = await graph_search_service.build_smart_context(
                     repository=repository,
-                    user_query=user_query,
+                    user_query=query_for_search,
                     max_context_tokens=max_context_tokens,
                     scope_preference=scope_preference
                 )
@@ -116,18 +160,27 @@ class ChatController:
                     "context_nodes": [node.model_dump() for node in smart_context_result.context_nodes]
                 }
                 
+                logger.info(f"✅ Smart context generated successfully!")
+                logger.info(f"   Strategy: {smart_context_result.metadata.selection_strategy}")
+                logger.info(f"   Nodes: {smart_context_result.metadata.nodes_selected}")
+                logger.info(f"   Tokens: {smart_context_result.metadata.token_usage_estimate}")
+                logger.info(f"   Processing time: {smart_context_result.metadata.processing_time_ms}ms")
+                
                 return smart_context_result.context_text, context_metadata
                 
             except Exception as graph_error:
-                print(f"Error in smart graph search, falling back to full content: {graph_error}")
+                logger.error(f"❌ Error in smart graph search: {graph_error}")
+                logger.info("🔄 Falling back to full repository content...")
                 # Fallback to original behavior if graph search fails
                 full_content = await file_manager.load_text_content(repository.file_paths.text)
                 if full_content:
+                    logger.info(f"✅ Fallback successful: {len(full_content)} characters")
                     return full_content, None
+                logger.warning("❌ Fallback failed - no content available")
                 return "Repository content not available.", None
             
         except Exception as e:
-            print(f"Error loading repository context: {e}")
+            logger.error(f"❌ Critical error loading repository context: {e}")
             return "Error loading repository context.", None
     
     def generate_conversation_title(self, message: str) -> str:

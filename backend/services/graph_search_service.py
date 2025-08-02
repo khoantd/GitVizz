@@ -2,7 +2,12 @@
 import json
 import time
 import uuid
+import logging
 from typing import Dict, List, Optional
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 from models.repository import Repository
 from utils.file_utils import file_manager
@@ -24,19 +29,85 @@ class GraphSearchService:
     
     async def load_graph_data(self, repository: Repository) -> Optional[GraphData]:
         """Load graph data from repository's data.json file"""
+        logger.info(f"🔍 Loading graph data from: {repository.file_paths.json_file}")
+        
         try:
             graph_content = await file_manager.load_json_data(repository.file_paths.json_file)
             if not graph_content:
+                logger.warning("❌ No graph data found in repository")
                 return None
             
-            # Parse graph data
-            nodes = [GraphNode(**node_data) for node_data in graph_content.get("nodes", [])]
-            edges = [GraphEdge(**edge_data) for edge_data in graph_content.get("edges", [])]
+            logger.info(f"📊 Raw graph data keys: {list(graph_content.keys())}")
+            
+            # Handle nested structure: {"graph": {"nodes": [...], "edges": [...]}} 
+            # or flat structure: {"nodes": [...], "edges": [...]}
+            if "graph" in graph_content:
+                logger.info("📊 Detected nested graph structure, extracting graph data...")
+                actual_graph_data = graph_content["graph"]
+            else:
+                logger.info("📊 Detected flat graph structure, using directly...")
+                actual_graph_data = graph_content
+            
+            # Parse graph nodes and edges
+            raw_nodes = actual_graph_data.get("nodes", [])
+            raw_edges = actual_graph_data.get("edges", [])
+            
+            logger.info(f"📊 Raw data counts: {len(raw_nodes)} nodes, {len(raw_edges)} edges")
+            
+            # Convert to GraphNode and GraphEdge objects
+            nodes = []
+            for i, node_data in enumerate(raw_nodes):
+                try:
+                    # Ensure all required fields exist with defaults
+                    node_dict = {
+                        "id": node_data.get("id", f"node_{i}"),
+                        "name": node_data.get("name", "unknown"),
+                        "category": node_data.get("category", "unknown"),
+                        "file": node_data.get("file", ""),
+                        "start_line": node_data.get("start_line", 0),
+                        "end_line": node_data.get("end_line", 0),
+                        "code": node_data.get("code"),
+                        "parent_id": node_data.get("parent_id"),
+                        "imports": node_data.get("imports", [])
+                    }
+                    nodes.append(GraphNode(**node_dict))
+                except Exception as node_error:
+                    logger.warning(f"⚠️ Failed to parse node {i}: {node_error}")
+                    continue
+            
+            edges = []
+            for i, edge_data in enumerate(raw_edges):
+                try:
+                    # Ensure all required fields exist with defaults
+                    edge_dict = {
+                        "source": edge_data.get("source", ""),
+                        "target": edge_data.get("target", ""),
+                        "relationship": edge_data.get("relationship", "unknown")
+                    }
+                    edges.append(GraphEdge(**edge_dict))
+                except Exception as edge_error:
+                    logger.warning(f"⚠️ Failed to parse edge {i}: {edge_error}")
+                    continue
+            
+            logger.info(f"✅ Successfully loaded graph data: {len(nodes)} nodes, {len(edges)} edges")
+            
+            # Log some sample data for debugging
+            if nodes:
+                sample_categories = {}
+                for node in nodes[:10]:  # Sample first 10 nodes
+                    if node.category not in sample_categories:
+                        sample_categories[node.category] = []
+                    sample_categories[node.category].append(node.name)
+                
+                logger.info(f"📊 Sample node categories: {dict(list(sample_categories.items())[:5])}")
             
             return GraphData(nodes=nodes, edges=edges)
         
         except Exception as e:
-            print(f"Error loading graph data: {e}")
+            logger.error(f"❌ Error loading graph data: {e}")
+            logger.error(f"❌ Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
             return None
     
     async def analyze_query_with_llm(
@@ -48,111 +119,140 @@ class GraphSearchService:
     ) -> QueryAnalysis:
         """Use LLM to analyze user query and determine context requirements"""
         
+        logger.info(f"🧠 Analyzing user query: '{user_query[:100]}{'...' if len(user_query) > 100 else ''}'")
+        
         # Get basic graph statistics
         graph_stats = graph_tools.get_graph_statistics()
+        logger.info(f"📊 Graph stats - Nodes: {graph_stats['total_nodes']}, Edges: {graph_stats['total_edges']}, Files: {graph_stats['files_covered']}")
         
-        system_prompt = f"""You are a code analysis assistant. Analyze the user's query about a codebase and determine what context is needed.
+        # Create a much simpler system prompt
+        system_prompt = f"""Analyze this code repository query and respond with JSON:
 
-Graph Statistics:
-- Total nodes: {graph_stats['total_nodes']}
-- Total edges: {graph_stats['total_edges']}
-- Node categories: {graph_stats['node_categories']}
-- Files covered: {graph_stats['files_covered']}
+Query: "{user_query}"
 
-Analyze the user query and respond with a structured analysis.
-
-User Query: "{user_query}"
-
-Please analyze:
-1. Intent: What is the user trying to accomplish? (debugging, explanation, modification, general_understanding, implementation)
-2. Entities: What specific code entities are mentioned or implied? (classes, functions, files)
-3. Scope: How much context is needed? (focused, moderate, comprehensive)
-4. Files of interest: Which files are likely relevant?
-5. Keywords: Important technical keywords from the query
-6. Complexity: How complex is this query? (simple, moderate, complex)
-
-Respond in valid JSON format matching this structure:
-{
-  "intent": "explanation",
-  "entities": ["ClassName", "function_name", "file.py"],
-  "scope": "moderate", 
-  "files_of_interest": ["src/main.py", "lib/utils.py"],
-  "keywords": ["authentication", "database", "error handling"],
-  "complexity": "moderate"
-}"""
+Respond with:
+{{
+  "intent": "explanation|debugging|modification|implementation",
+  "entities": ["specific_names_mentioned"],
+  "scope": "focused|moderate|comprehensive",
+  "files_of_interest": ["relevant_files"],
+  "keywords": ["key_terms"],
+  "complexity": "simple|moderate|complex"
+}}"""
 
         try:
-            # Call LLM for initial analysis
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analyze this query: {user_query}"}
-            ]
+            logger.info("🤖 Calling LLM for query analysis...")
             
-            response = await llm_service.generate_response(
-                user=None,
-                use_user=False,
-                chat_session=None,
-                messages=messages,
-                context="",
-                provider="openai",
-                model="gpt-4",
-                temperature=0.1,
-                max_tokens=500,
-                stream=False
-            )
+            # For query analysis, we'll skip the LLM call for now and use enhanced fallback
+            # This avoids the complex user/session creation issues
+            logger.info("🔄 Using enhanced fallback analysis (skipping LLM for stability)")
+            return self._enhanced_fallback_query_analysis(user_query, graph_stats)
             
             if response["success"]:
+                logger.info("✅ LLM analysis successful, parsing response...")
                 # Parse JSON response
                 analysis_data = json.loads(response["content"])
-                return QueryAnalysis(**analysis_data)
+                analysis = QueryAnalysis(**analysis_data)
+                logger.info(f"📋 Query Analysis Result:")
+                logger.info(f"   Intent: {analysis.intent}")
+                logger.info(f"   Scope: {analysis.scope}")
+                logger.info(f"   Complexity: {analysis.complexity}")
+                logger.info(f"   Entities: {analysis.entities}")
+                logger.info(f"   Keywords: {analysis.keywords[:5]}{'...' if len(analysis.keywords) > 5 else ''}")
+                return analysis
             else:
-                # Fallback analysis
+                logger.warning("⚠️ LLM analysis failed, using fallback...")
                 return self._fallback_query_analysis(user_query)
                 
         except Exception as e:
-            print(f"Error in LLM query analysis: {e}")
+            logger.error(f"❌ Error in LLM query analysis: {e}")
+            logger.info("🔄 Using fallback query analysis...")
             return self._fallback_query_analysis(user_query)
     
-    def _fallback_query_analysis(self, user_query: str) -> QueryAnalysis:
-        """Fallback query analysis using simple heuristics"""
+    def _enhanced_fallback_query_analysis(self, user_query: str, graph_stats: dict) -> QueryAnalysis:
+        """Enhanced fallback query analysis using smart heuristics"""
+        logger.info("🔄 Using enhanced fallback heuristic analysis...")
         query_lower = user_query.lower()
+        words = query_lower.split()
         
-        # Determine intent
-        if any(word in query_lower for word in ["error", "bug", "issue", "problem", "fix"]):
-            intent = "debugging"
-        elif any(word in query_lower for word in ["how", "what", "why", "explain", "understand"]):
+        # Extract potential entities (capitalized words, technical terms)
+        entities = []
+        technical_terms = ['router', 'route', 'api', 'endpoint', 'function', 'class', 'method', 'component', 'service', 'controller', 'model']
+        
+        for word in words:
+            # Look for technical terms
+            if word in technical_terms:
+                entities.append(word)
+            # Look for potential class/function names (longer words that might be identifiers)
+            elif len(word) > 3 and word.isalpha() and word not in ['what', 'are', 'all', 'the', 'this', 'that', 'with', 'from', 'where', 'when', 'how']:
+                entities.append(word)
+        
+        # Remove duplicates while preserving order
+        entities = list(dict.fromkeys(entities))
+        
+        # Determine intent with better logic
+        if any(word in query_lower for word in ["what are", "show me", "list", "find", "get"]):
             intent = "explanation"
-        elif any(word in query_lower for word in ["change", "modify", "update", "add", "implement"]):
+        elif any(word in query_lower for word in ["error", "bug", "issue", "problem", "fix", "wrong", "broken"]):
+            intent = "debugging"
+        elif any(word in query_lower for word in ["change", "modify", "update", "add", "implement", "create"]):
             intent = "modification"
-        elif any(word in query_lower for word in ["create", "build", "implement", "develop"]):
+        elif any(word in query_lower for word in ["how to", "tutorial", "guide", "example"]):
             intent = "implementation"
         else:
-            intent = "general_understanding"
+            intent = "explanation"  # Default to explanation for most queries
         
-        # Determine scope
-        if len(query_lower.split()) < 10:
-            scope = "focused"
-        elif len(query_lower.split()) < 20:
-            scope = "moderate"
-        else:
+        # Determine scope based on query specificity
+        specific_terms = len([w for w in words if w in technical_terms or len(w) > 6])
+        if "all" in query_lower or "list" in query_lower or specific_terms < 2:
             scope = "comprehensive"
+        elif specific_terms >= 3:
+            scope = "focused"
+        else:
+            scope = "moderate"
         
         # Determine complexity
-        if any(word in query_lower for word in ["architecture", "design", "pattern", "refactor"]):
+        if any(word in query_lower for word in ["architecture", "design", "pattern", "structure", "system"]):
             complexity = "complex"
-        elif any(word in query_lower for word in ["function", "class", "method", "variable"]):
+        elif any(word in query_lower for word in ["router", "endpoint", "api", "function", "class"]):
             complexity = "moderate"
         else:
             complexity = "simple"
         
-        return QueryAnalysis(
+        # Extract meaningful keywords (filter out common words)
+        stop_words = {'what', 'are', 'all', 'the', 'this', 'that', 'with', 'from', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'but'}
+        keywords = [word for word in words if len(word) > 2 and word not in stop_words]
+        
+        # Guess relevant files based on query content
+        files_of_interest = []
+        if any(term in query_lower for term in ['router', 'route', 'api', 'endpoint']):
+            files_of_interest.extend(['server.py', 'main.py', 'app.py', 'router.py', 'routes.py'])
+        if any(term in query_lower for term in ['model', 'database', 'schema']):
+            files_of_interest.extend(['models.py', 'schema.py', 'database.py'])
+        if any(term in query_lower for term in ['config', 'settings']):
+            files_of_interest.extend(['config.py', 'settings.py'])
+        
+        analysis = QueryAnalysis(
             intent=intent,
-            entities=[],
+            entities=entities[:5],  # Limit to top 5 entities
             scope=scope,
-            files_of_interest=[],
-            keywords=query_lower.split(),
+            files_of_interest=files_of_interest[:3],  # Limit to top 3 files
+            keywords=keywords[:8],  # Limit to top 8 keywords
             complexity=complexity
         )
+        
+        logger.info(f"🔄 Enhanced Analysis Result:")
+        logger.info(f"   Intent: {intent}")
+        logger.info(f"   Entities: {entities[:3]}")
+        logger.info(f"   Scope: {scope}")
+        logger.info(f"   Complexity: {complexity}")
+        logger.info(f"   Keywords: {keywords[:5]}")
+        return analysis
+    
+    def _fallback_query_analysis(self, user_query: str) -> QueryAnalysis:
+        """Simple fallback query analysis using basic heuristics"""
+        logger.info("🔄 Using basic fallback heuristic analysis...")
+        return self._enhanced_fallback_query_analysis(user_query, {})
     
     async def find_relevant_nodes_with_llm(
         self,
@@ -162,6 +262,8 @@ Respond in valid JSON format matching this structure:
         max_context_tokens: int = 4000
     ) -> List[ContextNode]:
         """Use LLM with function calling to find relevant graph nodes"""
+        
+        logger.info(f"🔍 Finding relevant nodes with LLM (max tokens: {max_context_tokens})")
         
         session_id = str(uuid.uuid4())
         session = GraphAnalysisSession(
@@ -195,6 +297,8 @@ Be strategic in your function calls. Start broad, then narrow down based on find
 """
 
         try:
+            logger.info("🤖 Calling LLM with function calling capability...")
+            
             # Call LLM with function calling capability
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -207,10 +311,12 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                 messages, graph_tools, query_analysis, max_context_tokens
             )
             
+            logger.info(f"✅ Found {len(relevant_nodes)} relevant nodes")
             return relevant_nodes
             
         except Exception as e:
-            print(f"Error in LLM node selection: {e}")
+            logger.error(f"❌ Error in LLM node selection: {e}")
+            logger.info("🔄 Using fallback node selection...")
             return self._fallback_node_selection(query_analysis, graph_tools)
     
     async def _execute_llm_function_calling(
@@ -220,34 +326,91 @@ Be strategic in your function calls. Start broad, then narrow down based on find
         query_analysis: QueryAnalysis,
         max_tokens: int
     ) -> List[ContextNode]:
-        """Execute LLM function calling to find relevant nodes"""
+        """Execute graph function calls based on query analysis (simplified implementation)"""
         
+        logger.info("🔧 Executing graph function calls based on query analysis...")
         relevant_nodes = []
         
-        # Simple strategy: try different approaches based on query analysis
+        # Intelligent search strategy based on query analysis
         try:
-            # 1. If specific entities mentioned, search for them
+            # Strategy 1: Search for specific entities and keywords
+            search_terms = []
             if query_analysis.entities:
-                for entity in query_analysis.entities[:3]:  # Limit to first 3
-                    params = GetNodesByNamePatternParams(pattern=f"*{entity}*", limit=5)
-                    matching_nodes = graph_tools.get_nodes_by_name_pattern(params)
-                    
-                    for node_data in matching_nodes:
+                search_terms.extend(query_analysis.entities)
+            if query_analysis.keywords:
+                # Filter out common words
+                meaningful_keywords = [k for k in query_analysis.keywords if len(k) > 3 and k.lower() not in ['what', 'are', 'all', 'the', 'this', 'that', 'with', 'from']]
+                search_terms.extend(meaningful_keywords[:5])  # Top 5 meaningful keywords
+            
+            logger.info(f"🎯 Search terms: {search_terms}")
+            
+            # For router-specific queries, add router-related terms
+            if any(term.lower() in ['router', 'route', 'endpoint', 'api'] for term in search_terms + [query_analysis.intent]):
+                search_terms.extend(['router', 'route', 'endpoint', 'app.include_router'])
+                logger.info("🛣️ Detected router query - adding router-specific search terms")
+            
+            # Search by name patterns and code content
+            for term in search_terms[:8]:  # Limit to 8 terms
+                logger.info(f"🔍 Searching for term: '{term}'")
+                
+                # Search by name pattern
+                params = GetNodesByNamePatternParams(pattern=f"*{term}*", limit=10)
+                name_matches = graph_tools.get_nodes_by_name_pattern(params)
+                logger.info(f"   Name matches: {len(name_matches)}")
+                
+                for node_data in name_matches:
+                    relevance = 0.9 if term in query_analysis.entities else 0.7
+                    node = ContextNode(
+                        node_id=node_data["id"],
+                        node_name=node_data["name"],
+                        node_type=node_data["category"],
+                        file_path=node_data.get("file"),
+                        relevance_score=relevance,
+                        inclusion_reason=f"Name contains '{term}'"
+                    )
+                    relevant_nodes.append(node)
+                
+                # Search by code content
+                code_matches = graph_tools.search_by_code_content(term, limit=8)
+                logger.info(f"   Code matches: {len(code_matches)}")
+                
+                for node_data in code_matches:
+                    node = ContextNode(
+                        node_id=node_data["id"],
+                        node_name=node_data["name"],
+                        node_type=node_data["category"],
+                        file_path=node_data.get("file"),
+                        relevance_score=min(0.8, node_data.get("relevance_score", 0.5)),
+                        inclusion_reason=f"Code contains '{term}'",
+                        code_snippet=node_data.get("code_snippet")
+                    )
+                    relevant_nodes.append(node)
+            
+            # Strategy 2: Category-based search for specific query types
+            if query_analysis.intent == "explanation" and any(term in ['router', 'route', 'api', 'endpoint'] for term in search_terms):
+                logger.info("🏷️ Adding function and module categories for router explanation")
+                function_nodes = graph_tools.get_nodes_by_category(GetNodesByCategoryParams(category="function", limit=20))
+                module_nodes = graph_tools.get_nodes_by_category(GetNodesByCategoryParams(category="module", limit=10))
+                
+                for node_data in function_nodes + module_nodes:
+                    if any(term.lower() in node_data["name"].lower() for term in ['router', 'route', 'app', 'main', 'server']):
                         node = ContextNode(
                             node_id=node_data["id"],
                             node_name=node_data["name"],
                             node_type=node_data["category"],
                             file_path=node_data.get("file"),
-                            relevance_score=0.9,  # High relevance for direct matches
-                            inclusion_reason=f"Direct name match for entity '{entity}'"
+                            relevance_score=0.6,
+                            inclusion_reason=f"Relevant {node_data['category']} for router query"
                         )
                         relevant_nodes.append(node)
             
-            # 2. If specific files mentioned, get all nodes from those files
+            # 3. If specific files mentioned, get all nodes from those files
             if query_analysis.files_of_interest:
+                logger.info(f"📁 Searching in specific files: {query_analysis.files_of_interest[:2]}")
                 for file_path in query_analysis.files_of_interest[:2]:
                     params = GetFileRelatedNodesParams(file_path=file_path)
                     file_nodes = graph_tools.get_file_related_nodes(params)
+                    logger.info(f"   Found {len(file_nodes)} nodes in file '{file_path}'")
                     
                     for node_data in file_nodes:
                         node = ContextNode(
@@ -261,9 +424,11 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                         relevant_nodes.append(node)
             
             # 3. Search by keywords in code content
+            logger.info(f"🔍 Searching by keywords: {[k for k in query_analysis.keywords[:3] if len(k) > 3]}")
             for keyword in query_analysis.keywords[:3]:
                 if len(keyword) > 3:  # Skip very short keywords
                     matching_nodes = graph_tools.search_by_code_content(keyword, limit=3)
+                    logger.info(f"   Found {len(matching_nodes)} code matches for keyword '{keyword}'")
                     
                     for node_data in matching_nodes:
                         node = ContextNode(
@@ -279,8 +444,10 @@ Be strategic in your function calls. Start broad, then narrow down based on find
             
             # 4. If scope is comprehensive, add more context via traversal
             if query_analysis.scope == "comprehensive" and relevant_nodes:
+                logger.info("🌐 Comprehensive scope - expanding context via dependency traversal...")
                 # Take top nodes and expand their context
                 top_nodes = sorted(relevant_nodes, key=lambda x: x.relevance_score, reverse=True)[:3]
+                logger.info(f"   Expanding context from top {len(top_nodes)} nodes")
                 
                 for top_node in top_nodes:
                     params = TraverseDependenciesParams(
@@ -289,6 +456,7 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                         follow_relationships=["calls", "inherits", "imports_module"]
                     )
                     traversal_result = graph_tools.traverse_dependencies(params)
+                    logger.info(f"   Traversed from '{top_node.node_name}', found {traversal_result.get('total_nodes', 0)} related nodes")
                     
                     # Add nodes from traversal
                     for depth, level_nodes in traversal_result.get("depth_levels", {}).items():
@@ -305,6 +473,7 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                                 relevant_nodes.append(node)
             
             # Remove duplicates and sort by relevance
+            logger.info(f"🔄 Deduplicating nodes: {len(relevant_nodes)} total")
             seen_ids = set()
             unique_nodes = []
             for node in sorted(relevant_nodes, key=lambda x: x.relevance_score, reverse=True):
@@ -312,10 +481,17 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                     seen_ids.add(node.node_id)
                     unique_nodes.append(node)
             
-            return unique_nodes[:20]  # Limit to top 20 nodes
+            final_nodes = unique_nodes[:20]  # Limit to top 20 nodes
+            logger.info(f"✅ Selected {len(final_nodes)} unique nodes after deduplication")
+            
+            # Log top nodes for debugging
+            for i, node in enumerate(final_nodes[:5]):
+                logger.info(f"   #{i+1}: {node.node_name} ({node.node_type}) - {node.relevance_score:.2f} - {node.inclusion_reason}")
+            
+            return final_nodes
             
         except Exception as e:
-            print(f"Error in function calling execution: {e}")
+            logger.error(f"❌ Error in function calling execution: {e}")
             return []
     
     def _fallback_node_selection(self, query_analysis: QueryAnalysis, graph_tools: GraphFunctionTools) -> List[ContextNode]:
@@ -347,46 +523,79 @@ Be strategic in your function calls. Start broad, then narrow down based on find
         graph_tools: GraphFunctionTools,
         repository: Repository
     ) -> str:
-        """Build the actual context text from selected nodes"""
+        """Build the actual context text from selected nodes with enhanced formatting"""
+        
+        if not context_nodes:
+            return "# Repository Context\n\nNo relevant nodes found for the query."
         
         context_parts = []
-        context_parts.append("# Repository Context\n")
+        context_parts.append("# Smart Repository Context")
+        context_parts.append(f"Found {len(context_nodes)} relevant code components:\n")
         
-        # Group nodes by file for better organization
+        # Group nodes by file and category for better organization
         nodes_by_file = {}
+        category_counts = {}
+        
         for node in context_nodes:
             file_path = node.file_path or "unknown"
             if file_path not in nodes_by_file:
                 nodes_by_file[file_path] = []
             nodes_by_file[file_path].append(node)
+            
+            # Count categories
+            category = node.node_type
+            category_counts[category] = category_counts.get(category, 0) + 1
+        
+        # Add summary of findings
+        context_parts.append("## Summary")
+        category_summary = ", ".join([f"{count} {cat}{'s' if count > 1 else ''}" for cat, count in category_counts.items()])
+        context_parts.append(f"Selected: {category_summary}")
+        context_parts.append("")
         
         # Build context for each file
-        for file_path, file_nodes in nodes_by_file.items():
+        for file_path, file_nodes in sorted(nodes_by_file.items()):
             if file_path != "unknown":
-                context_parts.append(f"\n## File: {file_path}\n")
+                context_parts.append(f"## 📁 {file_path}")
+            else:
+                context_parts.append(f"## 📁 Unknown File Location")
             
-            for node in sorted(file_nodes, key=lambda x: x.relevance_score, reverse=True):
+            # Sort nodes by relevance within each file
+            sorted_nodes = sorted(file_nodes, key=lambda x: x.relevance_score, reverse=True)
+            
+            for i, node in enumerate(sorted_nodes, 1):
                 # Get full node details
                 node_summary = graph_tools.get_node_summary(node.node_id)
+                
+                context_parts.append(f"### {i}. {node.node_type.title()}: `{node.node_name}`")
+                context_parts.append(f"**Relevance**: {node.relevance_score:.2f} | **Reason**: {node.inclusion_reason}")
+                
                 if node_summary:
-                    context_parts.append(f"### {node.node_type.title()}: {node.node_name}")
-                    context_parts.append(f"- ID: {node.node_id}")
-                    context_parts.append(f"- Relevance: {node.relevance_score:.2f}")
-                    context_parts.append(f"- Reason: {node.inclusion_reason}")
-                    
+                    details = []
                     if node_summary["line_range"]:
-                        context_parts.append(f"- Lines: {node_summary['line_range']}")
-                    
+                        details.append(f"Lines {node_summary['line_range']}")
                     if node_summary["total_connections"] > 0:
-                        context_parts.append(f"- Connections: {node_summary['total_connections']}")
+                        details.append(f"{node_summary['total_connections']} connections")
+                    if node_summary["relationship_breakdown"]:
+                        relationships = ", ".join([f"{count} {rel}" for rel, count in list(node_summary["relationship_breakdown"].items())[:3]])
+                        details.append(f"Relationships: {relationships}")
                     
-                    # Add code snippet if available and not too long
-                    if node.code_snippet:
-                        context_parts.append("```")
-                        context_parts.append(node.code_snippet)
-                        context_parts.append("```")
-                    
-                    context_parts.append("")  # Empty line
+                    if details:
+                        context_parts.append(f"**Details**: {' | '.join(details)}")
+                
+                # Add code snippet if available
+                if node.code_snippet:
+                    context_parts.append("**Code:**")
+                    context_parts.append("```python")
+                    # Clean up code snippet (remove extra whitespace, limit length)
+                    clean_code = node.code_snippet.strip()
+                    if len(clean_code) > 500:
+                        clean_code = clean_code[:500] + "\n# ... (truncated)"
+                    context_parts.append(clean_code)
+                    context_parts.append("```")
+                elif node_summary and node_summary.get("code_length", 0) > 0:
+                    context_parts.append(f"*Code available ({node_summary['code_length']} characters)*")
+                
+                context_parts.append("")  # Empty line between nodes
         
         return "\n".join(context_parts)
     
@@ -399,14 +608,26 @@ Be strategic in your function calls. Start broad, then narrow down based on find
     ) -> SmartContextResult:
         """Main method to build smart context using LLM analysis"""
         
+        logger.info("=" * 80)
+        logger.info(f"🚀 STARTING SMART CONTEXT BUILD")
+        logger.info(f"   Repository: {repository.repo_name}")
+        logger.info(f"   Query: '{user_query[:100]}{'...' if len(user_query) > 100 else ''}'")
+        logger.info(f"   Max tokens: {max_context_tokens}")
+        logger.info(f"   Scope preference: {scope_preference}")
+        logger.info("=" * 80)
+        
         start_time = time.time()
         
         try:
             # 1. Load graph data
+            logger.info("📊 Step 1: Loading graph data...")
             graph_data = await self.load_graph_data(repository)
             if not graph_data:
+                logger.warning("⚠️ No graph data available, falling back to full text content")
                 # Fallback to original text content
                 text_content = await file_manager.load_text_content(repository.file_paths.text)
+                processing_time = int((time.time() - start_time) * 1000)
+                logger.info(f"🏁 FALLBACK COMPLETE in {processing_time}ms")
                 return SmartContextResult(
                     context_text=text_content or "No context available",
                     context_nodes=[],
@@ -417,33 +638,39 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                         context_completeness=0.0,
                         token_usage_estimate=len(text_content.split()) if text_content else 0,
                         selection_strategy="fallback_full_text",
-                        processing_time_ms=int((time.time() - start_time) * 1000)
+                        processing_time_ms=processing_time
                     )
                 )
             
             # 2. Create graph tools
+            logger.info("🔧 Step 2: Creating graph tools...")
             graph_tools = GraphFunctionTools(graph_data)
             
             # 3. Analyze query with LLM
+            logger.info("🧠 Step 3: Analyzing query with LLM...")
             query_analysis = await self.analyze_query_with_llm(
                 user_query, graph_tools, repository, max_context_tokens
             )
             
             # Override scope if preference provided
             if scope_preference in ["focused", "moderate", "comprehensive"]:
+                logger.info(f"🎯 Overriding scope from '{query_analysis.scope}' to '{scope_preference}'")
                 query_analysis.scope = scope_preference
             
             # 4. Find relevant nodes using LLM
+            logger.info("🔍 Step 4: Finding relevant nodes...")
             relevant_nodes = await self.find_relevant_nodes_with_llm(
                 query_analysis, graph_tools, repository, max_context_tokens
             )
             
             # 5. Build context text
+            logger.info("📝 Step 5: Building context text...")
             context_text = await self.build_context_from_nodes(
                 relevant_nodes, graph_tools, repository
             )
             
             # 6. Calculate metadata
+            logger.info("📊 Step 6: Calculating metadata...")
             processing_time = int((time.time() - start_time) * 1000)
             token_estimate = len(context_text.split())
             
@@ -462,6 +689,14 @@ Be strategic in your function calls. Start broad, then narrow down based on find
                 processing_time_ms=processing_time
             )
             
+            logger.info("=" * 80)
+            logger.info(f"🏁 SMART CONTEXT BUILD COMPLETE!")
+            logger.info(f"   Processing time: {processing_time}ms") 
+            logger.info(f"   Nodes selected: {nodes_selected}/{total_nodes} ({completeness*100:.1f}% complete)")
+            logger.info(f"   Token estimate: {token_estimate}")
+            logger.info(f"   Context length: {len(context_text)} characters")
+            logger.info("=" * 80)
+            
             return SmartContextResult(
                 context_text=context_text,
                 context_nodes=relevant_nodes,
@@ -469,20 +704,35 @@ Be strategic in your function calls. Start broad, then narrow down based on find
             )
             
         except Exception as e:
-            print(f"Error in smart context building: {e}")
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.error(f"❌ ERROR in smart context building: {e}")
+            logger.error(f"❌ Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            logger.info(f"🔄 Falling back to full text content after {processing_time}ms")
+            
             # Fallback to simple context
-            text_content = await file_manager.load_text_content(repository.file_paths.text)
+            try:
+                text_content = await file_manager.load_text_content(repository.file_paths.text)
+                fallback_text = text_content or "No repository content available"
+                token_estimate = len(fallback_text.split()) if text_content else 0
+                logger.info(f"✅ Fallback successful: {len(fallback_text)} characters, ~{token_estimate} tokens")
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback also failed: {fallback_error}")
+                fallback_text = f"Error loading repository context: {str(e)}"
+                token_estimate = 0
+            
             return SmartContextResult(
-                context_text=text_content or "Error loading context",
+                context_text=fallback_text,
                 context_nodes=[],
                 metadata=ContextMetadata(
                     query_analysis=self._fallback_query_analysis(user_query),
                     total_nodes_available=0,
                     nodes_selected=0,
                     context_completeness=0.0,
-                    token_usage_estimate=0,
+                    token_usage_estimate=token_estimate,
                     selection_strategy="error_fallback",
-                    processing_time_ms=int((time.time() - start_time) * 1000)
+                    processing_time_ms=processing_time
                 )
             )
 

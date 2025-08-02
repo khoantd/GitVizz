@@ -31,6 +31,160 @@ class LLMService:
 
         # Model configurations
         self.model_configs = {
+            "openai": {
+                "gpt-4.1": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4.1-mini": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4.1-nano": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "o4-mini": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "o3-mini": {
+                    "max_tokens": 32000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "o3": {
+                    "max_tokens": 32000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "o1-mini": {
+                    "max_tokens": 32000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "o1-preview": {
+                    "max_tokens": 32000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4o-mini": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4o-mini-2024-07-18": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4o": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4o-2024-08-06": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4o-2024-05-13": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gpt-4-turbo": {
+                    "max_tokens": 128000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+            },
+            "anthropic": {
+                "claude-4": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-opus-4-20250514": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-sonnet-4-20250514": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3.7": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3-7-sonnet-20250219": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3.5": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3-5-sonnet-20240620": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3-haiku-20240307": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3-opus-20240229": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "claude-3-sonnet-20240229": {
+                    "max_tokens": 200000,
+                    "cost_per_1k": 0.0,  # Pricing not specified
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+            },
             "gemini": {
                 "gemini-1.5-flash": {
                     "max_tokens": 1000000,
@@ -44,7 +198,7 @@ class LLMService:
                     "rate_limit": "15 requests/minute",
                     "daily_limit": "1500 requests/day",
                 },
-            }
+            },
         }
 
     def encrypt_api_key(self, api_key: str) -> str:
