@@ -303,6 +303,7 @@ const OverviewTab = memo(
     // Determine if we're in search mode
     const isSearchMode = search.query.length > 0;
     const hasResults = search.hasResults;
+    const hasActiveFilters = search.filters && search.filters.categories && search.filters.categories.length > 0;
 
     return (
       <div className="h-full flex flex-col bg-background/20">
@@ -363,15 +364,139 @@ const OverviewTab = memo(
                 </button>
               </div>
             </div>
+
+            {/* Filter Status Bar */}
+            {search.filters && (
+              (search.filters.categories?.length > 0) || 
+              (search.filters.fileExtensions?.length > 0) || 
+              (search.filters.directories?.length > 0) ||
+              (search.filters.minConnections !== undefined) ||
+              (search.filters.maxConnections !== undefined)
+            ) && (
+              <div className="transition-all duration-300 overflow-hidden opacity-100">
+                <div className="flex flex-col gap-2 text-xs py-2 border-t border-border/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="text-muted-foreground font-medium">Active Filters</span>
+                    </div>
+                    <button
+                      onClick={() => search.setFilters({})}
+                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50 text-xs"
+                      title="Clear all filters"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {/* Category Filters */}
+                    {search.filters.categories?.map((category) => (
+                      <div key={`cat-${category}`} className="flex items-center gap-1">
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                        >
+                          <span className="text-xs opacity-70">Category:</span> {category}
+                        </Badge>
+                        <button
+                          onClick={() => search.setFilters({
+                            ...search.filters,
+                            categories: search.filters.categories?.filter(c => c !== category)
+                          })}
+                          className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors"
+                          title={`Remove ${category} filter`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* File Extension Filters */}
+                    {search.filters.fileExtensions?.map((ext) => (
+                      <div key={`ext-${ext}`} className="flex items-center gap-1">
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                        >
+                          <span className="text-xs opacity-70">Ext:</span> .{ext}
+                        </Badge>
+                        <button
+                          onClick={() => search.setFilters({
+                            ...search.filters,
+                            fileExtensions: search.filters.fileExtensions?.filter(e => e !== ext)
+                          })}
+                          className="text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
+                          title={`Remove .${ext} filter`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Directory Filters */}
+                    {search.filters.directories?.map((dir) => (
+                      <div key={`dir-${dir}`} className="flex items-center gap-1">
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                        >
+                          <span className="text-xs opacity-70">Dir:</span> {dir}
+                        </Badge>
+                        <button
+                          onClick={() => search.setFilters({
+                            ...search.filters,
+                            directories: search.filters.directories?.filter(d => d !== dir)
+                          })}
+                          className="text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 transition-colors"
+                          title={`Remove ${dir} filter`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Connection Filters */}
+                    {(search.filters.minConnections !== undefined || search.filters.maxConnections !== undefined) && (
+                      <div className="flex items-center gap-1">
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                        >
+                          <span className="text-xs opacity-70">Connections:</span> 
+                          {search.filters.minConnections !== undefined && search.filters.maxConnections !== undefined
+                            ? `${search.filters.minConnections}-${search.filters.maxConnections}`
+                            : search.filters.minConnections !== undefined
+                            ? `≥${search.filters.minConnections}`
+                            : `≤${search.filters.maxConnections}`
+                          }
+                        </Badge>
+                        <button
+                          onClick={() => search.setFilters({
+                            ...search.filters,
+                            minConnections: undefined,
+                            maxConnections: undefined
+                          })}
+                          className="text-orange-700 dark:text-orange-300 hover:text-orange-900 dark:hover:text-orange-100 transition-colors"
+                          title="Remove connection filter"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Content Area with proper scroll boundaries */}
         <div className="flex-1 min-h-0 relative">
-          {/* Search Mode - Improved Layout */}
+          {/* Search/Filter Mode - Improved Layout */}
           <div 
             className={`absolute inset-0 transition-all duration-300 ease-in-out ${
-              isSearchMode 
+              (isSearchMode || hasActiveFilters) 
                 ? 'translate-y-0 opacity-100 pointer-events-auto' 
                 : 'translate-y-4 opacity-0 pointer-events-none'
             }`}
@@ -510,7 +635,7 @@ const OverviewTab = memo(
           {/* Browse Mode - Improved Layout */}
           <div 
             className={`absolute inset-0 transition-all duration-300 ease-in-out ${
-              !isSearchMode 
+              (!isSearchMode && !hasActiveFilters)
                 ? 'translate-y-0 opacity-100 pointer-events-auto' 
                 : 'translate-y-4 opacity-0 pointer-events-none'
             }`}

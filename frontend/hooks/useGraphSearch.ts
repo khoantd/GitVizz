@@ -91,7 +91,7 @@ export function useGraphSearch({
   });
 
   // Refs for debouncing and search engine
-  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | undefined>();
   const searchEngineRef = useRef<GraphSearchEngine | null>(null);
   const lastSearchRef = useRef<string>('');
 
@@ -100,8 +100,19 @@ export function useGraphSearch({
     if (nodes.length > 0) {
       searchEngineRef.current = new GraphSearchEngine(nodes);
       setSearchStats(prev => ({ ...prev, totalNodes: nodes.length }));
+      
+      // Show all nodes by default when first loading
+      if (!query.trim() && (!filters || Object.keys(filters).length === 0)) {
+        const allResults = nodes.slice(0, maxResults).map(node => ({
+          node,
+          score: 1,
+          matchedFields: [] as string[],
+          highlightRanges: [] as Array<{ field: string; start: number; end: number }>
+        }));
+        setResults(allResults);
+      }
     }
-  }, [nodes]);
+  }, [nodes, query, filters, maxResults]);
 
   // Load search history on mount
   useEffect(() => {

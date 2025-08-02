@@ -120,51 +120,11 @@ export class FuzzyMatcher {
 
 export class GraphSearchEngine {
   private nodes: GraphNode[];
-  private searchIndex: Map<string, GraphNode[]>;
 
   constructor(nodes: GraphNode[]) {
     this.nodes = nodes;
-    this.searchIndex = this.buildSearchIndex(nodes);
   }
 
-  private buildSearchIndex(nodes: GraphNode[]): Map<string, GraphNode[]> {
-    const index = new Map<string, GraphNode[]>();
-    
-    nodes.forEach(node => {
-      // Index by name
-      this.addToIndex(index, node.name.toLowerCase(), node);
-      
-      // Index by file path
-      if (node.file) {
-        this.addToIndex(index, node.file.toLowerCase(), node);
-        // Index by filename only
-        const filename = node.file.split('/').pop()?.toLowerCase();
-        if (filename) {
-          this.addToIndex(index, filename, node);
-        }
-      }
-      
-      // Index by category
-      if (node.category) {
-        this.addToIndex(index, node.category.toLowerCase(), node);
-      }
-      
-      // Index by code content (first 100 chars)
-      if (node.code) {
-        const codeSnippet = node.code.substring(0, 100).toLowerCase();
-        this.addToIndex(index, codeSnippet, node);
-      }
-    });
-    
-    return index;
-  }
-
-  private addToIndex(index: Map<string, GraphNode[]>, key: string, node: GraphNode) {
-    if (!index.has(key)) {
-      index.set(key, []);
-    }
-    index.get(key)!.push(node);
-  }
 
   private applyFilters(nodes: GraphNode[], filters: SearchFilter): GraphNode[] {
     return nodes.filter(node => {
