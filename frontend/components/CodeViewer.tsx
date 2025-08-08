@@ -25,7 +25,6 @@ import {
   GripVertical,
   Maximize2,
   Minimize2,
-  Crosshair,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -146,14 +145,16 @@ export function CodeViewer({ className }: CodeViewerProps) {
     const editor = editorRef.current;
     const model = editor.getModel();
     if (!model) return;
-    const maxCol = model.getLineMaxColumn(selectedFileLine);
+    const lineCount = model.getLineCount();
+    const lineNumber = Math.max(1, Math.min(selectedFileLine, lineCount));
+    const maxCol = model.getLineMaxColumn(lineNumber);
     editor.setSelection({
-      startLineNumber: selectedFileLine,
+      startLineNumber: lineNumber,
       startColumn: 1,
-      endLineNumber: selectedFileLine,
+      endLineNumber: lineNumber,
       endColumn: maxCol,
     });
-    editor.revealLineInCenter(selectedFileLine);
+    editor.revealLineInCenter(lineNumber);
   }, [selectedFile, selectedFileLine]);
 
   const parseRepositoryStructure = (text: string): FileNode[] => {
@@ -1063,22 +1064,6 @@ export function CodeViewer({ className }: CodeViewerProps) {
                       </>
                     )}
                   </Button>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-2 text-xs rounded-lg"
-                          onClick={() => setSelectedFilePath?.(selectedFile.path)}
-                        >
-                          <Crosshair className="w-3 h-3" />
-                          Focus in Graph
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Center and highlight corresponding node</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
               </div>
             </div>

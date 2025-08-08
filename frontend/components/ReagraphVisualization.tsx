@@ -1041,14 +1041,18 @@ export default function EnhancedReagraphVisualization({
   // When explorer selects a file/line that corresponds to a graph node, focus that node in graph
   useEffect(() => {
     if (!graphData || !selectedFilePath) return;
-    const match = graphData.nodes.find(
-      (n) =>
-        n.file === selectedFilePath &&
-        (selectedFileLine ? n.start_line === selectedFileLine : true),
-    );
-    if (match) {
-      centerAndHighlightNode(match.id);
+    const candidates = graphData.nodes.filter((n) => n.file === selectedFilePath);
+    if (candidates.length === 0) return;
+    let target = candidates[0];
+    if (selectedFileLine) {
+      // Choose the node with start_line closest to selectedFileLine
+      target = candidates.reduce((best, cur) => {
+        const b = typeof best.start_line === 'number' ? best.start_line : Number.MAX_SAFE_INTEGER;
+        const c = typeof cur.start_line === 'number' ? cur.start_line : Number.MAX_SAFE_INTEGER;
+        return Math.abs(c - selectedFileLine) < Math.abs(b - selectedFileLine) ? cur : best;
+      }, target);
     }
+    if (target?.id) centerAndHighlightNode(target.id);
   }, [graphData, selectedFilePath, selectedFileLine, centerAndHighlightNode]);
 
   const reagraphData = useMemo((): ReagraphData | null => {
