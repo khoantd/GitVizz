@@ -9,7 +9,8 @@ from schemas.response_schemas import (
 from controllers.repo_controller import (
     generate_text_endpoint,
     generate_graph_endpoint,
-    generate_structure_endpoint
+    generate_structure_endpoint,
+    generate_subgraph_endpoint
 )
 
 router = APIRouter(prefix='/repo')
@@ -61,6 +62,25 @@ router.post(
         500: {"model": ErrorResponse, "description": "Server error during graph generation."},
     },
 )(generate_graph_endpoint)
+
+# Generate a subgraph (ego network or filtered view) for large graphs
+router.post(
+    "/generate-subgraph",
+    response_model=GraphResponse,
+    summary="Generates a subgraph (ego network or filtered subset) for large repositories.",
+    description="""
+    Returns a subset of the repository graph, centered at a node (ego network) and/or filtered by
+    categories, file paths, or relationship types. Uses cached full graph if available.
+    """,
+    response_description="JSON containing subgraph nodes and edges.",
+    responses={
+        200: {"description": "Subgraph data as JSON.", "model": GraphResponse},
+        400: {"model": ErrorResponse, "description": "Invalid input."},
+        401: {"model": ErrorResponse, "description": "Invalid or expired JWT token."},
+        404: {"model": ErrorResponse, "description": "Repository not found or no graph available."},
+        500: {"model": ErrorResponse, "description": "Server error during subgraph generation."},
+    },
+)(generate_subgraph_endpoint)
 
 router.post(
     "/generate-structure",

@@ -78,4 +78,7 @@ export interface HierarchyTabProps {
   maxDepth: number;
   onDepthChange: (depth: number) => void;
   onOpenFile: (filePath: string, line?: number) => void;
+  onSelectGraphNode?: (nodeId: string) => void;
+  focusedNodeId?: string;
+  onToggleFocus?: (nodeId: string) => void;
 }

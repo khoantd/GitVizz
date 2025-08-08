@@ -25,6 +25,7 @@ import {
   GripVertical,
   Maximize2,
   Minimize2,
+  Crosshair,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,12 @@ interface CodeViewerProps {
 
 export function CodeViewer({ className }: CodeViewerProps) {
   // Use repoContent from context
-  const { output: repoContent, selectedFilePath, setSelectedFilePath } = useResultData();
+  const {
+    output: repoContent,
+    selectedFilePath,
+    setSelectedFilePath,
+    selectedFileLine,
+  } = useResultData();
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -133,6 +139,22 @@ export function CodeViewer({ className }: CodeViewerProps) {
   const handleEditorDidMount = (editor: Monaco.editor.IStandaloneCodeEditor) => {
     editorRef.current = editor;
   };
+
+  // Highlight selected line when provided via context and reveal it in center
+  useEffect(() => {
+    if (!editorRef.current || !selectedFile || !selectedFileLine) return;
+    const editor = editorRef.current;
+    const model = editor.getModel();
+    if (!model) return;
+    const maxCol = model.getLineMaxColumn(selectedFileLine);
+    editor.setSelection({
+      startLineNumber: selectedFileLine,
+      startColumn: 1,
+      endLineNumber: selectedFileLine,
+      endColumn: maxCol,
+    });
+    editor.revealLineInCenter(selectedFileLine);
+  }, [selectedFile, selectedFileLine]);
 
   const parseRepositoryStructure = (text: string): FileNode[] => {
     const tree: FileNode[] = [];
@@ -1041,6 +1063,22 @@ export function CodeViewer({ className }: CodeViewerProps) {
                       </>
                     )}
                   </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-2 text-xs rounded-lg"
+                          onClick={() => setSelectedFilePath?.(selectedFile.path)}
+                        >
+                          <Crosshair className="w-3 h-3" />
+                          Focus in Graph
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Center and highlight corresponding node</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
             </div>
