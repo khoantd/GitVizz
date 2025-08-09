@@ -48,7 +48,9 @@ export default function ResultsPage() {
     userKeyPreferences,
   } = useResultData();
   const { data: session } = useSession();
-  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences);
+  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences, {
+    autoLoad: false,
+  });
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';

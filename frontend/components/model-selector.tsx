@@ -17,11 +17,11 @@ import { RefreshCw, Settings, Zap, Brain, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
-  currentModel: {
+  currentModel: Partial<{
     provider: string;
     model: string;
     temperature: number;
-  };
+  }>;
   availableModels: {
     providers: Record<string, string[]>;
     user_has_keys: string[];
@@ -36,7 +36,11 @@ export function ModelSelector({
   onModelChange,
   onRefresh,
 }: ModelSelectorProps) {
-  const [temperature, setTemperature] = useState(currentModel.temperature);
+  const safeProvider =
+    currentModel.provider ?? Object.keys(availableModels.providers)[0] ?? 'openai';
+  const safeModel =
+    currentModel.model ?? availableModels.providers[safeProvider]?.[0] ?? 'gpt-3.5-turbo';
+  const [temperature, setTemperature] = useState(currentModel.temperature ?? 0.7);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const getProviderIcon = (provider: string) => {
@@ -112,7 +116,7 @@ export function ModelSelector({
       <div className="space-y-2">
         {/* Provider Selection */}
         <Select
-          value={currentModel.provider}
+          value={safeProvider}
           onValueChange={(provider) => {
             const firstModel = availableModels.providers[provider]?.[0];
             if (firstModel) {
@@ -123,8 +127,8 @@ export function ModelSelector({
           <SelectTrigger className="w-full">
             <SelectValue>
               <div className="flex items-center gap-2">
-                {getProviderIcon(currentModel.provider)}
-                <span className="capitalize">{currentModel.provider}</span>
+                {getProviderIcon(safeProvider)}
+                <span className="capitalize">{safeProvider}</span>
               </div>
             </SelectValue>
           </SelectTrigger>
@@ -146,28 +150,25 @@ export function ModelSelector({
         </Select>
 
         {/* Model Selection */}
-        <Select
-          value={currentModel.model}
-          onValueChange={(model) => onModelChange(currentModel.provider, model)}
-        >
+        <Select value={safeModel} onValueChange={(model) => onModelChange(safeProvider, model)}>
           <SelectTrigger className="w-full">
             <SelectValue>
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className={cn('text-xs', getProviderColor(currentModel.provider))}
+                  className={cn('text-xs', getProviderColor(safeProvider))}
                 >
-                  {currentModel.model}
+                  {safeModel}
                 </Badge>
               </div>
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {availableModels.providers[currentModel.provider]?.map((model) => (
+            {(availableModels.providers[safeProvider] || []).map((model: string) => (
               <SelectItem key={model} value={model}>
                 <Badge
                   variant="secondary"
-                  className={cn('text-xs', getProviderColor(currentModel.provider))}
+                  className={cn('text-xs', getProviderColor(safeProvider))}
                 >
                   {model}
                 </Badge>

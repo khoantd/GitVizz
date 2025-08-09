@@ -34,7 +34,7 @@ interface ContextNode {
   line_range?: string;
 }
 
-interface ContextMetadata {
+export interface ContextMetadata {
   query_analysis: {
     intent: string;
     entities: string[];

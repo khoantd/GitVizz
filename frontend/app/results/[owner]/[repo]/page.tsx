@@ -484,7 +484,7 @@ export default function ResultsPage() {
             {/* Enhanced Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">
               <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                   <div className="flex items-center gap-3">
                     <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                       <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -498,7 +498,7 @@ export default function ResultsPage() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 <div className="p-4 sm:p-8">
                   <StructureTab />
                 </div>
@@ -509,7 +509,7 @@ export default function ResultsPage() {
             <TabsContent value="graph" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="space-y-2 sm:space-y-3">
                         <div className="flex items-center gap-3">
@@ -544,7 +544,7 @@ export default function ResultsPage() {
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh] h-[500px] sm:h-[600px] lg:h-[700px]">
                     {sourceType && sourceData ? (
                       <div className="h-full w-full min-h-[70vh] lg:min-h-[80vh] rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
@@ -578,8 +578,7 @@ export default function ResultsPage() {
             <TabsContent value="explorer" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  {/* Section Header */}
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
@@ -604,9 +603,9 @@ export default function ResultsPage() {
                         Expand View
                       </Button>
                     </div>
-                  </div>
-                  {/* Explorer Content */}
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
+                  </div> */}
+
+                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[800px]">
                     <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
                         <CodeViewer />
@@ -621,7 +620,7 @@ export default function ResultsPage() {
             <TabsContent value="documentation" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex items-center gap-3">
                       <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                         <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -635,8 +634,8 @@ export default function ResultsPage() {
                         </p>
                       </div>
                     </div>
-                  </div>
-                  <div className="h-[500px] sm:h-[600px] lg:h-[700px] overflow-auto rounded-xl">
+                  </div> */}
+                  <div className="h-[500px] sm:h-[600px] lg:h-[800px] overflow-auto rounded-xl">
                     {currentRepoId && sourceData && sourceType ? (
                       <div className="h-full w-full overflow-auto">
                         <DocumentationTab
@@ -762,7 +761,7 @@ export default function ResultsPage() {
                 className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
               >
                 {/* Popup Header */}
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
@@ -789,7 +788,7 @@ export default function ResultsPage() {
                       <span className="hidden sm:inline">Minimize</span>
                     </Button>
                   </div>
-                </div>
+                </div> */}
                 {/* Popup Content */}
                 <div className="flex-1 p-3 sm:p-6 overflow-hidden">
                   <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
