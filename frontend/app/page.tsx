@@ -6,7 +6,13 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Github, Star, Code, Search, MessageSquare, FileText, Network, Eye } from 'lucide-react';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 // Custom Components
 import { RepoTabs } from '@/components/repo-tabs';
@@ -161,16 +167,18 @@ function HomeContent() {
                         <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
                       </div>
                     </DialogTrigger>
-                    <DialogContent className="!max-w-[95vw] sm:!max-w-[95vw] md:!max-w-[95vw] lg:!max-w-[95vw] xl:!max-w-[95vw] !p-0 !border-0 bg-transparent shadow-none">
-                      <div className="relative w-[90vw] h-[80vh] max-w-[90vw] max-h-[90vh]">
-                        <Image
-                          src={feature.image}
-                          alt={feature.title}
-                          fill
-                          sizes="90vw"
-                          className="object-contain"
-                        />
-                      </div>
+                    <DialogContent className="!w-auto !max-w-[95vw] sm:!max-w-[95vw] md:!max-w-[95vw] lg:!max-w-[95vw] xl:!max-w-[95vw] !p-0 !border-0 bg-transparent shadow-none">
+                      <DialogTitle className="sr-only">{feature.title} screenshot</DialogTitle>
+                      <DialogDescription className="sr-only">
+                        Expanded preview of {feature.title}
+                      </DialogDescription>
+                      <Image
+                        src={feature.image}
+                        alt={feature.title}
+                        width={1600}
+                        height={1000}
+                        className="w-auto h-auto max-w-[90vw] max-h-[85vh] object-contain"
+                      />
                     </DialogContent>
                   </Dialog>
 
