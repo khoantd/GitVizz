@@ -1,5 +1,5 @@
 from fastapi import BackgroundTasks, HTTPException, Form, File, UploadFile
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Set
 from datetime import datetime
 import os
 from pathlib import Path
@@ -621,3 +621,181 @@ async def generate_structure_endpoint(
         raise HTTPException(
             status_code=500, detail=f"Error generating structure and content: {str(e)}"
         )
+
+
+def _build_id_index(nodes: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    return {n["id"]: n for n in nodes}
+
+
+def _ego_subgraph(
+    full_nodes: List[Dict[str, Any]],
+    full_edges: List[Dict[str, Any]],
+    center_id: str,
+    depth: int,
+    rel_types: Optional[Set[str]] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    id_to_node = _build_id_index(full_nodes)
+    if center_id not in id_to_node:
+        return {"nodes": [], "edges": []}
+
+    # Build adjacency (both directions) with relationship filtering
+    outgoing: Dict[str, List[Dict[str, Any]]] = {}
+    incoming: Dict[str, List[Dict[str, Any]]] = {}
+    for e in full_edges:
+        if rel_types and e.get("relationship") not in rel_types:
+            continue
+        s = e["source"]; t = e["target"]
+        outgoing.setdefault(s, []).append(e)
+        incoming.setdefault(t, []).append(e)
+
+    visited: Set[str] = set()
+    frontier: List[tuple[str, int]] = [(center_id, 0)]
+    sub_nodes: Set[str] = set([center_id])
+    sub_edges: List[Dict[str, Any]] = []
+
+    while frontier:
+        nid, d = frontier.pop(0)
+        if nid in visited or d > depth:
+            continue
+        visited.add(nid)
+        for e in outgoing.get(nid, []):
+            sub_edges.append(e)
+            sub_nodes.add(e["target"])
+            if e["target"] not in visited and d + 1 <= depth:
+                frontier.append((e["target"], d + 1))
+        for e in incoming.get(nid, []):
+            sub_edges.append(e)
+            sub_nodes.add(e["source"])
+            if e["source"] not in visited and d + 1 <= depth:
+                frontier.append((e["source"], d + 1))
+
+    unique_edges = []
+    seen = set()
+    for e in sub_edges:
+        key = (e["source"], e["target"], e.get("relationship"))
+        if key not in seen:
+            seen.add(key)
+            unique_edges.append(e)
+
+    return {
+        "nodes": [id_to_node[nid] for nid in sub_nodes if nid in id_to_node],
+        "edges": unique_edges,
+    }
+
+
+def _filter_subgraph(
+    full_nodes: List[Dict[str, Any]],
+    full_edges: List[Dict[str, Any]],
+    categories: Optional[Set[str]] = None,
+    directories: Optional[List[str]] = None,
+    rel_types: Optional[Set[str]] = None,
+    min_degree: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    # Filter nodes first
+    selected_nodes = []
+    degrees: Dict[str, int] = {}
+    for e in full_edges:
+        if rel_types and e.get("relationship") not in rel_types:
+            continue
+        degrees[e["source"]] = degrees.get(e["source"], 0) + 1
+        degrees[e["target"]] = degrees.get(e["target"], 0) + 1
+
+    for n in full_nodes:
+        if categories and (n.get("category") not in categories):
+            continue
+        if directories and n.get("file"):
+            dirpath = n["file"].rsplit("/", 1)[0] if "/" in n["file"] else ""
+            if not any(dirpath.startswith(d) for d in directories):
+                continue
+        if min_degree is not None and degrees.get(n["id"], 0) < min_degree:
+            continue
+        selected_nodes.append(n)
+    selected_ids = {n["id"] for n in selected_nodes}
+
+    filtered_edges = [
+        e for e in full_edges
+        if (not rel_types or e.get("relationship") in rel_types)
+        and e["source"] in selected_ids and e["target"] in selected_ids
+    ]
+
+    if limit and len(selected_nodes) > limit:
+        selected_nodes = selected_nodes[:limit]
+        selected_ids = {n["id"] for n in selected_nodes}
+        filtered_edges = [e for e in filtered_edges if e["source"] in selected_ids and e["target"] in selected_ids]
+
+    return {"nodes": selected_nodes, "edges": filtered_edges}
+
+
+async def generate_subgraph_endpoint(
+    background_tasks: BackgroundTasks,
+    repo_url: Optional[str] = Form(None, description="URL to a downloadable ZIP of the repository."),
+    branch: Optional[str] = Form("main", description="Branch for GitHub repo URL."),
+    access_token: Optional[str] = Form(None, description="Optional GitHub token."),
+    jwt_token: Optional[str] = Form(None, description="Optional JWT token."),
+    # Subgraph params
+    center_node_id: Optional[str] = Form(None, description="Center node id for ego network."),
+    depth: Optional[int] = Form(1, description="Traversal depth for ego network."),
+    categories: Optional[str] = Form(None, description="Comma-separated categories filter."),
+    directories: Optional[str] = Form(None, description="Comma-separated directory prefixes filter."),
+    relationship_types: Optional[str] = Form(None, description="Comma-separated relationship types filter."),
+    min_degree: Optional[int] = Form(None, description="Minimum degree for nodes."),
+    limit: Optional[int] = Form(500, description="Max nodes in subgraph."),
+) -> GraphResponse:
+    if not repo_url:
+        raise HTTPException(status_code=400, detail="repo_url must be provided for subgraph generation.")
+
+    user = None
+    repo_url = repo_url.lower()
+    if jwt_token:
+        user = await get_current_user(jwt_token)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
+
+    repo_identifier = generate_repo_identifier(repo_url, None, branch)
+    commit_sha = None
+    if "github.com" in repo_url and is_valid_access_token(access_token):
+        commit_sha = await get_latest_commit_sha(repo_url, branch, access_token)
+
+    # Load cached graph
+    if user:
+        existing_repo = await check_existing_repository(user, repo_identifier, commit_sha)
+        if existing_repo:
+            cached_data = await file_manager.load_json_data(existing_repo.file_paths.json_file)
+            if cached_data and "graph" in cached_data:
+                full = cached_data["graph"]
+                full_nodes: List[Dict[str, Any]] = full.get("nodes", [])  # type: ignore
+                full_edges: List[Dict[str, Any]] = full.get("edges", [])  # type: ignore
+
+                rel_types = set([s.strip() for s in relationship_types.split(",")]) if relationship_types else None
+                cat_set = set([s.strip() for s in categories.split(",")]) if categories else None
+                dirs = [s.strip() for s in directories.split(",")] if directories else None
+
+                subgraph: Dict[str, List[Dict[str, Any]]]
+                if center_node_id:
+                    subgraph = _ego_subgraph(full_nodes, full_edges, center_node_id, max(0, int(depth or 1)), rel_types)
+                    # Optional additional filtering on the ego result
+                    if cat_set or dirs or rel_types or min_degree is not None or limit is not None:
+                        subgraph = _filter_subgraph(
+                            subgraph["nodes"],
+                            subgraph["edges"],
+                            categories=cat_set,
+                            directories=dirs,
+                            rel_types=rel_types,
+                            min_degree=min_degree,
+                            limit=limit,
+                        )
+                else:
+                    subgraph = _filter_subgraph(
+                        full_nodes,
+                        full_edges,
+                        categories=cat_set,
+                        directories=dirs,
+                        rel_types=rel_types,
+                        min_degree=min_degree,
+                        limit=limit,
+                    )
+
+                return GraphResponse(html_url=full.get("html_url"), nodes=subgraph["nodes"], edges=subgraph["edges"])
+
+    raise HTTPException(status_code=404, detail="No cached graph available. Generate the full graph first.")

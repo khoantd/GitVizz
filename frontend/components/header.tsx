@@ -39,7 +39,7 @@ const Header = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">gitvizz</h1>
-              <p className="text-xs text-muted-foreground">From Repo to Reasoning — Instantly.</p>
+              <p className="text-xs text-muted-foreground">Understand Any Codebase in Minutes</p>
             </div>
           </Link>
 

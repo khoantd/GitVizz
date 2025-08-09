@@ -37,6 +37,9 @@ dependencies = [
     "tree-sitter-typescript>=0.23.2",
     "urllib3<2.0",
     "uvicorn>=0.21.1",
+    # Observability
+    "arize-phoenix-otel",
+    "openinference-instrumentation-litellm",
 ]
 
 [tool.setuptools.packages.find]

@@ -14,6 +14,9 @@ import type {
   GenerateGraphEndpointApiRepoGenerateGraphPostData,
   GenerateGraphEndpointApiRepoGenerateGraphPostResponses,
   GenerateGraphEndpointApiRepoGenerateGraphPostErrors,
+  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostData,
+  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses,
+  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors,
   GenerateStructureEndpointApiRepoGenerateStructurePostData,
   GenerateStructureEndpointApiRepoGenerateStructurePostResponses,
   GenerateStructureEndpointApiRepoGenerateStructurePostErrors,
@@ -35,6 +38,9 @@ import type {
   GetChatSessionApiBackendChatSessionsChatIdPostData,
   GetChatSessionApiBackendChatSessionsChatIdPostResponses,
   GetChatSessionApiBackendChatSessionsChatIdPostErrors,
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostData,
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses,
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors,
   SaveUserApiKeyApiBackendChatKeysSavePostData,
   SaveUserApiKeyApiBackendChatKeysSavePostResponses,
   SaveUserApiKeyApiBackendChatKeysSavePostErrors,
@@ -123,6 +129,31 @@ export const generateGraphEndpointApiRepoGenerateGraphPost = <ThrowOnError exten
     ...options,
     headers: {
       'Content-Type': null,
+      ...options?.headers,
+    },
+  });
+};
+
+/**
+ * Generates a subgraph (ego network or filtered subset) for large repositories.
+ * Returns a subset of the repository graph, centered at a node (ego network) and/or filtered by
+ * categories, file paths, or relationship types. Uses cached full graph if available.
+ */
+export const generateSubgraphEndpointApiRepoGenerateSubgraphPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GenerateSubgraphEndpointApiRepoGenerateSubgraphPostData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses,
+    GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/repo/generate-subgraph',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
       ...options?.headers,
     },
   });
@@ -298,8 +329,30 @@ export const getChatSessionApiBackendChatSessionsChatIdPost = <
 };
 
 /**
+ * Verify API key
+ * Verify if an API key is valid for a specific provider without saving it
+ */
+export const verifyUserApiKeyApiBackendChatKeysVerifyPost = <ThrowOnError extends boolean = false>(
+  options: Options<VerifyUserApiKeyApiBackendChatKeysVerifyPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses,
+    VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/keys/verify',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Save user API key
- * Save or update an encrypted API key for a specific provider
+ * Save or update an encrypted API key for a specific provider with verification
  */
 export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends boolean = false>(
   options: Options<SaveUserApiKeyApiBackendChatKeysSavePostData, ThrowOnError>,

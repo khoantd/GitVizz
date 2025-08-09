@@ -47,7 +47,12 @@ interface CodeViewerProps {
 
 export function CodeViewer({ className }: CodeViewerProps) {
   // Use repoContent from context
-  const { output: repoContent, selectedFilePath, setSelectedFilePath } = useResultData();
+  const {
+    output: repoContent,
+    selectedFilePath,
+    setSelectedFilePath,
+    selectedFileLine,
+  } = useResultData();
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -133,6 +138,24 @@ export function CodeViewer({ className }: CodeViewerProps) {
   const handleEditorDidMount = (editor: Monaco.editor.IStandaloneCodeEditor) => {
     editorRef.current = editor;
   };
+
+  // Highlight selected line when provided via context and reveal it in center
+  useEffect(() => {
+    if (!editorRef.current || !selectedFile || !selectedFileLine) return;
+    const editor = editorRef.current;
+    const model = editor.getModel();
+    if (!model) return;
+    const lineCount = model.getLineCount();
+    const lineNumber = Math.max(1, Math.min(selectedFileLine, lineCount));
+    const maxCol = model.getLineMaxColumn(lineNumber);
+    editor.setSelection({
+      startLineNumber: lineNumber,
+      startColumn: 1,
+      endLineNumber: lineNumber,
+      endColumn: maxCol,
+    });
+    editor.revealLineInCenter(lineNumber);
+  }, [selectedFile, selectedFileLine]);
 
   const parseRepositoryStructure = (text: string): FileNode[] => {
     const tree: FileNode[] = [];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   getConversationHistory,
@@ -47,10 +47,15 @@ interface ModelApiState {
   temperature: number;
 }
 
-type ModelState = ModelApiState | {};
+type ModelState = Partial<ModelApiState>;
 
-export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<string, boolean>) {
+export function useChatSidebar(
+  repositoryId: string,
+  userKeyPreferences: Record<string, boolean>,
+  options?: { autoLoad?: boolean },
+) {
   const { data: session } = useSession();
+  const { autoLoad = true } = options ?? {};
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
     isLoading: false,
@@ -71,20 +76,37 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
     maxTokens: 4000,
     includeDependencies: true,
     traversalDepth: 2,
-    relevanceThreshold: 0.3
+    relevanceThreshold: 0.3,
   });
+
+  // Refs to prevent duplicate loads in React Strict Mode/dev and to avoid concurrent calls
+  const isFetchingHistoryRef = useRef(false);
+  const lastHistoryKeyRef = useRef<string | null>(null);
+  const lastModelsTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     setUseUserKeys(userKeyPreferences);
   }, [userKeyPreferences]);
 
-  // Load available models and chat history on mount
+  // Load available models and chat history on mount or when auth/repo changes (with guards)
   useEffect(() => {
-    if (session?.jwt_token) {
+    if (!autoLoad) return;
+    if (!session?.jwt_token) return;
+    if (!repositoryId) return;
+
+    // Models: only load once per token
+    if (lastModelsTokenRef.current !== session.jwt_token) {
+      lastModelsTokenRef.current = session.jwt_token;
       loadAvailableModels();
-      loadChatHistory();
     }
-  }, [session?.jwt_token]);
+
+    // History: only load once per token+repository pair
+    const historyKey = `${session.jwt_token}:${repositoryId}`;
+    if (lastHistoryKeyRef.current !== historyKey) {
+      lastHistoryKeyRef.current = historyKey;
+      void loadChatHistory();
+    }
+  }, [autoLoad, session?.jwt_token, repositoryId]);
 
   const loadAvailableModels = async () => {
     if (!session?.jwt_token) return;
@@ -94,10 +116,14 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
       setAvailableModels(models);
 
       // Set default model if current one is not available
-      const currentProviderModels = models.providers[modelState.provider];
-      if (!currentProviderModels?.includes(modelState.model)) {
+      const providerKey = modelState.provider;
+      const modelKey = modelState.model;
+      const currentProviderModels = providerKey
+        ? models.providers[providerKey as keyof typeof models.providers]
+        : undefined;
+      if (!providerKey || !modelKey || !currentProviderModels?.includes(modelKey as string)) {
         const firstProvider = Object.keys(models.providers)[0];
-        const firstModel = models.providers[firstProvider]?.[0];
+        const firstModel = firstProvider ? models.providers[firstProvider]?.[0] : undefined;
         if (firstProvider && firstModel) {
           setModelState((prev) => ({
             ...prev,
@@ -113,7 +139,10 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
 
   const loadChatHistory = async () => {
     if (!session?.jwt_token) return;
+    if (!repositoryId) return;
+    if (isFetchingHistoryRef.current) return;
 
+    isFetchingHistoryRef.current = true;
     setIsLoadingHistory(true);
     try {
       const chatSessions = await getUserChatSessions(session.jwt_token, repositoryId);
@@ -128,9 +157,9 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
       setChatHistory([]);
     } finally {
       setIsLoadingHistory(false);
+      isFetchingHistoryRef.current = false;
     }
   };
-  console.log(useUserKeys);
 
   const sendMessage = async (content: string) => {
     if (!session?.jwt_token || chatState.isLoading) return;
@@ -148,16 +177,30 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
     }));
 
     try {
+      // Determine appropriate temperature based on model
+      let temperature = modelState.temperature;
+
+      // O-series models (o1-preview, o1-mini, etc.) only support temperature=1
+      if (
+        modelState.model &&
+        (modelState.model.startsWith('o1') || modelState.model.includes('o1'))
+      ) {
+        temperature = 1.0;
+      } else if (temperature === undefined) {
+        // Default temperature for other models
+        temperature = 0.7;
+      }
+
       const streamingRequest: StreamingChatRequest = {
         token: session.jwt_token,
         message: content,
         repository_id: repositoryId,
-        use_user: useUserKeys[modelState.provider] ?? false,
+        use_user: modelState.provider ? (useUserKeys[modelState.provider] ?? false) : false,
         chat_id: chatState.currentChatId,
         conversation_id: chatState.currentConversationId,
         provider: modelState.provider,
         model: modelState.model,
-        temperature: modelState.temperature,
+        temperature: temperature,
         include_full_context: contextSettings.includeFullContext,
         context_search_query: content, // Send user message as context search query for smart search
         scope_preference: contextSettings.scope,
@@ -235,7 +278,7 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
             }
           } else if (chunk.type === 'complete') {
             console.log('Stream completed successfully');
-            
+
             // Update the final assistant message with context metadata if available
             if (chunk.context_metadata) {
               setChatState((prev) => {
@@ -255,7 +298,7 @@ export function useChatSidebar(repositoryId: string, userKeyPreferences: Record<
                 };
               });
             }
-            
+
             break;
           } else if (chunk.type === 'error') {
             const errorMessage = chunk.message || 'Streaming error occurred';

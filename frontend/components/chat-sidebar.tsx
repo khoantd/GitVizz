@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { ChatHistory } from './chat-history';
 import { ChatMessage } from './chat-message';
 import { ModelSelector } from './model-selector';
-import { ContextIndicator } from './context-indicator';
+import { ContextIndicator, ContextMetadata } from './context-indicator';
 import { ContextControls } from './context-controls';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 
@@ -62,7 +62,9 @@ export function ChatSidebar({
     isLoadingHistory,
     contextSettings,
     setContextSettings,
-  } = useChatSidebar(repositoryId, userKeyPreferences); // Pass preferences to hook
+  } = useChatSidebar(repositoryId, userKeyPreferences, {
+    autoLoad: isOpen && Boolean(repositoryId),
+  }); // Pass preferences to hook
 
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -392,7 +394,7 @@ export function ChatSidebar({
             className="flex-1"
             style={{ height: 'calc(100vh - 280px)' }}
           >
-            <div className="px-3 py-2 space-y-4 pb-4 w-full">
+            <div className="px-3 py-10 space-y-4 pb-4 w-full">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center space-y-6 px-4">
                   <div className="relative">
@@ -423,13 +425,16 @@ export function ChatSidebar({
               ) : (
                 <>
                   {messages.map((message, index) => (
-                    <div key={`${index}-${message.timestamp.getTime()}`} className="w-full space-y-2">
+                    <div
+                      key={`${index}-${message.timestamp.getTime()}`}
+                      className="w-full space-y-2"
+                    >
                       <ChatMessage message={message} />
                       {/* Show context indicator for assistant messages with context metadata */}
                       {message.role === 'assistant' && message.context_metadata && (
                         <div className="ml-2 mr-1">
                           <ContextIndicator
-                            contextMetadata={message.context_metadata}
+                            contextMetadata={message.context_metadata as ContextMetadata}
                             className="text-xs"
                           />
                         </div>

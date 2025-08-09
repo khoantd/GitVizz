@@ -1,11 +1,35 @@
 import os
-import litellm
 from typing import Optional, Dict, List, Any, Tuple, AsyncGenerator, Union
 from cryptography.fernet import Fernet
 from datetime import datetime
 from models.chat import UserApiKey, ChatSession
 from models.user import User
 from beanie import BeanieObjectId
+import asyncio
+import httpx
+import json
+
+# Lazy import LiteLLM to avoid Pydantic compatibility issues
+_litellm = None
+_litellm_import_error = None
+
+def get_litellm():
+    """Lazy import of LiteLLM with error handling"""
+    global _litellm, _litellm_import_error
+    
+    if _litellm is not None:
+        return _litellm
+    
+    if _litellm_import_error is not None:
+        raise _litellm_import_error
+    
+    try:
+        import litellm
+        _litellm = litellm
+        return _litellm
+    except Exception as e:
+        _litellm_import_error = e
+        raise e
 
 
 class LLMService:
@@ -24,9 +48,16 @@ class LLMService:
 
         # Daily limits for users without their own keys
         self.daily_limits = {
-            "free": 10,  # Free tier users
-            "premium": 50,  # Premium users
+            "free": 100,  # Free tier users
+            "premium": 500,  # Premium users
             "unlimited": -1,  # Users with their own keys
+        }
+
+        # Provider to model mapping for verification
+        self.provider_models = {
+            "openai": ["gpt-3.5-turbo", "gpt-4", "gpt-4o-mini"],
+            "anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-opus-20240229"],
+            "gemini": ["gemini-pro", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
         }
 
         # Model configurations
@@ -210,9 +241,16 @@ class LLMService:
         return self.cipher_suite.decrypt(encrypted_key.encode()).decode()
 
     async def save_user_api_key(
-        self, user: User, provider: str, api_key: str, key_name: Optional[str] = None
+        self, user: User, provider: str, api_key: str, key_name: Optional[str] = None, verify_key: bool = True
     ) -> UserApiKey:
-        """Save encrypted user API key"""
+        """Save encrypted user API key with optional verification"""
+        
+        # Verify the API key before saving if requested
+        if verify_key:
+            is_valid = self.verify_api_key(provider, api_key)
+            if not is_valid:
+                raise ValueError(f"Invalid API key for {provider}. Please check your key and try again.")
+        
         encrypted_key = self.encrypt_api_key(api_key)
 
         # Check if key already exists for this provider
@@ -451,6 +489,7 @@ Instructions:
         user: User,
     ) -> Dict[str, Any]:
         """Generate non-streaming response"""
+        litellm = get_litellm()
         response = await litellm.acompletion(
             model=model_name,
             messages=messages,
@@ -494,6 +533,7 @@ Instructions:
         request_attempted = False
         try:
             # Start streaming request
+            litellm = get_litellm()
             response = await litellm.acompletion(
                 model=model_name,
                 messages=messages,
@@ -560,6 +600,24 @@ Instructions:
     def get_model_info(self, provider: str, model: str) -> Optional[Dict]:
         """Get information about a specific model"""
         return self.model_configs.get(provider, {}).get(model)
+
+    def verify_api_key(self, provider: str, api_key: str, model: str = None) -> bool:
+        """Verify if an API key is valid for a specific provider using standalone verifier."""
+        try:
+            from utils.api_key_verifier import api_key_verifier
+            return api_key_verifier.verify_api_key(provider, api_key)
+        except Exception as e:
+            print(f"Error verifying API key for {provider}: {e}")
+            return False
+
+    def get_valid_models_for_provider(self, provider: str, api_key: str) -> List[str]:
+        """Get a list of valid models for a specific provider."""
+        try:
+            from utils.api_key_verifier import api_key_verifier
+            return api_key_verifier.get_valid_models_for_provider(provider, api_key)
+        except Exception as e:
+            print(f"Error getting valid models for {provider}: {e}")
+            return []
 
 
 # Global instance

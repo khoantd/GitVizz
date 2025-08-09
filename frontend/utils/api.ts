@@ -465,28 +465,83 @@ export async function getChatSession(token: string, chatId: string): Promise<Cha
 // =============================================================================
 
 /**
- * Save user API key
+ * Verify user API key without saving
+ */
+export async function verifyApiKey(verifyRequest: {
+  token: string;
+  provider: string;
+  api_key: string;
+}): Promise<{
+  success: boolean;
+  provider: string;
+  is_valid: boolean;
+  message: string;
+  available_models?: string[];
+}> {
+  try {
+    const formData = new FormData();
+    formData.append('token', verifyRequest.token);
+    formData.append('provider', verifyRequest.provider);
+    formData.append('api_key', verifyRequest.api_key);
+
+    // Use the proper backend URL
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/backend-chat/keys/verify`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API verification failed: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Save user API key (now with automatic verification by default)
  */
 export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyResponse> {
   try {
-    const response = await saveUserApiKeyApiBackendChatKeysSavePost({
-      body: {
-        token: apiKeyRequest.token,
-        provider: apiKeyRequest.provider,
-        api_key: apiKeyRequest.api_key,
-        key_name: apiKeyRequest.key_name || null,
-      },
+    // Use manual form data to include verify_key parameter that might not be in generated types yet
+    const formData = new FormData();
+    formData.append('token', apiKeyRequest.token);
+    formData.append('provider', apiKeyRequest.provider);
+    formData.append('api_key', apiKeyRequest.api_key);
+    if (apiKeyRequest.key_name) {
+      formData.append('key_name', apiKeyRequest.key_name);
+    }
+    formData.append('verify_key', 'true'); // Always verify by default
+
+    // Use the proper backend URL
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/backend-chat/keys/save`, {
+      method: 'POST',
+      body: formData,
     });
 
-    if (response.error) {
-      throw new Error(extractErrorMessage(response.error, OperationType.TEXT));
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Failed to save API key: ${response.statusText}`;
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.message || errorMessage;
+      } catch {
+        // Use the text as is if it's not JSON
+        errorMessage = errorText || errorMessage;
+      }
+
+      throw new Error(errorMessage);
     }
 
-    if (!response.data) {
-      throw new Error('No API key response received');
-    }
-
-    return response.data;
+    const data = await response.json();
+    return data;
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
   }
@@ -625,22 +680,23 @@ function isTokenExpiredError(error: any): boolean {
  * Starts the process of generating wiki documentation. The task runs in the background.
  */
 export async function generateWikiDocumentation(
-
   jwt_token: string,
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
   selectedModel: string | string[],
 ): Promise<any> {
-  try {    
-    // Only skip if selectedModel is an empty array, null, or undefined
+  try {
+    // Convert array to string if needed
+    const providerName = Array.isArray(selectedModel) ? selectedModel[0] : selectedModel;
+
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
         jwt_token,
         repository_url,
         language,
         comprehensive,
-        provider_name: selectedModel,
+        provider_name: providerName,
       },
     });
 

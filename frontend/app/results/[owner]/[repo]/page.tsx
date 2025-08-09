@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,13 +15,11 @@ import {
   Code2,
   FileText,
   ArrowLeft,
-  ExternalLink,
   CheckCircle,
   Github,
   Info,
   X,
   Minimize2,
-  Maximize2,
   Menu,
   Lock,
   BookOpen,
@@ -37,6 +35,12 @@ import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 
 export default function ResultsPage() {
   const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const owner = (params?.owner as string) || '';
+  const repo = (params?.repo as string) || '';
+  const repoUrl = owner && repo ? `https://github.com/${owner}/${repo}` : '';
+
   const {
     output,
     error,
@@ -46,11 +50,37 @@ export default function ResultsPage() {
     loading,
     currentRepoId,
     userKeyPreferences,
+    setSourceType,
+    setSourceData,
+    setCurrentRepoId,
   } = useResultData();
   const { data: session } = useSession();
-  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences, {
-    autoLoad: false,
-  });
+  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences);
+
+  // Hydrate context from URL params on first load/refresh
+  useEffect(() => {
+    if (owner && repo) {
+      if (sourceType !== 'github' || !sourceData) {
+        setSourceType('github');
+        setSourceData({ repo_url: repoUrl });
+      }
+      const id = searchParams.get('id');
+      if (id && id !== currentRepoId) {
+        setCurrentRepoId(id);
+      }
+    }
+  }, [
+    owner,
+    repo,
+    repoUrl,
+    sourceType,
+    sourceData,
+    setSourceType,
+    setSourceData,
+    searchParams,
+    setCurrentRepoId,
+    currentRepoId,
+  ]);
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';
@@ -129,12 +159,12 @@ export default function ResultsPage() {
     if (outputMessage) showToast.success(outputMessage);
   }, [outputMessage]);
 
-  // Redirect if no output (no results)
+  // Redirect if no output and no params (fallback)
   useEffect(() => {
-    if (!output && !loading) {
+    if (!output && !loading && !(owner && repo)) {
       router.replace('/');
     }
-  }, [output, loading, router]);
+  }, [output, loading, router, owner, repo]);
 
   type GitHubSource = {
     repo_url: string;
@@ -144,8 +174,12 @@ export default function ResultsPage() {
     name: string;
   };
 
-  // Helper to get repository name from sourceData
+  // Helper to get repository name from URL params or sourceData
   const getRepoName = () => {
+    if (owner && repo) {
+      return `${owner}/${repo}`;
+    }
+
     if (
       sourceType === 'github' &&
       sourceData &&
@@ -178,7 +212,7 @@ export default function ResultsPage() {
     return 'Repository';
   };
 
-  if (loading || !output) {
+  if (loading || (!output && !(owner && repo))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="flex flex-col items-center gap-4 sm:gap-6 p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl max-w-sm w-full">
@@ -448,7 +482,7 @@ export default function ResultsPage() {
             {/* Enhanced Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">
               <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                   <div className="flex items-center gap-3">
                     <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                       <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -462,7 +496,7 @@ export default function ResultsPage() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </div> */}
                 <div className="p-4 sm:p-8">
                   <StructureTab />
                 </div>
@@ -473,7 +507,7 @@ export default function ResultsPage() {
             <TabsContent value="graph" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="space-y-2 sm:space-y-3">
                         <div className="flex items-center gap-3">
@@ -508,7 +542,7 @@ export default function ResultsPage() {
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh] h-[500px] sm:h-[600px] lg:h-[700px]">
                     {sourceType && sourceData ? (
                       <div className="h-full w-full min-h-[70vh] lg:min-h-[80vh] rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
@@ -542,8 +576,7 @@ export default function ResultsPage() {
             <TabsContent value="explorer" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  {/* Section Header */}
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
@@ -568,9 +601,9 @@ export default function ResultsPage() {
                         Expand View
                       </Button>
                     </div>
-                  </div>
-                  {/* Explorer Content */}
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
+                  </div> */}
+
+                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[800px]">
                     <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
                         <CodeViewer />
@@ -585,7 +618,7 @@ export default function ResultsPage() {
             <TabsContent value="documentation" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                  {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                     <div className="flex items-center gap-3">
                       <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
                         <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -599,8 +632,8 @@ export default function ResultsPage() {
                         </p>
                       </div>
                     </div>
-                  </div>
-                  <div className="h-[500px] sm:h-[600px] lg:h-[700px] overflow-auto rounded-xl">
+                  </div> */}
+                  <div className="h-[500px] sm:h-[600px] lg:h-[800px] overflow-auto rounded-xl">
                     {currentRepoId && sourceData && sourceType ? (
                       <div className="h-full w-full overflow-auto">
                         <DocumentationTab
@@ -726,7 +759,7 @@ export default function ResultsPage() {
                 className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
               >
                 {/* Popup Header */}
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                {/* <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
@@ -753,7 +786,7 @@ export default function ResultsPage() {
                       <span className="hidden sm:inline">Minimize</span>
                     </Button>
                   </div>
-                </div>
+                </div> */}
                 {/* Popup Content */}
                 <div className="flex-1 p-3 sm:p-6 overflow-hidden">
                   <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
