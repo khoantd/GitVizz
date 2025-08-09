@@ -5,7 +5,7 @@ from routes.repo_routes import router as repo_router
 from routes.auth_routes import router as auth_router
 from routes.chat_routes import router as chat_router
 from routes.documentation_routes import router as documentation_router
-
+from utils.observability import initialize_observability
 # from routes.github_routes import router as github_router  # Temporarily disabled
 from utils.db import db_instance
 
@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Load environment variables
 # =====================
 load_dotenv()
-
+initialize_observability()
 
 # Initialize the database connection
 @asynccontextmanager

@@ -742,14 +742,13 @@ class ChatController:
             raise HTTPException(status_code=500, detail=str(e))
         
     
-    async def save_user_api_key(
+    async def verify_user_api_key(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
         provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
-        api_key: Annotated[str, Form(description="API key")],
-        key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None
-    ) -> ApiKeyResponse:
-        """Save or update user API key"""
+        api_key: Annotated[str, Form(description="API key to verify")]
+    ) -> dict:
+        """Verify API key without saving it"""
         try:
             user = await get_current_user(token)
             if not user:
@@ -763,12 +762,59 @@ class ChatController:
                     detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
                 )
             
-            # Save key
+            # Verify the API key
+            is_valid = llm_service.verify_api_key(provider, api_key)
+            
+            response = {
+                "success": True,
+                "provider": provider,
+                "is_valid": is_valid,
+                "message": "API key is valid" if is_valid else "API key is invalid"
+            }
+            
+            # Optionally get available models if key is valid
+            if is_valid:
+                try:
+                    available_models = llm_service.get_valid_models_for_provider(provider, api_key)
+                    response["available_models"] = available_models[:10]  # Limit to first 10 models
+                except Exception as e:
+                    logger.warning(f"Could not fetch models for {provider}: {e}")
+                    response["available_models"] = []
+            
+            return response
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def save_user_api_key(
+        self,
+        token: Annotated[str, Form(description="JWT authentication token")],
+        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+        api_key: Annotated[str, Form(description="API key")],
+        key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
+        verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
+    ) -> ApiKeyResponse:
+        """Save or update user API key with optional verification"""
+        try:
+            user = await get_current_user(token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            # Validate provider
+            valid_providers = ["openai", "anthropic", "gemini"]
+            if provider not in valid_providers:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
+                )
+            
+            # Save key with verification
             user_key = await llm_service.save_user_api_key(
                 user,
                 provider,
                 api_key,
-                key_name
+                key_name,
+                verify_key
             )
             
             return ApiKeyResponse(

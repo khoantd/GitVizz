@@ -230,17 +230,16 @@ async def get_chat_session(
         chat_id=chat_id
     )
 
-# API key save endpoint
+# API key verification endpoint
 @router.post(
-    "/keys/save",
-    response_model=ApiKeyResponse,
-    summary="Save user API key",
-    description="Save or update an encrypted API key for a specific provider",
-    response_description="Confirmation of key save operation",
+    "/keys/verify",
+    response_model=dict,
+    summary="Verify API key",
+    description="Verify if an API key is valid for a specific provider without saving it",
+    response_description="Verification result with details",
     responses={
         200: {
-            "model": ApiKeyResponse,
-            "description": "API key saved successfully"
+            "description": "API key verification result"
         },
         400: {
             "model": ErrorResponse,
@@ -256,17 +255,56 @@ async def get_chat_session(
         }
     }
 )
+async def verify_user_api_key(
+    token: Annotated[str, Form(description="JWT authentication token")],
+    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+    api_key: Annotated[str, Form(description="API key to verify")]
+):
+    return await chat_controller.verify_user_api_key(
+        token=token,
+        provider=provider,
+        api_key=api_key
+    )
+
+# API key save endpoint
+@router.post(
+    "/keys/save",
+    response_model=ApiKeyResponse,
+    summary="Save user API key",
+    description="Save or update an encrypted API key for a specific provider with verification",
+    response_description="Confirmation of key save operation",
+    responses={
+        200: {
+            "model": ApiKeyResponse,
+            "description": "API key saved successfully"
+        },
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid provider or API key specified"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized - Invalid JWT token"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error"
+        }
+    }
+)
 async def save_user_api_key(
     token: Annotated[str, Form(description="JWT authentication token")],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
     api_key: Annotated[str, Form(description="API key")],
-    key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None
+    key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
+    verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
 ):
     return await chat_controller.save_user_api_key(
         token=token,
         provider=provider,
         api_key=api_key,
-        key_name=key_name
+        key_name=key_name,
+        verify_key=verify_key
     )
 
 # Available models endpoint
