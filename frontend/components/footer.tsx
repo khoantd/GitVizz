@@ -1,52 +1,55 @@
-import { Github, Globe } from 'lucide-react';
+import { Github, Globe, Star } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="relative w-full bottom-0 z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm mt-16">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          {/* Left: Primary links */}
-          <div className="flex items-center gap-6 mb-2 md:mb-0">
+    <footer className="relative w-full bottom-0 z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm mt-4">
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Top section with Open Source emphasis */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-4">
             <a
               href="https://github.com/adithya-s-k/gitvizz"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub Repository"
-              className="flex items-center gap-2 text-sm font-semibold text-foreground hover:underline transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-foreground hover:underline transition-colors group"
             >
-              <Github className="text-lg" />
-              Repo
+              <Github className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              <span>Proudly Open Source</span>
+              <Star className="h-4 w-4 group-hover:text-yellow-500 transition-colors" />
             </a>
+            <div className="hidden md:block h-4 border-l border-border/30" />
             <a
               href="https://cognitivelab.in"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Cognitivelab Website"
-              className="flex items-center gap-2 text-sm font-semibold text-foreground hover:underline transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Globe className="text-lg" />
-              Website
+              <Globe className="h-4 w-4" />
+              CognitiveLab
             </a>
           </div>
-          {/* Divider for larger screens */}
-          <div className="hidden md:block h-6 border-l border-border/30 mx-4" />
-          {/* Right: Attribution */}
+
+          {/* Attribution */}
           <div className="text-xs text-muted-foreground text-center md:text-right">
-            Made by{' '}
+            Made with ❤️ by{' '}
             <a
               href="https://cognitivelab.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-foreground"
+              className="underline hover:text-foreground transition-colors"
             >
               Cognitivelab
             </a>{' '}
-            (powered by <span className="font-semibold">omniparse</span>)
+            (powered by <span className="font-semibold text-primary">omniparse</span>)
           </div>
         </div>
-        <p className="text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} gitvizz - From Repo to Reasoning — Instantly.
-        </p>
+
+        {/* Bottom copyright */}
+        <div className="text-center text-xs text-muted-foreground border-t border-border/30 pt-4">
+          &copy; {new Date().getFullYear()} gitvizz - Understand Any Codebase in Minutes.
+        </div>
       </div>
     </footer>
   );

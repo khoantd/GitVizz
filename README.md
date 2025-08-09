@@ -1,147 +1,448 @@
-<p align="center">
-  <img src="./frontend/public/logo.svg" width="150" alt="GitVizz Logo" />
-</p>
-
-# GitVizz
-
-**Visualize and analyze GitHub or local repositories with LLM-friendly summaries, file structure, interactive dependency graphs, generate documentation and chat with your repositories.**
-
----
-
-## 🚀 What is GitVizz?
-
-GitVizz is a full-stack application for developers and teams to:
-- Upload or link GitHub/local repositories
-- Instantly visualize code structure and dependencies
-- Generate LLM-friendly summaries and documentation
-- Explore codebases with interactive graphs and a modern UI
-- Chat with your repositories to ask questions and get insights
-- Generate documentation paths and code navigation
-
-## 📝 Prerequisites
-
-Before using GitVizz, ensure you have the following:
-
-- **GitHub Personal Access Token (optional, but recommended):**  
-   See the [GitHub Personal Access Token Guide](./docs/github_personal_token.md) for instructions on creating and configuring your token.
-
-- **GitHub App (mandatory for advanced features):**  
-   Follow the [Creating a New GitHub App Guide](./docs/create_github_app.md) to set up a GitHub App if you want deeper integration.
+<div align="center">
+  <img src="./frontend/public/logo.svg" width="120" alt="GitVizz Logo" />
+  
+  # GitVizz
+  
+  **Understand Any Codebase in Minutes, Not Hours**
+  
+  *AI-powered repository analysis that turns complex codebases into interactive documentation, dependency graphs, and intelligent conversations.*
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![GitHub stars](https://img.shields.io/github/stars/adithya-s-k/gitvizz?style=social)](https://github.com/adithya-s-k/gitvizz/stargazers)
+  [![GitHub forks](https://img.shields.io/github/forks/adithya-s-k/gitvizz?style=social)](https://github.com/adithya-s-k/gitvizz/network/members)
+  [![GitHub issues](https://img.shields.io/github/issues/adithya-s-k/gitvizz)](https://github.com/adithya-s-k/gitvizz/issues)
+  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+  
+  [Live Demo](https://gitvizz.com) | [Documentation](./docs) | [Report Bug](https://github.com/adithya-s-k/gitvizz/issues) | [Request Feature](https://github.com/adithya-s-k/gitvizz/issues)
+  
+</div>
 
 ---
 
-## 🧱 Project Overview
+## What is GitVizz?
 
-GitVizz consists of:
-- **Frontend**: Next.js, TailwindCSS, ShadCN UI
-- **Backend**: Python FastAPI for parsing, analysis, and graph generation
+GitVizz revolutionizes how developers understand and navigate codebases. Whether you're onboarding to a new project, reviewing code, or exploring open source repositories, GitVizz transforms complex code structures into intuitive, interactive experiences.
 
 ---
 
-## ⚡ Quick Start
+## Features Showcase
 
-You can run GitVizz using **Docker Compose** (recommended) or set up manually.
+<div align="center">
+<table>
+<tr>
+<td width="50%" align="center">
 
-### Option 1: Docker Compose (Recommended)
+### Graph Search
 
-1. **Copy environment variable templates:**
-   - Backend: `cp backend/.env.example backend/.env` (edit as needed)
-   - Frontend: `cp frontend/.example.env frontend/.env.local` (edit as needed)
+**Interactive dependency graphs with intelligent search capabilities**
 
-2. **Start all services:**
-   ```bash
-   docker-compose up --build
-   ```
+<img src="./frontend/public/screenshots/graph_search.png" width="400" alt="Graph Search"/>
 
-3. Access the app:
-   - Frontend: [http://localhost:3000](http://localhost:3000)
-   - Backend API: [http://localhost:8003](http://localhost:8003)
+</td>
+<td width="50%" align="center">
 
----
+### Graph Dependency View
 
-### Option 2: Manual Setup
+**Visual code navigation with smart highlighting and dependency connections**
 
-#### Backend
-1. **Create a virtual environment:**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-2. **Install dependencies:**
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-3. **Copy and edit environment variables:**
-   ```bash
-   cp backend/.env.example backend/.env
-   # Edit backend/.env as needed
-   ```
-4. **Run the API server:**
-   ```bash
-   uvicorn backend.server:app --host 0.0.0.0 --port 8003 --reload
-   ```
-   The API will be available at [http://localhost:8003](http://localhost:8003)
+<img src="./frontend/public/screenshots/graph_highlight.png" width="400" alt="Graph Dependency View"/>
 
-#### Frontend
-1. **Install dependencies:**
-   ```bash
-   cd frontend
-   pnpm install
-   ```
-2. **Copy and edit environment variables:**
-   ```bash
-   cp .example.env .env.local
-   # Edit .env.local as needed
-   ```
-3. **Run the dev server:**
-   ```bash
-   pnpm dev
-   ```
-   The frontend will be available at [http://localhost:3000](http://localhost:3000)
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
 
----
+### Chat with Repository
 
-## 🛠️ Environment Variables
+**AI-powered conversations about your codebase with context-aware responses**
 
-Both backend and frontend require environment variables for configuration (API keys, ports, etc.).
+<img src="./frontend/public/screenshots/chat_with_repo_powered_by_graph.png" width="400" alt="Chat with Repository"/>
 
-- **Backend:** Edit `backend/.env` (see `backend/.env.example` for required variables)
-- **Frontend:** Edit `frontend/.env.local` (see `frontend/.example.env` for required variables)
+</td>
+<td width="50%" align="center">
+
+### Code Viewer
+
+**Advanced code visualization with syntax highlighting and navigation**
+
+<img src="./frontend/public/screenshots/code_viewer.png" width="400" alt="Code Viewer"/>
+
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+
+### LLM Context Builder
+
+**Build comprehensive context for Large Language Models automatically**
+
+<img src="./frontend/public/screenshots/build_context_for_llms.png" width="400" alt="LLM Context Builder"/>
+
+</td>
+<td width="50%" align="center">
+
+### Documentation Generator
+
+**Automatically generate comprehensive documentation from your repository**
+
+<img src="./frontend/public/screenshots/generate_documentation.png" width="400" alt="Documentation Generator"/>
+
+</td>
+</tr>
+</table>
+</div>
 
 ---
 
-## 🗂️ Folder Structure
+## Why GitVizz?
 
-```
-.
-├── backend/                # Main backend FastAPI app and modules
-│   ├── config.py           # Configuration and settings
-│   ├── server.py           # FastAPI app entry point
-│   ├── controllers/        # API controllers (auth, chat, repo, etc.)
-│   ├── documentationo_generator/ # Documentation and code analysis logic
-│   ├── graphing/           # AST and dependency graph generation
-│   ├── models/             # Pydantic models and ORM classes
-│   ├── routes/             # API route definitions
-│   ├── schemas/            # Request/response schemas
-│   ├── storage/            # User and repo storage
-│   ├── utils/              # Utility functions (db, jwt, file, etc.)
-│   └── requirements.txt    # Python dependencies
-├── frontend/               # Next.js frontend (see frontend/README.md)
-│   ├── app/                # Main app pages and logic
-│   ├── components/         # React UI components
-│   ├── api-client/         # OpenAPI-generated client
-│   ├── public/             # Static assets (logo, etc.)
-│   └── ...                 # Other frontend folders
-├── archives/               # Old codebases or processed repositories
-├── examples/               # Sample inputs or test repos
-├── static/                 # Static files (dependency graphs, etc.)
-├── docker-compose.yaml     # Docker orchestration
-├── README.md               # You are here
-└── ...                     # Other project files
+- **Instant Understanding**: Analyze any repository in seconds, not hours
+- **AI-Powered Insights**: Get intelligent summaries and explanations
+- **Visual Code Maps**: Interactive dependency graphs and code relationships
+- **Chat with Code**: Ask questions about any codebase and get instant answers
+- **Auto Documentation**: Generate comprehensive docs automatically
+- **Smart Search**: Find functions, classes, and patterns across entire repositories
+
+---
+
+## Quick Start
+
+### Option 1: Try Online (Fastest)
+
+Visit [gitvizz.com](https://gitvizz.com) and paste any GitHub repository URL to get started instantly!
+
+### Option 2: Docker Compose (Recommended for Local Development)
+
+```bash
+# Clone the repository
+git clone https://github.com/adithya-s-k/gitvizz.git
+cd gitvizz
+
+# Copy environment files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+
+# Start all services
+docker-compose up --build
 ```
 
+**Access Points:**
+
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend API: [http://localhost:8003](http://localhost:8003)
+
+### Option 3: Manual Setup
+
+<details>
+<summary>Click to expand manual setup instructions</summary>
+
+#### Backend Setup
+
+```bash
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r backend/requirements.txt
+
+# Configure environment
+cp backend/.env.example backend/.env
+# Edit backend/.env with your settings
+
+# Start backend server
+uvicorn backend.server:app --host 0.0.0.0 --port 8003 --reload
+```
+
+#### Frontend Setup
+
+```bash
+# Install dependencies
+cd frontend
+pnpm install
+
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your settings
+
+# Start development server
+pnpm dev
+```
+
+</details>
+
 ---
 
-## 📝 Contributing & More
+## Architecture
 
-For questions, see the [GitHub Personal Access Token Guide](./GitHub%20Personal%20Access%20Token%20Guide.md) or open an issue.
+GitVizz is built with modern, scalable technologies:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │    Backend      │    │   AI Services   │
+│                 │    │                 │    │                 │
+│ • Next.js 14    │◄──►│ • FastAPI       │◄──►│ • OpenAI        │
+│ • TypeScript    │    │ • Python 3.9+  │    │ • Anthropic     │
+│ • Tailwind CSS  │    │ • Async/Await   │    │ • Local LLMs    │
+│ • ShadCN UI     │    │ • Pydantic      │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Tech Stack
+
+**Frontend:**
+
+- **Next.js 14** - React framework with App Router
+- **Tailwind CSS** - Utility-first CSS framework
+- **ShadCN UI** - Beautiful, accessible components
+- **Responsive Design** - Works on all devices
+
+**Backend:**
+
+- **FastAPI** - High-performance Python API framework
+- **AST Parsing** - Advanced code analysis
+- **Graph Generation** - Dynamic dependency mapping
+- **LLM Integration** - Multiple AI provider support
+
+---
+
+## Prerequisites
+
+### Required
+
+- **Node.js 18+** and **pnpm**
+- **Python 3.9+** and **pip**
+- **Docker & Docker Compose** (for containerized setup)
+
+### Optional (for enhanced features)
+
+- **GitHub Personal Access Token** - For private repo access
+- **GitHub App** - For advanced GitHub integration
+- **OpenAI API Key** - For AI-powered features
+- **Anthropic API Key** - Alternative AI provider
+
+---
+
+## Configuration & Setup
+
+### Environment Variables
+
+<details>
+<summary>Backend (.env)</summary>
+
+```bash
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8003
+
+# AI Providers
+OPENAI_API_KEY=your_openai_key_here
+ANTHROPIC_API_KEY=your_anthropic_key_here
+
+# GitHub Integration
+GITHUB_TOKEN=your_github_token_here
+GITHUB_APP_ID=your_app_id
+GITHUB_APP_PRIVATE_KEY=your_private_key
+
+# Database
+DATABASE_URL=sqlite:///./storage/gitvizz.db
+```
+
+</details>
+
+<details>
+<summary>Frontend (.env.local)</summary>
+
+```bash
+# API Endpoints
+NEXT_PUBLIC_API_URL=http://localhost:8003
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Authentication
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_nextauth_secret
+
+# GitHub OAuth
+GITHUB_ID=your_github_oauth_id
+GITHUB_SECRET=your_github_oauth_secret
+```
+
+</details>
+
+### GitHub Integration Setup
+
+#### Creating a GitHub Personal Access Token
+
+<details>
+<summary>Step-by-step guide to create a GitHub Personal Access Token</summary>
+
+1. **Navigate to GitHub**: Go to [github.com](https://github.com) and sign in
+2. **Access Profile Settings**: Click your profile picture → Settings
+3. **Developer Settings**: Scroll down and click "Developer settings"
+4. **Personal Access Tokens**: Click "Personal access tokens" → "Tokens (classic)"
+5. **Generate New Token**: Click "Generate new token" → "Generate new token (classic)"
+6. **Authenticate**: Use your password to confirm
+7. **Configure Token**:
+   - **Note**: Give your token a descriptive name
+   - **Expiration**: Set appropriate expiration date
+   - **Scopes**: Select required permissions
+8. **Repository Access**: Choose "All repositories" for full access
+9. **Generate**: Click "Generate token"
+
+**Important**: Copy and save the token immediately - you won't be able to see it again!
+
+For detailed instructions with screenshots, see [docs/github_personal_token.md](./docs/github_personal_token.md)
+
+</details>
+
+#### Creating a GitHub App
+
+<details>
+<summary>Step-by-step guide to create a GitHub App</summary>
+
+1. **Navigate to GitHub Apps**: Go to [GitHub Apps settings](https://github.com/settings/apps)
+2. **Create New App**: Click "New GitHub App"
+3. **App Details**:
+
+   - **GitHub App name**: Enter your application name
+   - **Homepage URL**: `http://localhost:3000/`
+   - **Callback URL**: `http://localhost:3000/api/auth/callback/github`
+   - **Expire user authorization tokens**: Deselect this
+   - **Setup URL**: `http://localhost:3000/`
+   - **Webhook**: Deselect "Active" to disable webhooks
+
+4. **Set Permissions**:
+
+   - **Repository Permissions → Contents**: Read-only
+   - **Account Permissions → Email addresses**: Read-only
+
+5. **Create App**: Click "Create GitHub App"
+6. **Get Credentials**:
+   - Copy **App ID** and **Client ID**
+   - Generate and copy **Client Secret**
+7. **Generate Private Key**:
+   - Click "Generate a private key"
+   - Download the `.pem` file
+   - Copy entire contents including BEGIN/END lines
+   - Wrap in double quotes for `.env` file
+
+For detailed instructions with screenshots, see [docs/create_github_app.md](./docs/create_github_app.md)
+
+</details>
+
+---
+
+## Contributing
+
+We love contributions! GitVizz is open source and community-driven.
+
+### Ways to Contribute
+
+- **Report Bugs** - Found an issue? Let us know!
+- **Suggest Features** - Have ideas? We'd love to hear them!
+- **Improve Documentation** - Help others understand GitVizz better
+- **Submit Pull Requests** - Code contributions are always welcome!
+- **Star the Repository** - Show your support!
+
+### Development Workflow
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Commit Convention
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `test:` Adding tests
+- `chore:` Maintenance tasks
+
+---
+
+## Project Structure
+
+```
+gitvizz/
+├── frontend/                 # Next.js frontend application
+│   ├── app/                     # App router pages
+│   ├── components/              # Reusable UI components
+│   ├── api-client/              # Generated API client
+│   └── public/                  # Static assets
+├── backend/                  # FastAPI backend application
+│   ├── controllers/             # API route handlers
+│   ├── documentationo_generator/ # AI-powered analysis
+│   ├── graphing/                # Code graph generation
+│   ├── models/                  # Data models
+│   ├── routes/                  # API routes
+│   ├── schemas/                 # Request/response schemas
+│   ├── services/                # Business logic
+│   └── utils/                   # Utility functions
+├── docs/                     # Documentation
+├── docker-compose.yaml       # Container orchestration
+└── README.md                 # You are here!
+```
+
+---
+
+## Roadmap
+
+### Current Focus
+
+- [ ] **Enhanced AI Models** - Support for more LLM providers
+- [ ] **Real-time Collaboration** - Multi-user code exploration
+- [ ] **Plugin System** - Extensible architecture
+- [ ] **Advanced Analytics** - Code quality metrics and insights
+
+### Future Plans
+
+- [ ] **VS Code Extension** - Native IDE integration
+- [ ] **Mobile App** - Code exploration on the go
+- [ ] **Enterprise Features** - Team collaboration and SSO
+- [ ] **Multi-language Support** - Beyond current language support
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgments
+
+- **Contributors** - Thank you to all our amazing contributors!
+- **Community** - Special thanks to our supportive community
+- **Open Source** - Built on the shoulders of incredible open source projects
+- **Feedback** - Grateful for all user feedback and suggestions
+
+---
+
+## Support & Community
+
+<div align="center">
+
+### Get Help
+
+[![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/your-discord)
+[![GitHub Discussions](https://img.shields.io/badge/GitHub-Discussions-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/adithya-s-k/gitvizz/discussions)
+
+### Found a Bug?
+
+[Report it here](https://github.com/adithya-s-k/gitvizz/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
+
+### Have an Idea?
+
+[Share it with us](https://github.com/adithya-s-k/gitvizz/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=)
+
+---
+
+**Made with ❤️ by [CognitiveLab](https://cognitivelab.in) | Powered by [Omniparse](https://github.com/adithya-s-k/omniparse)**
+
+**Star us on GitHub — it motivates us a lot!**

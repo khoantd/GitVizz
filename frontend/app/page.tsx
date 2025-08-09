@@ -3,6 +3,10 @@
 import { useResultData } from '@/context/ResultDataContext';
 import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
+import { Github, Star, Code, Search, MessageSquare, FileText, Network, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 // Custom Components
 import { RepoTabs } from '@/components/repo-tabs';
@@ -38,6 +42,45 @@ function HomeContent() {
     }
   }, [outputMessage, setOutputMessage]);
 
+  const features = [
+    {
+      title: 'Graph Search',
+      description: 'Interactive dependency graphs with intelligent search capabilities',
+      image: '/screenshots/graph_search.png',
+      icon: Search,
+    },
+    {
+      title: 'Graph Dependency View',
+      description: 'Visual code navigation with smart highlighting and dependency connections',
+      image: '/screenshots/graph_highlight.png',
+      icon: Network,
+    },
+    {
+      title: 'Chat with Repository',
+      description: 'AI-powered conversations about your codebase with context-aware responses',
+      image: '/screenshots/chat_with_repo_powered_by_graph.png',
+      icon: MessageSquare,
+    },
+    {
+      title: 'Code Viewer',
+      description: 'Advanced code visualization with syntax highlighting and navigation',
+      image: '/screenshots/code_viewer.png',
+      icon: Eye,
+    },
+    {
+      title: 'LLM Context Builder',
+      description: 'Build comprehensive context for Large Language Models automatically',
+      image: '/screenshots/build_context_for_llms.png',
+      icon: Code,
+    },
+    {
+      title: 'Documentation Generator',
+      description: 'Automatically generate comprehensive documentation from your repository',
+      image: '/screenshots/generate_documentation.png',
+      icon: FileText,
+    },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-background text-foreground antialiased relative">
       {/* Visual Anchor - Top Gradient */}
@@ -46,26 +89,106 @@ function HomeContent() {
       {/* Header */}
       <Header />
 
-      <main className="flex flex-col items-center w-full relative z-10 max-w-5xl mx-auto px-6 pb-16">
+      {/* Open Source Badge */}
+      <div className="flex justify-center mb-4 relative z-10">
+        <a
+          href="https://github.com/adithya-s-k/gitvizz"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group"
+        >
+          <Badge
+            variant="outline"
+            className="px-4 py-2 bg-background/80 backdrop-blur-sm border-primary/20 hover:border-primary/40 transition-all duration-300 cursor-pointer"
+          >
+            <Github className="h-4 w-4 mr-2" />
+            <span className="font-semibold">Proudly Open Source</span>
+            <Star className="h-4 w-4 ml-2 group-hover:text-yellow-500 transition-colors" />
+          </Badge>
+        </a>
+      </div>
+
+      <main className="flex flex-col items-center w-full relative z-10 max-w-7xl mx-auto px-6 pb-4">
         {/* Subtle Hero Section */}
-        <div className="text-center mb-8 max-w-3xl">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
-            From Repo to Reasoning — <span className="text-primary">Instantly</span>
+        <div className="text-center mb-4 lg:mb-8 max-w-3xl">
+          <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold tracking-tight mb-3 lg:mb-4">
+            <span className="text-primary">Understand Any Codebase</span> in Minutes, Not Hours
           </h1>
-          <p className="text-lg text-muted-foreground mb-6">
-            Transform any GitHub repository into comprehensive documentation and interactive
-            insights.
+          <p className="text-base lg:text-lg text-muted-foreground mb-4 lg:mb-6">
+            AI-powered repository analysis that turns complex codebases into interactive
+            documentation, dependency graphs, and intelligent conversations.
           </p>
 
           {/* Hub to Vizz Hint */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-sm text-muted-foreground hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 cursor-default">
+          <div className="inline-flex items-center gap-2 px-3 lg:px-4 py-2 bg-muted/30 backdrop-blur-sm rounded-full border border-border/30 text-xs lg:text-sm text-muted-foreground hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 cursor-default">
             <span className="font-mono">github.com/user/repo</span>
             <span className="text-primary">→</span>
             <span className="font-mono text-primary font-medium">gitvizz.com/user/repo</span>
           </div>
         </div>
-
         <RepoTabs prefilledRepo={prefilledRepo} />
+
+        {/* Features Showcase */}
+        <div className="w-full mb-8 lg:mb-12">
+          <div className="text-center mb-6 lg:mb-8">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight mb-2">
+              Powerful Features
+            </h2>
+            <p className="text-sm lg:text-base text-muted-foreground">
+              Explore repositories like never before with our comprehensive toolset
+            </p>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            {features.map((feature, index) => {
+              const IconComponent = feature.icon;
+              return (
+                <div
+                  key={index}
+                  className="group relative bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 overflow-hidden hover:border-primary/20 transition-all duration-300 hover:shadow-lg"
+                >
+                  {/* Image Container */}
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <div className="relative h-48 sm:h-56 lg:h-64 overflow-hidden bg-muted/20 cursor-pointer">
+                        <Image
+                          src={feature.image}
+                          alt={feature.title}
+                          fill
+                          className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+                      </div>
+                    </DialogTrigger>
+                    <DialogContent className="!max-w-[95vw] sm:!max-w-[95vw] md:!max-w-[95vw] lg:!max-w-[95vw] xl:!max-w-[95vw] !p-0 !border-0 bg-transparent shadow-none">
+                      <div className="relative w-[90vw] h-[80vh] max-w-[90vw] max-h-[90vh]">
+                        <Image
+                          src={feature.image}
+                          alt={feature.title}
+                          fill
+                          sizes="90vw"
+                          className="object-contain"
+                        />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Content */}
+                  <div className="p-4 lg:p-6">
+                    <div className="flex items-center gap-2 mb-2 lg:mb-3">
+                      <IconComponent className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
+                      <h3 className="text-lg lg:text-xl font-semibold">{feature.title}</h3>
+                    </div>
+                    <p className="text-sm lg:text-base text-muted-foreground leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </main>
 
       {/* Visual Anchor - Bottom Gradient */}
