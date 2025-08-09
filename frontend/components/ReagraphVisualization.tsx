@@ -32,14 +32,23 @@ import {
   Menu,
   X,
   Search,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { CodeReferenceAnalyzer } from '@/components/code-reference-analyzer';
 import { HierarchyTab } from '@/components/hierarchy-tab';
 import type { CodeReference, GraphData } from '@/types/code-analysis';
 import { type GraphNode as SearchGraphNode } from '@/lib/search-utils';
+import type { SigmaGraphInnerData } from './SigmaGraphInner';
 
 // Properly import GraphCanvas with Next.js SSR handling
 const GraphCanvas = dynamic(() => import('reagraph').then((mod) => mod.GraphCanvas), {
+  ssr: false,
+  loading: () => <GraphLoadingComponent />,
+});
+
+// Import Sigma.js component
+const SigmaGraphInner = dynamic(() => import('./SigmaGraphInner'), {
   ssr: false,
   loading: () => <GraphLoadingComponent />,
 });
@@ -124,6 +133,18 @@ interface CacheEntry {
 // Cache and constants
 const apiCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 5 * 60 * 1000;
+
+// Performance limits map for different visualization engines
+const PERFORMANCE_LIMITS = {
+  reagraph: {
+    warning: 800,    // Show warning at 800+ nodes
+    maxNodes: 1200,  // Block at 1200+ nodes
+  },
+  sigma: {
+    warning: 3000,   // Show warning at 3000+ nodes (Sigma.js is more efficient)
+    maxNodes: 10000, // Block at 10000+ nodes
+  }
+} as const;
 
 const COLOR_PALETTE = [
   '#F06292',
@@ -830,6 +851,7 @@ export default function EnhancedReagraphVisualization({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
+  const [visualizationType, setVisualizationType] = useState<'reagraph' | 'sigma'>('sigma');
   const { data: session } = useSession();
 
   const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub);
@@ -934,11 +956,6 @@ export default function EnhancedReagraphVisualization({
     [graphData?.nodes],
   );
 
-  const getNodeColor = useCallback(
-    (category: string) =>
-      nodeCategories[category?.toLowerCase()]?.color || nodeCategories['other'].color,
-    [nodeCategories],
-  );
 
   // Resize handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1065,7 +1082,7 @@ export default function EnhancedReagraphVisualization({
       nodes: graphData.nodes.map((node) => ({
         id: node.id,
         label: node.name,
-        fill: getNodeColor(node.category),
+        fill: nodeCategories[node.category?.toLowerCase() || 'other']?.color || nodeCategories['other']?.color || '#90A4AE',
         // Smaller fixed sizes for large graphs to reduce rendering work
         size: isLargeGraph ? 6 : Math.max(8, Math.min(16, node.name.length * 0.6 + 6)),
       })),
@@ -1078,7 +1095,24 @@ export default function EnhancedReagraphVisualization({
           label: isLargeGraph ? undefined : edge.relationship,
         })) || [],
     };
-  }, [graphData?.nodes, graphData?.edges, getNodeColor]);
+  }, [graphData?.nodes, graphData?.edges, nodeCategories]);
+
+  const sigmaData = useMemo((): SigmaGraphInnerData | null => {
+    if (!graphData?.nodes?.length) return null;
+
+    return {
+      nodes: graphData.nodes.map((node) => ({
+        id: node.id,
+        name: node.name,
+        category: node.category,
+      })),
+      edges: graphData.edges.map((edge, idx) => ({
+        id: `e-${idx}-${edge.source}-${edge.target}`,
+        source: edge.source,
+        target: edge.target,
+      })),
+    };
+  }, [graphData?.nodes, graphData?.edges]);
 
   const categoryData = useMemo(() => {
     if (!graphData?.nodes) return [];
@@ -1204,7 +1238,7 @@ export default function EnhancedReagraphVisualization({
     );
   }
 
-  if (!reagraphData || reagraphData.nodes.length === 0) {
+  if ((!reagraphData || reagraphData.nodes.length === 0) && (!sigmaData || sigmaData.nodes.length === 0)) {
     return (
       <div className="flex justify-center items-center h-full">
         <div className="text-center space-y-4 p-8">
@@ -1225,11 +1259,15 @@ export default function EnhancedReagraphVisualization({
   }
 
   // Check for large graphs and show warnings or prevent rendering
-  const nodeCount = reagraphData.nodes.length;
-  const isLargeGraph = nodeCount >= 500;
+  const nodeCount = visualizationType === 'reagraph' && reagraphData ? 
+    reagraphData.nodes.length : 
+    sigmaData ? sigmaData.nodes.length : 0;
+  
+  const currentLimits = PERFORMANCE_LIMITS[visualizationType];
+  const isLargeGraph = nodeCount >= currentLimits.warning;
 
-  // Don't render graph if too large (1200+ nodes)
-  if (nodeCount >= 1200) {
+  // Don't render graph if too large
+  if (nodeCount >= currentLimits.maxNodes) {
     return (
       <div className="flex justify-center items-center h-full">
         <div className="text-center space-y-4 p-8 max-w-md">
@@ -1238,11 +1276,11 @@ export default function EnhancedReagraphVisualization({
           </div>
           <div className="space-y-2">
             <h3 className="text-sm sm:text-base font-medium text-foreground">
-              Graph Too Large to Display
+              Graph Too Large for {visualizationType === 'reagraph' ? 'Reagraph' : 'Sigma.js'}
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              This repository has {nodeCount} nodes, which is too large to display efficiently.
-              We&apos;re working on optimizations for very large codebases.
+              This repository has {nodeCount.toLocaleString()} nodes, which exceeds the {currentLimits.maxNodes.toLocaleString()} node limit for {visualizationType === 'reagraph' ? 'Reagraph' : 'Sigma.js'}.
+              {visualizationType === 'reagraph' ? ' Try switching to Sigma.js for better large-graph performance.' : ' This exceeds even our high-performance limits.'}
             </p>
           </div>
           <div className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
@@ -1256,18 +1294,18 @@ export default function EnhancedReagraphVisualization({
   return (
     <div className="flex h-full min-h-[70vh] w-full bg-background/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden relative">
       {/* Performance Warning Banner */}
-      {nodeCount >= 500 && (
+      {isLargeGraph && (
         <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-50">
           <div
             className={`px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm border ${
-              nodeCount >= 1000
+              nodeCount >= (currentLimits.maxNodes * 0.8) // Show orange when close to max
                 ? 'bg-orange-50/90 dark:bg-orange-950/90 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
                 : 'bg-yellow-50/90 dark:bg-yellow-950/90 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800'
             }`}
           >
-            {nodeCount >= 1000
-              ? `⚠️ Very large graph (${nodeCount} nodes) - we&apos;re working on optimization`
-              : `⚠️ Large graph detected (${nodeCount} nodes) - may affect performance`}
+            {nodeCount >= (currentLimits.maxNodes * 0.8)
+              ? `⚠️ Very large graph (${nodeCount.toLocaleString()} nodes) - performance may be severely impacted`
+              : `⚠️ Large graph detected (${nodeCount.toLocaleString()} nodes) - performance may be affected`}
           </div>
         </div>
       )}
@@ -1401,7 +1439,10 @@ export default function EnhancedReagraphVisualization({
         {/* Stats Badge for mobile */}
         <div className="absolute top-3 right-3">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-2 py-1 text-xs">
-            {reagraphData.nodes.length}N • {reagraphData.edges.length}E
+            {visualizationType === 'reagraph' && reagraphData ? 
+              `${reagraphData.nodes.length}N • ${reagraphData.edges.length}E` :
+              sigmaData ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E` : '0N • 0E'
+            }
           </Badge>
         </div>
       </div>
@@ -1409,26 +1450,48 @@ export default function EnhancedReagraphVisualization({
       {/* Desktop Graph Canvas - Only show on lg and above */}
       <div className="hidden lg:block lg:flex-1 relative min-w-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm">
-          <GraphCanvas
-            ref={graphRef}
-            nodes={reagraphData.nodes}
-            edges={reagraphData.edges}
-            selections={activeNodeId ? [activeNodeId] : []}
-            actives={activeNodeId ? [activeNodeId] : []}
-            // Always show node labels (edge labels are removed above when large)
-            labelType={'nodes'}
-            draggable={true}
-            // Avoid animations for large graphs
-            animated={!isLargeGraph}
-            layoutType="forceDirected2d"
-            // Avoid centrality sizing on large graphs to reduce internal computation
-            sizingType={isLargeGraph ? 'attribute' : 'centrality'}
-            onNodeClick={handleNodeClick}
-          />
+          {visualizationType === 'reagraph' ? (
+            <GraphCanvas
+              ref={graphRef}
+              nodes={reagraphData.nodes}
+              edges={reagraphData.edges}
+              selections={activeNodeId ? [activeNodeId] : []}
+              actives={activeNodeId ? [activeNodeId] : []}
+              // Always show node labels (edge labels are removed above when large)
+              labelType={'nodes'}
+              draggable={true}
+              // Avoid animations for large graphs
+              animated={!isLargeGraph}
+              layoutType="forceDirected2d"
+              // Avoid centrality sizing on large graphs to reduce internal computation
+              sizingType={isLargeGraph ? 'attribute' : 'centrality'}
+              onNodeClick={handleNodeClick}
+            />
+          ) : (
+            sigmaData && (
+              <SigmaGraphInner
+                data={sigmaData}
+                onNodeClick={(nodeId: string) => {
+                  if (nodeId === '') {
+                    // Canvas click - clear focus
+                    setActiveNodeId(null);
+                    setSelectedNode(null);
+                    return;
+                  }
+                  const graphNode = graphData?.nodes.find((n) => n.id === nodeId);
+                  if (graphNode) {
+                    handleNodeClick({ id: graphNode.id, label: graphNode.name });
+                  }
+                }}
+                focusedNodeId={activeNodeId}
+                nodeCategories={nodeCategories}
+              />
+            )
+          )}
         </div>
 
         {/* Desktop Graph Controls */}
-        <div className="absolute top-4 left-4 items-center gap-2">
+        <div className="absolute top-4 left-4 flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1444,12 +1507,36 @@ export default function EnhancedReagraphVisualization({
               <TooltipContent>{showSidebar ? 'Hide Sidebar' : 'Show Sidebar'}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl bg-background/90 backdrop-blur-sm border-border/60"
+                  onClick={() => setVisualizationType(visualizationType === 'reagraph' ? 'sigma' : 'reagraph')}
+                >
+                  {visualizationType === 'reagraph' ? 
+                    <ToggleLeft className="h-4 w-4" /> : 
+                    <ToggleRight className="h-4 w-4" />
+                  }
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Switch to {visualizationType === 'reagraph' ? 'Sigma.js' : 'Reagraph'} Visualization
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Stats Badge for desktop */}
         <div className="absolute top-4 right-4">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-3 py-1 text-xs">
-            {reagraphData.nodes.length} nodes • {reagraphData.edges.length} edges
+            {visualizationType === 'reagraph' && reagraphData ? 
+              `${reagraphData.nodes.length} nodes • ${reagraphData.edges.length} edges` :
+              sigmaData ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E` : '0N • 0E'
+            }
           </Badge>
         </div>
       </div>

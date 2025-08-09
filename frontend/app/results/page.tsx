@@ -48,7 +48,7 @@ export default function ResultsPage() {
     userKeyPreferences,
   } = useResultData();
   const { data: session } = useSession();
-  const { currentModel } = useChatSidebar(currentRepoId, userKeyPreferences);
+  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences);
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';
@@ -603,9 +603,15 @@ export default function ResultsPage() {
                       <div className="h-full w-full overflow-auto">
                         <DocumentationTab
                           currentRepoId={currentRepoId}
-                          sourceData={sourceData}
+                          sourceData={
+                            typeof sourceData === 'object' &&
+                            sourceData !== null &&
+                            'repo_url' in sourceData
+                              ? { repo_url: (sourceData as { repo_url?: string }).repo_url }
+                              : {}
+                          }
                           sourceType={sourceType}
-                          selectedModel={currentModel.provider}
+                          selectedModel={(currentModel as { provider?: string }).provider}
                         />
                       </div>
                     ) : (
@@ -787,15 +793,17 @@ export default function ResultsPage() {
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsGraphExpanded(false)}
-                      className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                    >
-                      <Minimize2 className="h-4 w-4 mr-2" />
-                      <span className="hidden sm:inline">Minimize</span>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsGraphExpanded(false)}
+                        className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
+                      >
+                        <Minimize2 className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">Minimize</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 {/* Popup Content */}
