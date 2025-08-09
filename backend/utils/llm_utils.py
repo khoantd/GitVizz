@@ -48,8 +48,8 @@ class LLMService:
 
         # Daily limits for users without their own keys
         self.daily_limits = {
-            "free": 10,  # Free tier users
-            "premium": 50,  # Premium users
+            "free": 100,  # Free tier users
+            "premium": 500,  # Premium users
             "unlimited": -1,  # Users with their own keys
         }
 

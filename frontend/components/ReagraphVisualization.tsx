@@ -137,13 +137,13 @@ const CACHE_DURATION = 5 * 60 * 1000;
 // Performance limits map for different visualization engines
 const PERFORMANCE_LIMITS = {
   reagraph: {
-    warning: 800,    // Show warning at 800+ nodes
-    maxNodes: 1200,  // Block at 1200+ nodes
+    warning: 1500, // Show warning at 1500+ nodes
+    maxNodes: 3000, // Block at 2500+ nodes
   },
   sigma: {
-    warning: 3000,   // Show warning at 3000+ nodes (Sigma.js is more efficient)
+    warning: 3000, // Show warning at 3000+ nodes (Sigma.js is more efficient)
     maxNodes: 10000, // Block at 10000+ nodes
-  }
+  },
 } as const;
 
 const COLOR_PALETTE = [
@@ -956,7 +956,6 @@ export default function EnhancedReagraphVisualization({
     [graphData?.nodes],
   );
 
-
   // Resize handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setIsResizing(true);
@@ -1082,7 +1081,10 @@ export default function EnhancedReagraphVisualization({
       nodes: graphData.nodes.map((node) => ({
         id: node.id,
         label: node.name,
-        fill: nodeCategories[node.category?.toLowerCase() || 'other']?.color || nodeCategories['other']?.color || '#90A4AE',
+        fill:
+          nodeCategories[node.category?.toLowerCase() || 'other']?.color ||
+          nodeCategories['other']?.color ||
+          '#90A4AE',
         // Smaller fixed sizes for large graphs to reduce rendering work
         size: isLargeGraph ? 6 : Math.max(8, Math.min(16, node.name.length * 0.6 + 6)),
       })),
@@ -1238,7 +1240,10 @@ export default function EnhancedReagraphVisualization({
     );
   }
 
-  if ((!reagraphData || reagraphData.nodes.length === 0) && (!sigmaData || sigmaData.nodes.length === 0)) {
+  if (
+    (!reagraphData || reagraphData.nodes.length === 0) &&
+    (!sigmaData || sigmaData.nodes.length === 0)
+  ) {
     return (
       <div className="flex justify-center items-center h-full">
         <div className="text-center space-y-4 p-8">
@@ -1259,10 +1264,13 @@ export default function EnhancedReagraphVisualization({
   }
 
   // Check for large graphs and show warnings or prevent rendering
-  const nodeCount = visualizationType === 'reagraph' && reagraphData ? 
-    reagraphData.nodes.length : 
-    sigmaData ? sigmaData.nodes.length : 0;
-  
+  const nodeCount =
+    visualizationType === 'reagraph' && reagraphData
+      ? reagraphData.nodes.length
+      : sigmaData
+        ? sigmaData.nodes.length
+        : 0;
+
   const currentLimits = PERFORMANCE_LIMITS[visualizationType];
   const isLargeGraph = nodeCount >= currentLimits.warning;
 
@@ -1279,8 +1287,12 @@ export default function EnhancedReagraphVisualization({
               Graph Too Large for {visualizationType === 'reagraph' ? 'Reagraph' : 'Sigma.js'}
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              This repository has {nodeCount.toLocaleString()} nodes, which exceeds the {currentLimits.maxNodes.toLocaleString()} node limit for {visualizationType === 'reagraph' ? 'Reagraph' : 'Sigma.js'}.
-              {visualizationType === 'reagraph' ? ' Try switching to Sigma.js for better large-graph performance.' : ' This exceeds even our high-performance limits.'}
+              This repository has {nodeCount.toLocaleString()} nodes, which exceeds the{' '}
+              {currentLimits.maxNodes.toLocaleString()} node limit for{' '}
+              {visualizationType === 'reagraph' ? 'Reagraph' : 'Sigma.js'}.
+              {visualizationType === 'reagraph'
+                ? ' Try switching to Sigma.js for better large-graph performance.'
+                : ' This exceeds even our high-performance limits.'}
             </p>
           </div>
           <div className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
@@ -1298,12 +1310,12 @@ export default function EnhancedReagraphVisualization({
         <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-50">
           <div
             className={`px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm border ${
-              nodeCount >= (currentLimits.maxNodes * 0.8) // Show orange when close to max
+              nodeCount >= currentLimits.maxNodes * 0.8 // Show orange when close to max
                 ? 'bg-orange-50/90 dark:bg-orange-950/90 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
                 : 'bg-yellow-50/90 dark:bg-yellow-950/90 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800'
             }`}
           >
-            {nodeCount >= (currentLimits.maxNodes * 0.8)
+            {nodeCount >= currentLimits.maxNodes * 0.8
               ? `⚠️ Very large graph (${nodeCount.toLocaleString()} nodes) - performance may be severely impacted`
               : `⚠️ Large graph detected (${nodeCount.toLocaleString()} nodes) - performance may be affected`}
           </div>
@@ -1439,10 +1451,11 @@ export default function EnhancedReagraphVisualization({
         {/* Stats Badge for mobile */}
         <div className="absolute top-3 right-3">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-2 py-1 text-xs">
-            {visualizationType === 'reagraph' && reagraphData ? 
-              `${reagraphData.nodes.length}N • ${reagraphData.edges.length}E` :
-              sigmaData ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E` : '0N • 0E'
-            }
+            {visualizationType === 'reagraph' && reagraphData
+              ? `${reagraphData.nodes.length}N • ${reagraphData.edges.length}E`
+              : sigmaData
+                ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E`
+                : '0N • 0E'}
           </Badge>
         </div>
       </div>
@@ -1507,7 +1520,7 @@ export default function EnhancedReagraphVisualization({
               <TooltipContent>{showSidebar ? 'Hide Sidebar' : 'Show Sidebar'}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1515,12 +1528,15 @@ export default function EnhancedReagraphVisualization({
                   variant="outline"
                   size="icon"
                   className="h-8 w-8 rounded-xl bg-background/90 backdrop-blur-sm border-border/60"
-                  onClick={() => setVisualizationType(visualizationType === 'reagraph' ? 'sigma' : 'reagraph')}
-                >
-                  {visualizationType === 'reagraph' ? 
-                    <ToggleLeft className="h-4 w-4" /> : 
-                    <ToggleRight className="h-4 w-4" />
+                  onClick={() =>
+                    setVisualizationType(visualizationType === 'reagraph' ? 'sigma' : 'reagraph')
                   }
+                >
+                  {visualizationType === 'reagraph' ? (
+                    <ToggleLeft className="h-4 w-4" />
+                  ) : (
+                    <ToggleRight className="h-4 w-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1533,10 +1549,11 @@ export default function EnhancedReagraphVisualization({
         {/* Stats Badge for desktop */}
         <div className="absolute top-4 right-4">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-3 py-1 text-xs">
-            {visualizationType === 'reagraph' && reagraphData ? 
-              `${reagraphData.nodes.length} nodes • ${reagraphData.edges.length} edges` :
-              sigmaData ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E` : '0N • 0E'
-            }
+            {visualizationType === 'reagraph' && reagraphData
+              ? `${reagraphData.nodes.length} nodes • ${reagraphData.edges.length} edges`
+              : sigmaData
+                ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E`
+                : '0N • 0E'}
           </Badge>
         </div>
       </div>
