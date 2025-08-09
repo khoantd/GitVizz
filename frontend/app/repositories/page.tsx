@@ -247,7 +247,15 @@ export default function RepositoriesPage() {
       setSourceData(requestData);
       setCurrentRepoId(repo_id);
       setProcessingRepos((prev) => prev.filter((id) => id !== repoId));
-      router.push('/results');
+      try {
+        const url = new URL(html_url);
+        const parts = url.pathname.split('/').filter(Boolean);
+        const owner = parts[0];
+        const name = parts[1];
+        router.push(`/results/${owner}/${name}?id=${repo_id}`);
+      } catch {
+        router.push('/results');
+      }
     } catch (error) {
       console.error('Error processing repository:', error);
       handleError('Failed to process repository. Please try again.');
@@ -529,8 +537,8 @@ export default function RepositoriesPage() {
                   </div>
                   <h2 className="text-2xl font-semibold mb-2">Connect to GitHub</h2>
                   <p className="text-muted-foreground max-w-md mb-8">
-                    To view your repositories, please install the gitvizz GitHub App and grant access
-                    to the appropriate repositories.
+                    To view your repositories, please install the gitvizz GitHub App and grant
+                    access to the appropriate repositories.
                   </p>
                   <Button
                     size="lg"

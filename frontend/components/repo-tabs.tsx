@@ -114,8 +114,6 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     showToast.success(message);
   }, []);
 
-
-
   // Handle URL auto-fill detection and animation
   useEffect(() => {
     if (prefilledRepo && prefilledRepo.trim() !== '') {
@@ -261,7 +259,15 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('github');
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
-      router.push('/results');
+      try {
+        const url = new URL(repo.html_url);
+        const parts = url.pathname.split('/').filter(Boolean);
+        const owner = parts[0];
+        const name = parts[1];
+        router.push(`/results/${owner}/${name}?id=${repo_id}`);
+      } catch {
+        router.push('/results');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to process repository.';
       handleError(message);
@@ -309,7 +315,15 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('github');
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
-      router.push('/results');
+      try {
+        const url = new URL(repoUrl.trim());
+        const parts = url.pathname.split('/').filter(Boolean);
+        const owner = parts[0];
+        const name = parts[1];
+        router.push(`/results/${owner}/${name}?id=${repo_id}`);
+      } catch {
+        router.push('/results');
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
