@@ -177,6 +177,20 @@ export function useChatSidebar(
     }));
 
     try {
+      // Determine appropriate temperature based on model
+      let temperature = modelState.temperature;
+
+      // O-series models (o1-preview, o1-mini, etc.) only support temperature=1
+      if (
+        modelState.model &&
+        (modelState.model.startsWith('o1') || modelState.model.includes('o1'))
+      ) {
+        temperature = 1.0;
+      } else if (temperature === undefined) {
+        // Default temperature for other models
+        temperature = 0.7;
+      }
+
       const streamingRequest: StreamingChatRequest = {
         token: session.jwt_token,
         message: content,
@@ -186,7 +200,7 @@ export function useChatSidebar(
         conversation_id: chatState.currentConversationId,
         provider: modelState.provider,
         model: modelState.model,
-        temperature: modelState.temperature,
+        temperature: temperature,
         include_full_context: contextSettings.includeFullContext,
         context_search_query: content, // Send user message as context search query for smart search
         scope_preference: contextSettings.scope,

@@ -34,7 +34,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { showToast } from '@/components/toaster';
-import { saveApiKey, getAvailableModels } from '@/utils/api';
+import { saveApiKey, getAvailableModels, verifyApiKey } from '@/utils/api';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useResultData } from '@/context/ResultDataContext';
 
@@ -49,6 +49,12 @@ export default function ApiKeysPage() {
   const [keyName, setKeyName] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    isValid?: boolean;
+    message?: string;
+    availableModels?: string[];
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availableModels, setAvailableModels] = useState<AvailableModelsResponse | null>(null);
   const [provider, setProvider] = useState<string>('gemini');
@@ -95,6 +101,42 @@ export default function ApiKeysPage() {
     );
   };
 
+  const handleVerifyKey = async () => {
+    if (!apiKey.trim() || !session?.jwt_token) return;
+
+    setIsVerifying(true);
+    setVerificationResult(null);
+
+    try {
+      const result = await verifyApiKey({
+        token: session.jwt_token,
+        provider,
+        api_key: apiKey.trim(),
+      });
+
+      setVerificationResult({
+        isValid: result.is_valid,
+        message: result.message,
+        availableModels: result.available_models,
+      });
+
+      if (result.is_valid) {
+        showToast.success(`✅ ${result.message}`);
+      } else {
+        showToast.error(`❌ ${result.message}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setVerificationResult({
+        isValid: false,
+        message: errorMessage,
+      });
+      showToast.error(`Failed to verify API key: ${errorMessage}`);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleSaveKey = async () => {
     if (!apiKey.trim() || !session?.jwt_token) return;
 
@@ -109,6 +151,7 @@ export default function ApiKeysPage() {
 
       setApiKey('');
       setKeyName('');
+      setVerificationResult(null);
       showToast.success(
         `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully!`,
       );
@@ -130,6 +173,7 @@ export default function ApiKeysPage() {
 
   const handleSelectProviderToAdd = (providerValue: string) => {
     setProvider(providerValue);
+    setVerificationResult(null); // Clear verification when switching providers
     addKeyCardRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -326,21 +370,82 @@ export default function ApiKeysPage() {
               </a>
             </div>
 
-            <Button
-              onClick={handleSaveKey}
-              disabled={!apiKey.trim() || isSaving}
-              className="w-full h-11 text-base"
-            >
-              {isSaving ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" /> Save & Connect
-                </>
-              )}
-            </Button>
+            {/* Verification Result */}
+            {verificationResult && (
+              <div
+                className={cn(
+                  'p-3 rounded-lg border text-sm',
+                  verificationResult.isValid
+                    ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300'
+                    : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300',
+                )}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {verificationResult.isValid ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">
+                    {verificationResult.isValid ? 'Valid API Key' : 'Invalid API Key'}
+                  </span>
+                </div>
+                <p>{verificationResult.message}</p>
+                {verificationResult.availableModels &&
+                  verificationResult.availableModels.length > 0 && (
+                    <div className="mt-2">
+                      <p className="font-medium mb-1">Available models:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {verificationResult.availableModels.slice(0, 5).map((model) => (
+                          <Badge key={model} variant="outline" className="text-xs">
+                            {model}
+                          </Badge>
+                        ))}
+                        {verificationResult.availableModels.length > 5 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{verificationResult.availableModels.length - 5} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleVerifyKey}
+                disabled={!apiKey.trim() || isVerifying}
+                variant="outline"
+                className="flex-1 h-11 text-base"
+              >
+                {isVerifying ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Verifying...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-2" /> Verify Key
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleSaveKey}
+                disabled={!apiKey.trim() || isSaving}
+                className="flex-1 h-11 text-base"
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" /> Save & Connect
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
