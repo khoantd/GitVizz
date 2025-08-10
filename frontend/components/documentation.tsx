@@ -5,13 +5,11 @@ import Image from 'next/image';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   FileText,
   Lock,
   Loader2,
   BookOpen,
-  Code2,
   ChevronRight,
   Folder,
   FolderOpen,
@@ -22,7 +20,6 @@ import {
   Menu,
   Hash,
   Sparkles,
-  ChevronLeft,
   GripVertical,
   List,
 } from 'lucide-react';
@@ -293,7 +290,7 @@ const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: Markd
       );
     },
     h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
-      const id = props.id || `h1-${Math.random().toString(36).substr(2, 9)}`;
+      const id = props.id || `h1-${Math.random().toString(36).substring(2, 11)}`;
       return (
         <h1
           {...props}
@@ -303,7 +300,7 @@ const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: Markd
       );
     },
     h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
-      const id = props.id || `h2-${Math.random().toString(36).substr(2, 9)}`;
+      const id = props.id || `h2-${Math.random().toString(36).substring(2, 11)}`;
       return (
         <h2
           {...props}
@@ -313,7 +310,7 @@ const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: Markd
       );
     },
     h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
-      const id = props.id || `h3-${Math.random().toString(36).substr(2, 9)}`;
+      const id = props.id || `h3-${Math.random().toString(36).substring(2, 11)}`;
       return (
         <h3
           {...props}
@@ -751,7 +748,7 @@ export default function Documentation({
         throw new Error('Repository URL not available');
       }
 
-      await generateWikiDocumentation(session.jwt_token, repositoryUrl, 'en', true, selectedModel);
+      await generateWikiDocumentation(session.jwt_token, repositoryUrl, 'en', true, selectedModel || undefined);
     } catch (err) {
       console.error('Error generating documentation:', err);
       setIsGenerating(false);
