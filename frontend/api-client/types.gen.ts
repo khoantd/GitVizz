@@ -66,7 +66,7 @@ export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
   repo_url?: string | null;
   /**
    * Branch
-   * Branch for GitHub repo URL.
+   * Branch for GitHub repo URL. If not specified, uses the repository's default branch.
    */
   branch?: string | null;
   /**
@@ -97,7 +97,7 @@ export type BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
   repo_url?: string | null;
   /**
    * Branch
-   * Branch for GitHub repo URL.
+   * Branch for GitHub repo URL. If not specified, uses the repository's default branch.
    */
   branch?: string | null;
   /**
@@ -189,7 +189,7 @@ export type BodyGenerateTextEndpointApiRepoGenerateTextPost = {
   repo_url?: string | null;
   /**
    * Branch
-   * Branch to use if repo_url is a GitHub repository link.
+   * Branch to use if repo_url is a GitHub repository link. If not specified, uses the repository's default branch.
    */
   branch?: string | null;
   /**

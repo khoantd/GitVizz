@@ -9,7 +9,6 @@ import {
   Upload,
   GitBranch,
   Lock,
-  Info,
   Zap,
   ArrowRight,
   CheckCircle,
@@ -304,7 +303,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     return () => {
       isMounted = false;
     };
-  }, [activeMainTab, status, session?.accessToken, handleError, handleSuccess]);
+  }, [activeMainTab, status, session?.accessToken, handleError, handleSuccess, isAppInstalled]);
 
   const handleInstallApp = () => {
     try {
@@ -787,7 +786,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                     className="bg-background/80 backdrop-blur-sm border-primary/20 text-primary text-xs cursor-pointer hover:bg-primary/10 transition-colors"
                                     onClick={() => setBranch(suggestedBranch)}
                                   >
-                                    Use '{suggestedBranch}'
+                                    Use &apos;{suggestedBranch}&apos;
                                   </Badge>
                                 </div>
                               )}

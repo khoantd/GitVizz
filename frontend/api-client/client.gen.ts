@@ -22,12 +22,6 @@ export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> =
 
 export const client = createClient(
   createConfig<ClientOptions>({
-    baseUrl: process.env.API_BASE_URL || 'http://localhost:8003',
-  }),
-);
-
-export const auth_client = createClient(
-  createConfig<ClientOptions>({
-    baseUrl: process.env.API_SERVER_BASE_URL,
+    baseUrl: 'http://localhost:8003',
   }),
 );

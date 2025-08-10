@@ -129,8 +129,8 @@ export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
         },
       ],
       title: 'Branch',
-      description: 'Branch for GitHub repo URL.',
-      default: 'main',
+      description:
+        "Branch for GitHub repo URL. If not specified, uses the repository's default branch.",
     },
     zip_file: {
       anyOf: [
@@ -198,8 +198,8 @@ export const Body_generate_structure_endpoint_api_repo_generate_structure_postSc
         },
       ],
       title: 'Branch',
-      description: 'Branch for GitHub repo URL.',
-      default: 'main',
+      description:
+        "Branch for GitHub repo URL. If not specified, uses the repository's default branch.",
     },
     zip_file: {
       anyOf: [
@@ -409,8 +409,8 @@ export const Body_generate_text_endpoint_api_repo_generate_text_postSchema = {
         },
       ],
       title: 'Branch',
-      description: 'Branch to use if repo_url is a GitHub repository link.',
-      default: 'main',
+      description:
+        "Branch to use if repo_url is a GitHub repository link. If not specified, uses the repository's default branch.",
     },
     zip_file: {
       anyOf: [

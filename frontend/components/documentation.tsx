@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+import Image from 'next/image';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -322,12 +323,15 @@ const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) =>
         {...props}
       />
     ),
-     
+
     img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-      <img
+      <Image
         className="max-w-full h-auto rounded-lg shadow-md my-4"
         alt={props.alt || ''}
-        {...props}
+        src={typeof props.src === 'string' ? props.src : ''}
+        width={props.width ? Number(props.width) : 800}
+        height={props.height ? Number(props.height) : 600}
+        style={{ width: 'auto', height: 'auto' }}
       />
     ),
     hr: (props: React.HTMLAttributes<HTMLHRElement>) => (
@@ -638,9 +642,7 @@ export default function Documentation({
             setError(null);
           } else if (statusResponse.status === 'failed') {
             setIsGenerating(false);
-            setError(
-              'Please Provide Valid API Key for the selected model or try again later',
-            );
+            setError('Please Provide Valid API Key for the selected model or try again later');
           }
         } catch (err) {
           console.error('Error checking status:', err);
