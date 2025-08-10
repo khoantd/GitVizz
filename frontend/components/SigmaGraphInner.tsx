@@ -1,18 +1,23 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { SigmaContainer, useLoadGraph, useRegisterEvents, useSigma } from '@react-sigma/core';
+import { SigmaContainer, useLoadGraph, useRegisterEvents, useSigma, useCamera } from '@react-sigma/core';
 import '@react-sigma/core/lib/style.css';
 import { MultiDirectedGraph } from 'graphology';
-import forceAtlas2 from 'graphology-layout-forceatlas2';
-import random from 'graphology-layout/random';
-import circular from 'graphology-layout/circular';
-import forceSimple from 'graphology-layout-force';
-import noverlap from 'graphology-layout-noverlap';
+import { useLayoutForceAtlas2 } from '@react-sigma/layout-forceatlas2';
+import { useLayoutForce } from '@react-sigma/layout-force';
+import { useLayoutNoverlap } from '@react-sigma/layout-noverlap';
+import { useLayoutCircular } from '@react-sigma/layout-circular';
+import { useLayoutRandom } from '@react-sigma/layout-random';
+import { animateNodes } from 'sigma/utils';
+import { EdgeArrowProgram, NodePointProgram, NodeCircleProgram } from 'sigma/rendering';
+import { NodeBorderProgram } from '@sigma/node-border';
+import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { LayoutGrid, Shuffle, RotateCw, Zap, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { LayoutGrid, Shuffle, RotateCw, Zap, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Focus, Pause } from 'lucide-react';
 
 type InnerNode = { id: string; name: string; category?: string };
 type InnerEdge = { id?: string; source: string; target: string };
@@ -76,6 +81,81 @@ const sigmaContainerStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%)',
 };
 
+// Enhanced Sigma settings with advanced features
+const enhancedSigmaSettings = {
+  allowInvalidContainer: true,
+  defaultNodeType: 'default',
+  defaultEdgeType: 'curvedNoArrow',
+  renderLabels: true,
+  renderEdgeLabels: false,
+  edgeProgramClasses: {
+    arrow: EdgeArrowProgram,
+    curvedArrow: EdgeCurvedArrowProgram,
+    curvedNoArrow: createEdgeCurveProgram()
+  },
+  nodeProgramClasses: {
+    default: NodeBorderProgram,
+    circle: NodeCircleProgram,
+    point: NodePointProgram
+  },
+  labelFont: 'Arial, sans-serif',
+  labelSize: 12,
+  labelWeight: '500',
+  labelColor: { color: '#374151' },
+  labelGridCellSize: 60,
+  labelRenderedSizeThreshold: 12,
+  edgeLabelFont: 'Arial, sans-serif',
+  edgeLabelSize: 10,
+  edgeLabelColor: { color: '#6b7280' },
+  minCameraRatio: 0.05,
+  maxCameraRatio: 10,
+  enableEdgeEvents: true,
+  hideEdgesOnMove: true,
+  hideLabelsOnMove: false,
+  zIndex: true,
+};
+
+// Node dragging component
+function GraphEvents({ enableNodeDrag = true }: { enableNodeDrag?: boolean }) {
+  const registerEvents = useRegisterEvents();
+  const sigma = useSigma();
+  const [draggedNode, setDraggedNode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enableNodeDrag) return;
+
+    registerEvents({
+      downNode: (e) => {
+        setDraggedNode(e.node);
+        sigma.getGraph().setNodeAttribute(e.node, 'highlighted', true);
+      },
+      mousemovebody: (e) => {
+        if (!draggedNode) return;
+        const pos = sigma.viewportToGraph(e);
+        sigma.getGraph().setNodeAttribute(draggedNode, 'x', pos.x);
+        sigma.getGraph().setNodeAttribute(draggedNode, 'y', pos.y);
+        e.preventSigmaDefault();
+        e.original.preventDefault();
+        e.original.stopPropagation();
+      },
+      mouseup: () => {
+        if (draggedNode) {
+          setDraggedNode(null);
+          sigma.getGraph().removeNodeAttribute(draggedNode, 'highlighted');
+        }
+      },
+      mousedown: (e) => {
+        const mouseEvent = e.original as MouseEvent;
+        if (mouseEvent.buttons !== 0 && !sigma.getCustomBBox()) {
+          sigma.setCustomBBox(sigma.getBBox());
+        }
+      }
+    });
+  }, [registerEvents, sigma, draggedNode, enableNodeDrag]);
+
+  return null;
+}
+
 function LoadGraph({
   data,
   onNodeClick,
@@ -93,123 +173,131 @@ function LoadGraph({
   const registerEvents = useRegisterEvents();
   const sigma = useSigma();
   const [connectedNodes, setConnectedNodes] = useState<Set<string>>(new Set());
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   
-  // Layout application function - moved to top to avoid initialization issues
-  const applyLayout = useCallback((graph: MultiDirectedGraph, layoutType: string, nodeCount: number) => {
+  // Enhanced layout hooks
+  const layoutForceAtlas2 = useLayoutForceAtlas2({ iterations: 300 });
+  const layoutForce = useLayoutForce({
+    maxIterations: 100,
+    settings: {
+      attraction: 0.0003,
+      repulsion: 0.02,
+      gravity: 0.02,
+      inertia: 0.4,
+      maxMove: 100
+    }
+  });
+  const layoutNoverlap = useLayoutNoverlap({
+    maxIterations: 100,
+    settings: {
+      margin: 5,
+      expansion: 1.1,
+      gridSize: 1,
+      ratio: 1,
+      speed: 3,
+    }
+  });
+  const layoutCircular = useLayoutCircular();
+  const layoutRandom = useLayoutRandom();
+
+  // Stable layout application function (not recreated on every render)
+  const applyLayoutStable = useCallback((layoutType: string, animate = true) => {
+    const graph = sigma.getGraph();
+    if (!graph || graph.order === 0) return;
+
     try {
+      let positions: Record<string, { x: number; y: number }> = {};
+      
       switch (layoutType) {
         case 'forceatlas2':
-          // Start with random positions with larger scale
-          random.assign(graph, { scale: 3 });
-          
-          // Apply ForceAtlas2 with anti-overlap settings
-          const iterations = nodeCount <= 200 ? 300 : nodeCount <= 500 ? 150 : 80;
-          forceAtlas2.assign(graph, {
-            iterations,
-            settings: {
-              gravity: 0.01,
-              scalingRatio: 25,
-              slowDown: 3,
-              barnesHutOptimize: nodeCount > 100,
-              strongGravityMode: false,
-              outboundAttractionDistribution: false,
-              linLogMode: true,
-              adjustSizes: true,
-            },
-          });
-          
-          // Always apply overlap removal
-          noverlap.assign(graph, {
-            maxIterations: nodeCount <= 200 ? 100 : 80,
-            settings: {
-              margin: 8,
-              ratio: 1.5,
-              speed: 2,
-              gridSize: 20,
-            },
-          });
+          positions = layoutForceAtlas2.positions() as Record<string, { x: number; y: number }>;
           break;
-          
+        case 'force':
+          positions = layoutForce.positions() as Record<string, { x: number; y: number }>;
+          break;
+        case 'noverlap':
+          positions = layoutNoverlap.positions() as Record<string, { x: number; y: number }>;
+          break;
         case 'circular':
-          circular.assign(graph, {
-            scale: Math.max(200, Math.sqrt(nodeCount) * 20),
-          });
+          positions = layoutCircular.positions() as Record<string, { x: number; y: number }>;
           break;
-          
+        case 'random':
+          positions = layoutRandom.positions() as Record<string, { x: number; y: number }>;
+          break;
         case 'grid':
-          // Grid layout - arrange nodes in a grid pattern
-          let idx = 0;
+          const nodeCount = graph.order;
           const cols = Math.ceil(Math.sqrt(nodeCount));
           const spacing = 80;
+          positions = {};
+          let idx = 0;
           graph.forEachNode((nodeId) => {
             const row = Math.floor(idx / cols);
             const col = idx % cols;
-            graph.mergeNodeAttributes(nodeId, {
+            positions[nodeId] = {
               x: col * spacing - (cols * spacing) / 2,
               y: row * spacing - (Math.ceil(nodeCount / cols) * spacing) / 2,
-            });
+            };
             idx++;
           });
           break;
-          
-        case 'random':
-          random.assign(graph, { scale: Math.max(300, Math.sqrt(nodeCount) * 25) });
-          break;
-          
-        case 'force':
-          // Simple force-directed layout
-          const forceIterations = nodeCount <= 200 ? 100 : nodeCount <= 500 ? 50 : 30;
-          forceSimple.assign(graph, {
-            maxIterations: forceIterations,
-            settings: {
-              attraction: 0.001,
-              repulsion: 0.1,
-            },
-          });
-          break;
+        default:
+          console.warn('Unknown layout type:', layoutType);
+          return;
+      }
+      
+      if (animate && Object.keys(positions).length > 0) {
+        animateNodes(graph, positions, { duration: 400 });
+      } else if (Object.keys(positions).length > 0) {
+        graph.forEachNode((node) => {
+          if (positions[node]) {
+            graph.setNodeAttribute(node, 'x', positions[node].x);
+            graph.setNodeAttribute(node, 'y', positions[node].y);
+          }
+        });
+        sigma.refresh();
       }
     } catch (error) {
       console.error('Layout failed:', error);
-      // Fallback to circular layout if algorithms fail
-      let idx = 0;
-      const radius = Math.max(100, Math.sqrt(nodeCount) * 15);
-      graph.forEachNode((n) => {
-        const angle = (2 * Math.PI * idx++) / Math.max(1, nodeCount);
-        graph.mergeNodeAttributes(n, { 
-          x: Math.cos(angle) * radius, 
-          y: Math.sin(angle) * radius 
-        });
-      });
     }
-  }, []);
+  }, [sigma]); // Only sigma as dependency - layouts are accessed directly
 
-  // Update node appearance based on states (hover, focus, connected)
+  // Update node appearance based on states (optimized to prevent constant refreshing)
   const updateNodeAppearance = useCallback((graph: MultiDirectedGraph) => {
     graph.forEachNode((nodeId) => {
       const nodeData = data.nodes.find(n => n.id === nodeId);
       const originalColor = getColorForCategory(nodeData?.category, nodeCategories);
+      const baseSize = graph.getNodeAttribute(nodeId, 'originalSize') || 8;
       
-      // Smaller base sizes to prevent overlap
-      let size = Math.max(5, Math.min(10, (nodeData?.name.length || 5) * 0.3 + 5));
+      let size = baseSize;
       let color = originalColor;
       let borderColor = 'transparent';
       let borderSize = 0;
       
-      // Focus state (only on click, no hover effects)
+      // Focus state
       if (nodeId === focusedNodeId) {
-        size *= 1.8;
+        size = baseSize * 1.8;
         borderColor = '#6b7280';
         borderSize = 3;
         color = getLighterColor(originalColor);
       }
       // Connected to focused node
       else if (focusedNodeId && connectedNodes.has(nodeId)) {
-        size *= 1.1;
+        size = baseSize * 1.1;
         color = getLighterColor(originalColor);
       }
-      // Dimmed state (when something is focused but this node isn't connected)
-      else if (focusedNodeId && !connectedNodes.has(nodeId) && nodeId !== focusedNodeId) {
-        color = originalColor + '60'; // Add transparency
+      // Hover state (only if not focused)
+      else if (!focusedNodeId && nodeId === hoveredNode) {
+        size = baseSize * 1.2;
+        color = getLighterColor(originalColor);
+      }
+      // Connected to hovered node
+      else if (!focusedNodeId && hoveredNode && connectedNodes.has(nodeId)) {
+        color = getLighterColor(originalColor);
+      }
+      // Dimmed state
+      else if ((focusedNodeId && !connectedNodes.has(nodeId) && nodeId !== focusedNodeId) ||
+               (!focusedNodeId && hoveredNode && !connectedNodes.has(nodeId) && nodeId !== hoveredNode)) {
+        color = originalColor + '60';
       }
       
       graph.mergeNodeAttributes(nodeId, {
@@ -220,98 +308,80 @@ function LoadGraph({
       });
     });
     
-    // Collect edge data and rebuild graph with proper rendering order
-    interface EdgeData {
-      id: string;
-      source: string;
-      target: string;
-      attributes: Record<string, unknown>;
-    }
-    
-    const edgesByLayer: { 
-      dimmed: EdgeData[], 
-      normal: EdgeData[], 
-      focused: EdgeData[] 
-    } = {
-      dimmed: [],
-      normal: [],
-      focused: []
-    };
-    
-    // Collect all edges and categorize by layer
+    // Update edges
     graph.forEachEdge((edgeId, attributes, source, target) => {
       let color = '#e5e7eb';
       let size = 0.8;
-      let layer: 'dimmed' | 'normal' | 'focused' = 'normal';
       
-      // Determine edge appearance and layer (only for focused, no hover)
-      if (focusedNodeId && (source === focusedNodeId || target === focusedNodeId)) {
+      const activeNode = focusedNodeId || hoveredNode;
+      if (activeNode && (source === activeNode || target === activeNode)) {
         color = '#9ca3af';
         size = 1.5;
-        layer = 'focused';
-      } else if (focusedNodeId && !connectedNodes.has(source) && !connectedNodes.has(target)) {
+      } else if (activeNode && !connectedNodes.has(source) && !connectedNodes.has(target)) {
         color = '#e5e7eb50';
-        layer = 'dimmed';
       }
       
-      const newAttributes = { ...attributes, color, size };
-      edgesByLayer[layer].push({ id: edgeId, source, target, attributes: newAttributes });
+      graph.mergeEdgeAttributes(edgeId, { color, size });
     });
-    
-    // If there are focused or dimmed edges, rebuild the graph edges in proper order
-    if (edgesByLayer.focused.length > 0 || edgesByLayer.dimmed.length > 0) {
-      // Remove all edges
-      const allEdges = [...edgesByLayer.dimmed, ...edgesByLayer.normal, ...edgesByLayer.focused];
-      allEdges.forEach(edge => {
-        if (graph.hasEdge(edge.id)) {
-          graph.dropEdge(edge.id);
-        }
-      });
-      
-      // Add edges back in layered order (dimmed first, normal second, focused last)
-      [...edgesByLayer.dimmed, ...edgesByLayer.normal, ...edgesByLayer.focused].forEach(edge => {
-        try {
-          graph.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, edge.attributes);
-        } catch {
-          // Edge might already exist or have invalid nodes
-        }
-      });
-    } else {
-      // No special layering needed, just update attributes
-      edgesByLayer.normal.forEach(edge => {
-        if (graph.hasEdge(edge.id)) {
-          graph.mergeEdgeAttributes(edge.id, edge.attributes);
-        }
-      });
-    }
-  }, [data.nodes, connectedNodes, focusedNodeId, nodeCategories]);
+  }, [data.nodes, connectedNodes, focusedNodeId, hoveredNode, nodeCategories]);
+
 
   useEffect(() => {
+    
     const graph = new MultiDirectedGraph();
+    const currentNodeCount = data.nodes.length;
 
-    // Add nodes with enhanced styling and smaller base sizes
+    // Performance optimized node sizing based on graph size
+    const minNodeSize = currentNodeCount > 1000 ? 3 : currentNodeCount > 500 ? 4 : 5;
+    const maxNodeSize = currentNodeCount > 1000 ? 8 : currentNodeCount > 500 ? 12 : 15;
+    
+    // Calculate node degrees for size scaling
+    const nodeDegrees = new Map<string, number>();
+    for (const edge of data.edges) {
+      nodeDegrees.set(edge.source, (nodeDegrees.get(edge.source) || 0) + 1);
+      nodeDegrees.set(edge.target, (nodeDegrees.get(edge.target) || 0) + 1);
+    }
+    
+    const maxDegree = Math.max(...Array.from(nodeDegrees.values()), 1);
+    const minDegree = 1;
+    const degreeRange = maxDegree - minDegree || 1;
+    const sizeScale = maxNodeSize - minNodeSize;
+    
+    // Add nodes with enhanced styling and degree-based sizing
     for (const node of data.nodes) {
-      const baseSize = Math.max(5, Math.min(10, node.name.length * 0.3 + 5)); // Smaller sizes
+      const degree = nodeDegrees.get(node.id) || 1;
+      const baseSize = Math.round(
+        minNodeSize + sizeScale * Math.pow((degree - minDegree) / degreeRange, 0.5)
+      );
       const baseColor = getColorForCategory(node.category, nodeCategories);
       
       if (!graph.hasNode(node.id)) {
         graph.addNode(node.id, {
           label: node.name,
           size: baseSize,
+          originalSize: baseSize,
           color: baseColor,
           originalColor: baseColor,
           borderColor: 'transparent',
-          borderSize: 0,
+          borderSize: 0.2,
+          degree: degree,
+          x: Math.random(),
+          y: Math.random(),
         });
       }
     }
 
-    // Add edges with enhanced styling
+    // Performance optimized edge sizing
+    const minEdgeSize = currentNodeCount > 1000 ? 0.5 : 0.8;
+    
+    // Add edges with enhanced styling and performance optimizations
     for (const edge of data.edges) {
       try {
         const edgeAttributes = {
           color: '#e5e7eb',
-          size: 0.8, // Thinner edges by default
+          size: minEdgeSize,
+          type: 'curvedNoArrow' as const,
+          originalWeight: 1,
         };
         
         if (edge.id) {
@@ -324,78 +394,230 @@ function LoadGraph({
       }
     }
 
-    const nodeCount = graph.order;
-    
-    // Apply initial layout
-    applyLayout(graph, currentLayout || 'forceatlas2', nodeCount);
+    // Apply initial layout without animation for faster startup
+    applyLayoutStable(currentLayout || 'forceatlas2', false);
 
     loadGraph(graph);
-  }, [data, loadGraph, nodeCategories, currentLayout, applyLayout]);
+  }, [data, loadGraph, nodeCategories, currentLayout]); // Removed applyLayout dependency
   
   
-  // Apply layout when currentLayout changes
+  // Apply layout when currentLayout changes with animation
   useEffect(() => {
     const graph = sigma.getGraph();
     if (graph && graph.order > 0 && currentLayout) {
-      applyLayout(graph, currentLayout, graph.order);
-      sigma.refresh();
+      applyLayoutStable(currentLayout, true);
     }
-  }, [currentLayout, sigma, applyLayout]);
+  }, [currentLayout, sigma, applyLayoutStable]);
 
-  // Update connected nodes when focus changes (for hierarchy tab integration)
+  // Update connected nodes when focus changes (for hierarchy tab integration) - debounced
   useEffect(() => {
-    if (focusedNodeId) {
-      const graph = sigma.getGraph();
-      if (graph) {
-        setConnectedNodes(getConnectedNodes(graph, focusedNodeId));
+    const timeoutId = setTimeout(() => {
+      if (focusedNodeId) {
+        const graph = sigma.getGraph();
+        if (graph) {
+          setConnectedNodes(getConnectedNodes(graph, focusedNodeId));
+        }
+      } else {
+        setConnectedNodes(new Set());
       }
-    } else {
-      setConnectedNodes(new Set());
-    }
+    }, 50); // 50ms debounce
+    
+    return () => clearTimeout(timeoutId);
   }, [focusedNodeId, sigma]);
 
-  // Update appearance when focus state changes
+  // Update appearance when focus/hover changes (debounced to prevent excessive refreshing)
   useEffect(() => {
-    const graph = sigma.getGraph();
-    if (graph) {
-      updateNodeAppearance(graph);
-      sigma.refresh();
-    }
-  }, [connectedNodes, focusedNodeId, sigma, updateNodeAppearance]);
+    const timeoutId = setTimeout(() => {
+      const graph = sigma.getGraph();
+      if (graph && graph.order > 0) {
+        updateNodeAppearance(graph);
+        sigma.refresh();
+      }
+    }, 50); // 50ms debounce
+    
+    return () => clearTimeout(timeoutId);
+  }, [connectedNodes, focusedNodeId, hoveredNode, sigma, updateNodeAppearance]);
 
+  // Enhanced event handling with hover effects
   useEffect(() => {
+    const isButtonPressed = (ev: MouseEvent | TouchEvent) => {
+      if (ev.type.startsWith('mouse')) {
+        return (ev as MouseEvent).buttons !== 0;
+      }
+      return false;
+    };
+    
     registerEvents({
       clickNode: ({ node }) => {
         if (onNodeClick) onNodeClick(String(node));
       },
       clickStage: () => {
-        // Click away from any node - clear focus and refocus the canvas
         if (onNodeClick) {
-          onNodeClick(''); // Send empty string to indicate canvas click
+          onNodeClick('');
+        }
+      },
+      enterNode: ({ node, event }) => {
+        if (!isButtonPressed(event.original)) {
+          setHoveredNode(String(node));
+        }
+      },
+      leaveNode: ({ event }) => {
+        if (!isButtonPressed(event.original)) {
+          setHoveredNode(null);
         }
       },
     });
   }, [registerEvents, onNodeClick]);
 
+  // Camera animation when focusing on nodes (debounced)
   useEffect(() => {
     if (!focusedNodeId) return;
-    try {
-      const display = sigma.getNodeDisplayData(focusedNodeId);
-      if (display) {
-        // Center without changing zoom level - preserve current ratio
-        const currentCamera = sigma.getCamera().getState();
-        sigma.getCamera().animate({ 
-          x: display.x, 
-          y: display.y, 
-          ratio: currentCamera.ratio // Keep current zoom level
-        }, { duration: 300 });
+    
+    const timeoutId = setTimeout(() => {
+      try {
+        const display = sigma.getNodeDisplayData(focusedNodeId);
+        if (display) {
+          const currentCamera = sigma.getCamera().getState();
+          sigma.getCamera().animate({ 
+            x: display.x, 
+            y: display.y, 
+            ratio: currentCamera.ratio
+          }, { duration: 300 });
+        }
+      } catch {
+        // no-op
       }
-    } catch {
-      // no-op
-    }
+    }, 100); // 100ms debounce for camera movements
+    
+    return () => clearTimeout(timeoutId);
   }, [focusedNodeId, sigma]);
 
   return null;
+}
+
+// Enhanced zoom and camera controls
+function ZoomControls() {
+  const sigma = useSigma();
+  const { zoomIn, zoomOut, reset } = useCamera({ duration: 200, factor: 1.5 });
+  
+  const handleResetView = useCallback(() => {
+    try {
+      sigma.setCustomBBox(null);
+      sigma.refresh();
+      const graph = sigma.getGraph();
+      
+      if (!graph?.order || graph.nodes().length === 0) {
+        reset();
+        return;
+      }
+      
+      sigma.getCamera().animate({ x: 0.5, y: 0.5, ratio: 1.1 }, { duration: 1000 });
+    } catch (error) {
+      console.error('Error resetting view:', error);
+      reset();
+    }
+  }, [sigma, reset]);
+  
+  const handleRotate = useCallback(() => {
+    const camera = sigma.getCamera();
+    const currentAngle = camera.angle;
+    camera.animate({ angle: currentAngle + Math.PI / 8 }, { duration: 200 });
+  }, [sigma]);
+  
+  const handleRotateCounterClockwise = useCallback(() => {
+    const camera = sigma.getCamera();
+    const currentAngle = camera.angle;
+    camera.animate({ angle: currentAngle - Math.PI / 8 }, { duration: 200 });
+  }, [sigma]);
+  
+  return (
+    <div className="absolute bottom-3 left-3 z-10">
+      <div className="flex flex-col gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-xl p-1">
+        <Button size="sm" variant="ghost" onClick={handleRotate} className="h-8 w-8 p-0">
+          <RotateCw className="h-4 w-4" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleRotateCounterClockwise} className="h-8 w-8 p-0">
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleResetView} className="h-8 w-8 p-0">
+          <Focus className="h-4 w-4" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => zoomIn()} className="h-8 w-8 p-0">
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => zoomOut()} className="h-8 w-8 p-0">
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Layout control with animation
+function LayoutControl({ currentLayout, onLayoutChange }: { currentLayout: string; onLayoutChange: (layout: string) => void }) {
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  const handleLayoutChange = useCallback((newLayout: string) => {
+    if (isAnimating) return;
+    setIsAnimating(true);
+    onLayoutChange(newLayout);
+    
+    // Reset animation state after layout completes
+    setTimeout(() => setIsAnimating(false), 500);
+  }, [onLayoutChange, isAnimating]);
+  
+  return (
+    <div className="flex items-center gap-2">
+      {isAnimating && (
+        <Button size="sm" variant="ghost" className="h-8 px-2">
+          <Pause className="h-3 w-3" />
+        </Button>
+      )}
+      <Select value={currentLayout} onValueChange={handleLayoutChange}>
+        <SelectTrigger className="w-auto h-8 bg-background/90 backdrop-blur-sm border-border/60 rounded-xl px-3 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="rounded-xl">
+          <SelectItem value="forceatlas2" className="text-xs">
+            <div className="flex items-center gap-2">
+              <Zap className="h-3 w-3" />
+              Force Atlas 2
+            </div>
+          </SelectItem>
+          <SelectItem value="force" className="text-xs">
+            <div className="flex items-center gap-2">
+              <Zap className="h-3 w-3" />
+              Force Directed
+            </div>
+          </SelectItem>
+          <SelectItem value="noverlap" className="text-xs">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="h-3 w-3" />
+              No Overlap
+            </div>
+          </SelectItem>
+          <SelectItem value="circular" className="text-xs">
+            <div className="flex items-center gap-2">
+              <RotateCw className="h-3 w-3" />
+              Circular
+            </div>
+          </SelectItem>
+          <SelectItem value="grid" className="text-xs">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="h-3 w-3" />
+              Grid
+            </div>
+          </SelectItem>
+          <SelectItem value="random" className="text-xs">
+            <div className="flex items-center gap-2">
+              <Shuffle className="h-3 w-3" />
+              Random
+            </div>
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 export default function SigmaGraphInner({
@@ -409,7 +631,7 @@ export default function SigmaGraphInner({
   focusedNodeId?: string | null;
   nodeCategories?: NodeCategories;
 }) {
-  const [currentLayout, setCurrentLayout] = useState<'forceatlas2' | 'circular' | 'grid' | 'random' | 'force'>('forceatlas2');
+  const [currentLayout, setCurrentLayout] = useState<'forceatlas2' | 'circular' | 'grid' | 'random' | 'force' | 'noverlap'>('forceatlas2');
   
   const nodeCount = data.nodes.length;
   const showPerformanceWarning = nodeCount > 3000;
@@ -456,71 +678,12 @@ export default function SigmaGraphInner({
         </Badge>
       </div>
 
-      {/* Layout Controls - bottom right corner */}
-      <div className="absolute bottom-3 right-3 z-10">
-        <div className="flex items-center gap-2">
-          <Select value={currentLayout} onValueChange={(value) => setCurrentLayout(value as typeof currentLayout)}>
-            <SelectTrigger className="w-auto h-8 bg-background/90 backdrop-blur-sm border-border/60 rounded-xl px-3 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="forceatlas2" className="text-xs">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-3 w-3" />
-                  Force Atlas 2
-                </div>
-              </SelectItem>
-              <SelectItem value="circular" className="text-xs">
-                <div className="flex items-center gap-2">
-                  <RotateCw className="h-3 w-3" />
-                  Circular
-                </div>
-              </SelectItem>
-              <SelectItem value="grid" className="text-xs">
-                <div className="flex items-center gap-2">
-                  <LayoutGrid className="h-3 w-3" />
-                  Grid
-                </div>
-              </SelectItem>
-              <SelectItem value="random" className="text-xs">
-                <div className="flex items-center gap-2">
-                  <Shuffle className="h-3 w-3" />
-                  Random
-                </div>
-              </SelectItem>
-              <SelectItem value="force" className="text-xs">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-3 w-3" />
-                  Force Directed
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
       <SigmaContainer
         style={sigmaContainerStyle}
         graph={MultiDirectedGraph}
-        settings={{
-          allowInvalidContainer: true,
-          renderLabels: true,
-          renderEdgeLabels: false,
-          defaultNodeType: 'circle',
-          defaultEdgeType: 'arrow',
-          labelFont: 'Arial, sans-serif',
-          labelSize: 12,
-          labelWeight: '500',
-          labelColor: { color: '#374151' },
-          edgeLabelFont: 'Arial, sans-serif',
-          edgeLabelSize: 10,
-          minCameraRatio: 0.05,
-          maxCameraRatio: 10,
-          enableEdgeEvents: true,
-          hideEdgesOnMove: true,
-          hideLabelsOnMove: false,
-          zIndex: true,
-        }}
+        settings={enhancedSigmaSettings}
       >
+        <GraphEvents enableNodeDrag={true} />
         <LoadGraph 
           data={data} 
           onNodeClick={onNodeClick} 
@@ -528,6 +691,17 @@ export default function SigmaGraphInner({
           nodeCategories={nodeCategories}
           currentLayout={currentLayout}
         />
+        
+        {/* Enhanced Zoom Controls - bottom left corner */}
+        <ZoomControls />
+        
+        {/* Enhanced Layout Controls - bottom right corner */}
+        <div className="absolute bottom-3 right-3 z-10">
+          <LayoutControl 
+            currentLayout={currentLayout} 
+            onLayoutChange={(layout) => setCurrentLayout(layout as typeof currentLayout)}
+          />
+        </div>
       </SigmaContainer>
     </div>
   );
