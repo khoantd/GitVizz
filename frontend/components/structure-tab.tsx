@@ -782,7 +782,7 @@ export function StructureTab() {
                 ) : (
                   <>
                     <FileText className="h-4 w-4 mr-2" />
-                    Generate Text File
+                    Copy Markdown
                   </>
                 )}
               </Button>

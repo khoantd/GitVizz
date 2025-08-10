@@ -33,6 +33,7 @@ import { useResultData } from '@/context/ResultDataContext';
 import { showToast } from '@/components/toaster';
 import { useSession } from 'next-auth/react';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
+import { useRepositoryData } from '@/hooks/useRepositoryData';
 import ThemeToggle from '@/components/theme-toggle';
 
 export default function ResultsPage() {
@@ -58,6 +59,13 @@ export default function ResultsPage() {
   } = useResultData();
   const { data: session } = useSession();
   const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences);
+
+  // Use the repository data hook to auto-fetch data on page load/refresh
+  const { refreshData } = useRepositoryData({
+    owner,
+    repo,
+    repoId: currentRepoId || undefined,
+  });
 
   // Hydrate context from URL params on first load/refresh
   useEffect(() => {
@@ -665,20 +673,34 @@ export default function ResultsPage() {
                     </div>
                   </div> */}
                   <div className="h-[500px] sm:h-[600px] lg:h-[800px] overflow-auto rounded-xl">
-                    {currentRepoId && sourceData && sourceType ? (
+                    {(currentRepoId || (owner && repo)) && (sourceData || (owner && repo)) ? (
                       <div className="h-full w-full overflow-auto">
                         <DocumentationTab
-                          currentRepoId={currentRepoId}
+                          currentRepoId={currentRepoId || `${owner}/${repo}`}
                           sourceData={
-                            typeof sourceData === 'object' &&
-                            sourceData !== null &&
-                            'repo_url' in sourceData
+                            sourceData && typeof sourceData === 'object' && 'repo_url' in sourceData
                               ? { repo_url: (sourceData as { repo_url?: string }).repo_url }
-                              : {}
+                              : { repo_url: repoUrl }
                           }
-                          sourceType={sourceType}
+                          sourceType={sourceType || 'github'}
                           userKeyPreferences={userKeyPreferences}
                         />
+                      </div>
+                    ) : loading ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center space-y-4 p-8">
+                          <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
+                            <BookOpen className="h-6 w-6 text-muted-foreground/50" />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="font-medium text-foreground">Loading Repository Data</h3>
+                            <p className="text-sm text-muted-foreground max-w-sm">
+                              Please wait while we fetch the repository information needed for
+                              documentation
+                            </p>
+                          </div>
+                          <div className="w-6 h-6 mx-auto border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">

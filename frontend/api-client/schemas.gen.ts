@@ -105,6 +105,20 @@ export const AvailableModelsResponseSchema = {
   description: 'Response model for available models',
 } as const;
 
+export const Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__postSchema =
+  {
+    properties: {
+      jwt_token: {
+        type: 'string',
+        title: 'Jwt Token',
+        description: 'Authentication jwt_token for the request',
+      },
+    },
+    type: 'object',
+    required: ['jwt_token'],
+    title: 'Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post',
+  } as const;
+
 export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
   properties: {
     repo_url: {
@@ -502,8 +516,33 @@ export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {
         },
       ],
       title: 'Provider Name',
-      description: 'Provider name for the documentation generation',
-      default: '',
+      description: 'Provider name for the documentation generation (openai, anthropic, gemini)',
+      default: 'gemini',
+    },
+    model_name: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Model Name',
+      description: 'Specific model name to use for generation',
+    },
+    temperature: {
+      anyOf: [
+        {
+          type: 'number',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Temperature',
+      description: 'Temperature for AI generation (0.0-1.5)',
+      default: 0.7,
     },
   },
   type: 'object',
@@ -1735,6 +1774,28 @@ export const LoginResponseSchema = {
       title: 'Token Type',
       default: 'bearer',
     },
+    refresh_token: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Refresh Token',
+    },
+    refresh_expires_in: {
+      anyOf: [
+        {
+          type: 'integer',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Refresh Expires In',
+    },
   },
   type: 'object',
   required: ['jwt_token', 'expires_in', 'user_id'],
@@ -1811,6 +1872,39 @@ export const NavigationDataSchema = {
   type: 'object',
   required: ['sidebar', 'total_pages'],
   title: 'NavigationData',
+} as const;
+
+export const RefreshTokenRequestSchema = {
+  properties: {
+    refresh_token: {
+      type: 'string',
+      title: 'Refresh Token',
+    },
+  },
+  type: 'object',
+  required: ['refresh_token'],
+  title: 'RefreshTokenRequest',
+} as const;
+
+export const RefreshTokenResponseSchema = {
+  properties: {
+    access_token: {
+      type: 'string',
+      title: 'Access Token',
+    },
+    expires_in: {
+      type: 'integer',
+      title: 'Expires In',
+    },
+    token_type: {
+      type: 'string',
+      title: 'Token Type',
+      default: 'bearer',
+    },
+  },
+  type: 'object',
+  required: ['access_token', 'expires_in'],
+  title: 'RefreshTokenResponse',
 } as const;
 
 export const RepositoryAnalysisSchema = {

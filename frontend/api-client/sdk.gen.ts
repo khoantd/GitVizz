@@ -23,6 +23,9 @@ import type {
   LoginUserApiBackendAuthLoginPostData,
   LoginUserApiBackendAuthLoginPostResponses,
   LoginUserApiBackendAuthLoginPostErrors,
+  RefreshTokenApiBackendAuthRefreshPostData,
+  RefreshTokenApiBackendAuthRefreshPostResponses,
+  RefreshTokenApiBackendAuthRefreshPostErrors,
   ProcessChatMessageApiBackendChatChatPostData,
   ProcessChatMessageApiBackendChatChatPostResponses,
   ProcessChatMessageApiBackendChatChatPostErrors,
@@ -53,6 +56,12 @@ import type {
   SearchContextApiBackendChatContextSearchPostData,
   SearchContextApiBackendChatContextSearchPostResponses,
   SearchContextApiBackendChatContextSearchPostErrors,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
   GenerateWikiApiDocumentationGenerateWikiPostData,
   GenerateWikiApiDocumentationGenerateWikiPostResponses,
   GenerateWikiApiDocumentationGenerateWikiPostErrors,
@@ -196,6 +205,27 @@ export const loginUserApiBackendAuthLoginPost = <ThrowOnError extends boolean = 
     ThrowOnError
   >({
     url: '/api/backend-auth/login',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Refresh access token
+ * Accepts a refresh token and returns a new access token.
+ */
+export const refreshTokenApiBackendAuthRefreshPost = <ThrowOnError extends boolean = false>(
+  options: Options<RefreshTokenApiBackendAuthRefreshPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RefreshTokenApiBackendAuthRefreshPostResponses,
+    RefreshTokenApiBackendAuthRefreshPostErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-auth/refresh',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -431,6 +461,52 @@ export const searchContextApiBackendChatContextSearchPost = <ThrowOnError extend
   >({
     ...urlSearchParamsBodySerializer,
     url: '/api/backend-chat/context/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stream wiki generation progress
+ * Server-Sent Events endpoint for real-time wiki generation progress updates.
+ */
+export const streamWikiProgressApiDocumentationProgressStreamTaskIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses,
+    StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors,
+    ThrowOnError
+  >({
+    url: '/api/documentation/progress-stream/{task_id}',
+    ...options,
+  });
+};
+
+/**
+ * Cancel wiki generation
+ * Cancel an ongoing wiki generation task.
+ */
+export const cancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData,
+    ThrowOnError
+  >,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses,
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/documentation/cancel-generation/{task_id}',
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',

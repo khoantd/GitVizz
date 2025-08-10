@@ -56,6 +56,17 @@ export type AvailableModelsResponse = {
 };
 
 /**
+ * Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post
+ */
+export type BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = {
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
+};
+
+/**
  * Body_generate_graph_endpoint_api_repo_generate_graph_post
  */
 export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
@@ -235,9 +246,19 @@ export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
   comprehensive?: boolean | null;
   /**
    * Provider Name
-   * Provider name for the documentation generation
+   * Provider name for the documentation generation (openai, anthropic, gemini)
    */
   provider_name?: string | null;
+  /**
+   * Model Name
+   * Specific model name to use for generation
+   */
+  model_name?: string | null;
+  /**
+   * Temperature
+   * Temperature for AI generation (0.0-1.5)
+   */
+  temperature?: number | null;
 };
 
 /**
@@ -1058,6 +1079,14 @@ export type LoginResponse = {
    * Token Type
    */
   token_type?: string;
+  /**
+   * Refresh Token
+   */
+  refresh_token?: string | null;
+  /**
+   * Refresh Expires In
+   */
+  refresh_expires_in?: number | null;
 };
 
 /**
@@ -1117,6 +1146,34 @@ export type NavigationData = {
    * Total Pages
    */
   total_pages: number;
+};
+
+/**
+ * RefreshTokenRequest
+ */
+export type RefreshTokenRequest = {
+  /**
+   * Refresh Token
+   */
+  refresh_token: string;
+};
+
+/**
+ * RefreshTokenResponse
+ */
+export type RefreshTokenResponse = {
+  /**
+   * Access Token
+   */
+  access_token: string;
+  /**
+   * Expires In
+   */
+  expires_in: number;
+  /**
+   * Token Type
+   */
+  token_type?: string;
 };
 
 /**
@@ -1553,6 +1610,45 @@ export type LoginUserApiBackendAuthLoginPostResponses = {
 export type LoginUserApiBackendAuthLoginPostResponse =
   LoginUserApiBackendAuthLoginPostResponses[keyof LoginUserApiBackendAuthLoginPostResponses];
 
+export type RefreshTokenApiBackendAuthRefreshPostData = {
+  body: RefreshTokenRequest;
+  path?: never;
+  query?: never;
+  url: '/api/backend-auth/refresh';
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostErrors = {
+  /**
+   * Unauthorized. Refresh token is invalid or expired.
+   */
+  401: ErrorResponse;
+  /**
+   * User not found.
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error.
+   */
+  500: ErrorResponse;
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostError =
+  RefreshTokenApiBackendAuthRefreshPostErrors[keyof RefreshTokenApiBackendAuthRefreshPostErrors];
+
+export type RefreshTokenApiBackendAuthRefreshPostResponses = {
+  /**
+   * Token refresh successful. Returns new access token.
+   */
+  200: RefreshTokenResponse;
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostResponse =
+  RefreshTokenApiBackendAuthRefreshPostResponses[keyof RefreshTokenApiBackendAuthRefreshPostResponses];
+
 export type ProcessChatMessageApiBackendChatChatPostData = {
   body: BodyProcessChatMessageApiBackendChatChatPost;
   path?: never;
@@ -1952,6 +2048,64 @@ export type SearchContextApiBackendChatContextSearchPostResponses = {
 
 export type SearchContextApiBackendChatContextSearchPostResponse =
   SearchContextApiBackendChatContextSearchPostResponses[keyof SearchContextApiBackendChatContextSearchPostResponses];
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData = {
+  body?: never;
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string;
+  };
+  query?: never;
+  url: '/api/documentation/progress-stream/{task_id}';
+};
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetError =
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors[keyof StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors];
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData = {
+  body: BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost;
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string;
+  };
+  query?: never;
+  url: '/api/documentation/cancel-generation/{task_id}';
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostError =
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors[keyof CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors];
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type GenerateWikiApiDocumentationGenerateWikiPostData = {
   body: BodyGenerateWikiApiDocumentationGenerateWikiPost;

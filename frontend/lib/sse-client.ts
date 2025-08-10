@@ -165,6 +165,3 @@ export function useDocumentationProgress(taskId: string | null) {
     clearProgress: () => setProgressUpdates([]),
   };
 }
-
-// Export for direct usage
-export { useDocumentationProgress };

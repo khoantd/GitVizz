@@ -515,6 +515,44 @@ export async function getJwtToken(access_token: string): Promise<LoginResponse> 
   }
 }
 
+/**
+ * Refresh JWT token using refresh token
+ */
+export async function refreshJwtToken(refresh_token: string): Promise<{ access_token: string; expires_in: number }> {
+  try {
+    const authClient = getAuthClient();
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new TokenExpiredError();
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to refresh token');
+    }
+
+    const data = await response.json();
+    return {
+      access_token: data.access_token,
+      expires_in: data.expires_in,
+    };
+  } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      throw error;
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to refresh JWT token');
+  }
+}
+
 // =============================================================================
 // CHAT OPERATIONS
 // =============================================================================
