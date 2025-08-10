@@ -1,6 +1,6 @@
 // API utilities for interacting with the backend using Hey-API generated SDK
 
-import { getAuthClient } from './client-config';
+import { getAuthClient, apiClient } from './client-config';
 import {
   generateTextEndpointApiRepoGenerateTextPost,
   generateGraphEndpointApiRepoGenerateGraphPost,

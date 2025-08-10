@@ -11,19 +11,26 @@ import type { ClientOptions } from '../api-client/types.gen';
 /**
  * The `createClientConfig()` function will be called on client initialization
  * and the returned object will become the client's initial configuration.
- *
- * You may want to initialize your client this way instead of calling
- * `setConfig()`. This is useful for example if you're using Next.js
- * to ensure your client always has the correct values.
  */
 export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> = (
   override?: Config<DefaultClientOptions & T>,
 ) => Config<Required<DefaultClientOptions> & T>;
 
+// Get environment variables with proper fallbacks
+const getApiBaseUrl = () => {
+  // Use the unified backend URL environment variable
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+};
+
+const getAuthBaseUrl = () => {
+  // Use the same backend URL for auth (since they point to the same server)
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+};
+
 // Default client for main API operations
 export const client = createClient(
   createConfig<ClientOptions>({
-    baseUrl: process.env.API_BASE_URL || 'http://localhost:8003',
+    baseUrl: getApiBaseUrl(),
   }),
 );
 
@@ -31,15 +38,15 @@ export const client = createClient(
 export function createApiClient(baseUrl?: string) {
   return createClient(
     createConfig<ClientOptions>({
-      baseUrl: baseUrl || process.env.API_BASE_URL || 'http://localhost:8003',
+      baseUrl: baseUrl || getApiBaseUrl(),
     }),
   );
 }
 
 // Auth client - only if different from main API
 export const getAuthClient = () => {
-  const authBaseUrl = process.env.API_SERVER_BASE_URL;
-  const mainBaseUrl = process.env.API_BASE_URL || 'http://localhost:8003';
+  const authBaseUrl = getAuthBaseUrl();
+  const mainBaseUrl = getApiBaseUrl();
   
   // If auth server URL is different, create a separate client
   if (authBaseUrl && authBaseUrl !== mainBaseUrl) {
@@ -49,3 +56,6 @@ export const getAuthClient = () => {
   // Otherwise, use the default client
   return client;
 };
+
+// Export a configured client that can be used as the default
+export const apiClient = client;

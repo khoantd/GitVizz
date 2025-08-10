@@ -22,6 +22,6 @@ export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> =
 
 export const client = createClient(
   createConfig<ClientOptions>({
-    baseUrl: 'http://localhost:8003',
+    baseUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003',
   }),
 );
