@@ -286,9 +286,9 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* Status Badge and API Keys Button */}
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
-          {session?.accessToken && (
+        {/* API Keys Button */}
+        {session?.accessToken && (
+          <div className="fixed top-6 right-6 z-50">
             <Button
               variant="outline"
               size="sm"
@@ -298,12 +298,8 @@ export default function ResultsPage() {
               <Key className="h-4 w-4" />
               <span className="hidden sm:inline">API Keys</span>
             </Button>
-          )}
-          <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-2xl px-4 py-2 backdrop-blur-xl shadow-md flex items-center gap-2">
-            <CheckCircle className="h-4 w-4" />
-            <span>Analysis Complete</span>
-          </Badge>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Info Panel */}
@@ -542,7 +538,7 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh] h-[500px] sm:h-[600px] lg:h-[700px]">
+                  <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh] h-[600px] sm:h-[700px] lg:h-[800px]">
                     {sourceType && sourceData ? (
                       <div className="h-full w-full min-h-[70vh] lg:min-h-[80vh] rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
                         <ReagraphVisualization

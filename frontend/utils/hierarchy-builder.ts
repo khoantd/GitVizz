@@ -97,6 +97,32 @@ export function buildHierarchyTree(
   // Build the tree starting from root
   buildChildren(rootNode, 0);
 
+  // Add parent relationships to the root node (allow overlap with children)
+  const parentNodes: HierarchyNode[] = [];
+  const incomingEdges = graphData.edges.filter(edge => edge.target === selectedNode.id);
+  
+  for (const edge of incomingEdges) {
+    const parentGraphNode = graphData.nodes.find(n => n.id === edge.source);
+    if (parentGraphNode) {
+      parentNodes.push({
+        id: parentGraphNode.id,
+        name: parentGraphNode.name,
+        file: parentGraphNode.file,
+        code: parentGraphNode.code,
+        category: parentGraphNode.category,
+        start_line: parentGraphNode.start_line,
+        end_line: parentGraphNode.end_line,
+        depth: -1,
+        relationship: edge.relationship || 'called by',
+        children: [],
+        isExpanded: false,
+        parentId: selectedNode.id,
+      });
+    }
+  }
+  
+  rootNode.parents = parentNodes;
+
   return {
     rootNode,
     totalNodes,

@@ -852,6 +852,7 @@ export default function EnhancedReagraphVisualization({
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
   const [visualizationType, setVisualizationType] = useState<'reagraph' | 'sigma'>('sigma');
+  const [hierarchyDepth, setHierarchyDepth] = useState<number>(3);
   const { data: session } = useSession();
 
   const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub);
@@ -1401,7 +1402,7 @@ export default function EnhancedReagraphVisualization({
                           selectedNode={selectedCodeReference}
                           graphData={analysisGraphData}
                           maxDepth={3}
-                          onDepthChange={() => {}}
+                          onDepthChange={setHierarchyDepth}
                           onOpenFile={handleOpenFile}
                           onSelectGraphNode={(id) => centerAndHighlightNode(id)}
                           focusedNodeId={activeNodeId || undefined}
@@ -1498,6 +1499,8 @@ export default function EnhancedReagraphVisualization({
                 }}
                 focusedNodeId={activeNodeId}
                 nodeCategories={nodeCategories}
+                hierarchyDepth={hierarchyDepth}
+                selectedRootNodeId={selectedCodeReference?.id}
               />
             )
           )}
@@ -1645,7 +1648,7 @@ export default function EnhancedReagraphVisualization({
                       selectedNode={selectedCodeReference}
                       graphData={analysisGraphData}
                       maxDepth={3}
-                      onDepthChange={() => {}}
+                      onDepthChange={setHierarchyDepth}
                       onOpenFile={handleOpenFile}
                       onSelectGraphNode={(id) => centerAndHighlightNode(id)}
                       focusedNodeId={activeNodeId || undefined}

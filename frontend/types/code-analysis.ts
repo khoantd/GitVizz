@@ -61,6 +61,7 @@ export interface HierarchyNode {
   depth: number;
   relationship?: string;
   children: HierarchyNode[];
+  parents?: HierarchyNode[]; // Keep parent relationships
   isExpanded: boolean;
   parentId?: string;
 }
