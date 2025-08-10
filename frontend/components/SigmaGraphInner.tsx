@@ -323,8 +323,8 @@ function LoadGraph({
         console.error('Layout failed:', error);
       }
     },
-    [sigma, layoutCircular, layoutForce, layoutForceAtlas2, layoutNoverlap, layoutRandom],
-  );
+    [sigma],
+  ); // Only sigma as dependency - layouts are accessed directly
 
   // Update node appearance based on states (optimized to prevent constant refreshing)
   const updateNodeAppearance = useCallback(
@@ -535,7 +535,7 @@ function LoadGraph({
     applyLayoutStable(currentLayout || 'forceatlas2', false);
 
     loadGraph(graph);
-  }, [data, loadGraph, nodeCategories, currentLayout, applyLayoutStable]);
+  }, [data, loadGraph, nodeCategories, currentLayout]); // Removed applyLayout dependency
 
   // Apply layout when currentLayout changes with animation
   useEffect(() => {

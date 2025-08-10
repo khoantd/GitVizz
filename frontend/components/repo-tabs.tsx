@@ -136,6 +136,23 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     }
   }, [session, status]);
 
+  // Debug effect to track when repositories are loaded
+  useEffect(() => {
+    console.log('[DEBUG] Repositories useEffect triggered. Length:', repositories.length);
+    console.log(
+      '[DEBUG] First 3 repo names:',
+      repositories.slice(0, 3).map((r) => r.name),
+    );
+    if (repositories.length > 0) {
+      console.log('[DEBUG] Repositories loaded:', repositories.length);
+    }
+  }, [repositories]);
+
+  // Debug effect to track loading state changes
+  useEffect(() => {
+    console.log('[DEBUG] isReposLoading changed to:', isReposLoading);
+  }, [isReposLoading]);
+
   // --- Handlers for "My Repositories" Tab ---
   const handleError = useCallback((message: string) => {
     showToast.error(message);
@@ -231,83 +248,142 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     }
   }, [prefilledRepo, handleSuccess]);
 
+  // Replace the single effect with two effects to avoid race conditions with HMR
+  // 1) Check installation and set installationId/isAppInstalled
   useEffect(() => {
-    // Only run this effect when the "My Repositories" tab is active
-    // and the check hasn't been performed yet (isAppInstalled is null).
-    if (activeMainTab !== 'my-repos' || isAppInstalled !== null) {
+    // Only when user is on My Repos
+    if (activeMainTab !== 'my-repos') return;
+
+    // If user isn't authenticated, stop loading
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      setIsReposLoading(false);
       return;
     }
 
-    let isMounted = true;
-    const handleInstallationCheck = async () => {
-      if (status === 'loading' || status === 'unauthenticated') {
-        if (isMounted) setIsReposLoading(false);
-        return;
-      }
+    // If already determined, skip
+    if (isAppInstalled !== null) return;
 
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('installation_id') && urlParams.has('setup_action')) {
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-      }
+    const controller = new AbortController();
 
+    const run = async () => {
       try {
-        if (isMounted) setIsReposLoading(true);
+        // Clean URL (GitHub redirects add these)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('installation_id') && urlParams.has('setup_action')) {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+
+        setIsReposLoading(true);
         const installationsRes = await fetch('/api/github/installations', {
           headers: {
             Authorization: `Bearer ${session?.accessToken}`,
           },
+          signal: controller.signal,
         });
         if (!installationsRes.ok) throw new Error('Failed to fetch installations.');
 
         const installationsData = await installationsRes.json();
-        if (installationsData.installations?.length) {
-          const firstInstallationId = installationsData.installations[0].id;
-          if (isMounted) {
-            setInstallationId(firstInstallationId);
-            setIsAppInstalled(true);
-          }
+        const hasInstalls =
+          Array.isArray(installationsData.installations) &&
+          installationsData.installations.length > 0;
 
-          const reposRes = await fetch(
-            `/api/github/app_repos?installationId=${firstInstallationId}`,
-          );
-          if (!reposRes.ok) throw new Error('Failed to fetch repositories.');
+        setIsAppInstalled(hasInstalls);
+        setInstallationId(hasInstalls ? installationsData.installations[0].id : null);
 
-          const reposData = await reposRes.json();
-          const transformedRepos = (reposData.repositories || []).map(
-            (repo: { description?: string }) => ({
-              ...repo,
-              description: repo.description || 'No description available',
-            }),
-          );
-
-          if (isMounted) {
-            setRepositories(transformedRepos);
-            handleSuccess('Successfully loaded your GitHub repositories');
-          }
-        } else {
-          if (isMounted) setIsAppInstalled(false);
+        // If no installs, stop loading here; otherwise, repos effect will manage loading
+        if (!hasInstalls) {
+          setIsReposLoading(false);
         }
       } catch (error) {
-        console.error('Error fetching GitHub data:', error);
-        if (isMounted) {
-          setIsAppInstalled(false);
-          handleError('Failed to fetch GitHub data. Please try again.');
-        }
-      } finally {
-        if (isMounted) setIsReposLoading(false);
+        if (controller.signal.aborted) return;
+        console.error('Error fetching installations:', error);
+        setIsAppInstalled(false);
+        setIsReposLoading(false);
+        handleError('Failed to check GitHub app installation.');
       }
     };
 
-    handleInstallationCheck();
-    return () => {
-      isMounted = false;
+    run();
+    return () => controller.abort();
+  }, [activeMainTab, status, isAppInstalled, session?.accessToken, handleError]);
+
+  // 2) Fetch repositories once installationId is known
+  useEffect(() => {
+    if (activeMainTab !== 'my-repos') return;
+    if (status !== 'authenticated') return;
+    if (!installationId) return;
+
+    // Avoid refetching if we already have repos
+    if (repositories.length > 0) return;
+
+    const controller = new AbortController();
+
+    const run = async () => {
+      try {
+        setIsReposLoading(true);
+        const reposRes = await fetch(`/api/github/app_repos?installationId=${installationId}`, {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          signal: controller.signal,
+        });
+        if (!reposRes.ok) throw new Error('Failed to fetch repositories.');
+
+        const reposData = await reposRes.json();
+        const transformedRepos = (reposData.repositories || []).map(
+          (repo: { description?: string }) => ({
+            ...repo,
+            description: repo.description || 'No description available',
+          }),
+        );
+
+        setRepositories(transformedRepos as Repository[]);
+        if (transformedRepos.length > 0) {
+          handleSuccess(`Successfully loaded ${transformedRepos.length} GitHub repositories`);
+        } else {
+          handleSuccess(
+            'No repositories found - you may need to grant access to more repositories',
+          );
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error('Error fetching GitHub repositories:', error);
+        handleError('Failed to fetch GitHub repositories. Please try again.');
+      } finally {
+        if (!controller.signal.aborted) setIsReposLoading(false);
+      }
     };
-  }, [activeMainTab, status, session?.accessToken, handleError, handleSuccess, isAppInstalled]);
+
+    run();
+    return () => controller.abort();
+  }, [
+    activeMainTab,
+    status,
+    installationId,
+    repositories.length,
+    session?.accessToken,
+    handleError,
+    handleSuccess,
+  ]);
+
+  // --- Derived & Action Helpers for My Repositories ---
+  const filteredRepositories: Repository[] = repositories.filter((r) => {
+    const q = searchQuery.toLowerCase();
+    const matches =
+      r.name.toLowerCase().includes(q) ||
+      r.full_name.toLowerCase().includes(q) ||
+      (r.description ? r.description.toLowerCase().includes(q) : false);
+
+    if (activeRepoFilter === 'public') return matches && !r.private;
+    if (activeRepoFilter === 'private') return matches && r.private;
+    return matches;
+  });
 
   const handleInstallApp = () => {
     try {
-      const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'YOUR_APP_NAME';
+      const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gitviz-cognitivelab';
       window.location.href = `https://github.com/apps/${appName}/installations/new`;
     } catch {
       handleError('Failed to initiate GitHub app installation.');
@@ -316,7 +392,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
 
   const handleManageAccess = () => {
     try {
-      const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'YOUR_APP_NAME';
+      const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gitviz-cognitivelab';
       if (installationId) {
         window.open(`https://github.com/apps/${appName}/installations/${installationId}`, '_blank');
       } else {
@@ -335,47 +411,48 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
 
     try {
       const repoUrl = repo.html_url;
-      const branches = await getRepositoryBranches(repoUrl, session?.accessToken || null);
+      const branches = await getRepositoryBranches(repoUrl, session?.accessToken || undefined);
 
-      // Use the first common branch or the first available branch
-      const defaultBranch =
-        repo.default_branch ||
-        repo.branch ||
-        branches.find((b) => ['main', 'master'].includes(b)) ||
-        branches[0] ||
-        'main';
+      // Determine a default branch
+      let defaultBranch = repo.default_branch || '';
+      if (!defaultBranch) {
+        if (branches.includes('main')) defaultBranch = 'main';
+        else if (branches.includes('master')) defaultBranch = 'master';
+        else defaultBranch = branches[0] || 'main';
+      }
 
       setRepoBranchStates((prev) => ({
         ...prev,
         [repo.id]: {
-          branches: branches || [],
-          selectedBranch: defaultBranch,
-          defaultBranch: defaultBranch,
+          branches,
+          selectedBranch: prev[repo.id]?.selectedBranch || defaultBranch,
+          defaultBranch,
           isLoading: false,
           showBranchSelection: true,
         },
       }));
-    } catch (error) {
-      console.error('Error loading branches for repo:', error);
-      setRepoBranchStates((prev) => ({
-        ...prev,
-        [repo.id]: {
-          branches: [],
-          selectedBranch: repo.default_branch || repo.branch || 'main',
-          defaultBranch: repo.default_branch || repo.branch || 'main',
-          isLoading: false,
-          showBranchSelection: true,
-        },
-      }));
+    } catch (e) {
+      console.error('Failed to load branches:', e);
+      handleError('Failed to load branches for this repository.');
     } finally {
       setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
     }
   };
 
-  const toggleRepoBranchSelection = (repo: Repository) => {
-    const currentState = repoBranchStates[repo.id];
-    if (!currentState) {
-      loadRepoBranches(repo);
+  const handleRepoBranchSelect = (repoId: number, branchName: string) => {
+    setRepoBranchStates((prev) => ({
+      ...prev,
+      [repoId]: {
+        ...prev[repoId],
+        selectedBranch: branchName,
+      },
+    }));
+  };
+
+  const toggleRepoBranchSelection = async (repo: Repository) => {
+    const state = repoBranchStates[repo.id];
+    if (!state || state.branches.length === 0) {
+      await loadRepoBranches(repo);
     } else {
       setRepoBranchStates((prev) => ({
         ...prev,
@@ -387,51 +464,36 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     }
   };
 
-  const handleRepoBranchSelect = (repoId: number, branch: string) => {
-    setRepoBranchStates((prev) => ({
-      ...prev,
-      [repoId]: {
-        ...prev[repoId],
-        selectedBranch: branch,
-      },
-    }));
-  };
-
   const handleVizifyRepo = async (repo: Repository) => {
+    if (processingRepos.includes(repo.id)) return;
+
     setProcessingRepos((prev) => [...prev, repo.id]);
-    setLoading(true);
-    setError(null);
-
     try {
-      // Get the selected branch for this repository or use default resolution
-      const repoState = repoBranchStates[repo.id];
-      let finalBranch = repoState?.selectedBranch || repo.branch || 'main';
+      const repoUrl = repo.html_url;
+      const selected = repoBranchStates[repo.id]?.selectedBranch || repo.default_branch || 'main';
 
-      if (repo.html_url.includes('github.com')) {
-        const resolvedBranch = await resolveBranch(
-          repo.html_url,
-          finalBranch,
-          session?.accessToken,
-        );
-        finalBranch = resolvedBranch;
-      }
+      const finalBranch = await resolveBranch(
+        repoUrl,
+        selected || undefined,
+        session?.accessToken || undefined,
+      );
 
       const requestData = {
-        repo_url: repo.html_url,
+        repo_url: repoUrl,
+        access_token: session?.accessToken || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token,
-        access_token: session?.accessToken,
+        jwt_token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
-
       setCurrentRepoId(repo_id);
       setOutput(formattedText);
       setSourceType('github');
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
+
       try {
-        const url = new URL(repo.html_url);
+        const url = new URL(repoUrl);
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
@@ -439,27 +501,13 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       } catch {
         router.push('/results');
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to process repository.';
-      handleError(message);
-      setError(message);
+    } catch (e) {
+      console.error('Error processing repository:', e);
+      handleError('Failed to process repository. Please try again.');
     } finally {
       setProcessingRepos((prev) => prev.filter((id) => id !== repo.id));
-      setLoading(false);
     }
   };
-
-  const filteredRepositories = repositories.filter((repo) => {
-    const matchesSearch =
-      repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.description?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (activeRepoFilter === 'all') return matchesSearch;
-    if (activeRepoFilter === 'public') return matchesSearch && !repo.private;
-    if (activeRepoFilter === 'private') return matchesSearch && repo.private;
-    return matchesSearch;
-  });
 
   // --- Handlers for GitHub URL & ZIP Upload Forms ---
   const handleGitHubSubmit = async (e: React.FormEvent) => {
@@ -582,7 +630,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
 
   // --- Render Method ---
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
       <div className="space-y-6 sm:space-y-8">
         <Tabs
           defaultValue="github"
@@ -1020,6 +1068,15 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
           {/* My Repositories Tab */}
           <TabsContent value="my-repos" className="animate-in fade-in-50 duration-300">
             <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+              {(() => {
+                console.log('[DEBUG] Rendering my-repos tab:', {
+                  isReposLoading,
+                  isAppInstalled,
+                  repositoriesLength: repositories.length,
+                  filteredLength: filteredRepositories.length,
+                });
+                return null;
+              })()}
               {isReposLoading ? (
                 <>
                   {/* Top loader banner */}
