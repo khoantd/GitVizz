@@ -119,6 +119,7 @@ export default function DocumentationButton({
         repositoryUrl,
         'en', // language
         true, // comprehensive
+        'default', // selectedModel
       );
 
       // Status polling will be handled by the useEffect above

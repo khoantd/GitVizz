@@ -206,7 +206,11 @@ interface MarkdownRendererProps {
   onHeadersExtracted?: (headers: HeaderInfo[]) => void;
 }
 
-const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: MarkdownRendererProps) => {
+const MarkdownRenderer = ({
+  content,
+  onNavItemClick,
+  onHeadersExtracted,
+}: MarkdownRendererProps) => {
   const markdownRef = useRef<HTMLDivElement>(null);
 
   // Extract headers from content for navigation
@@ -282,9 +286,7 @@ const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: Markd
           </SyntaxHighlighter>
         </div>
       ) : (
-        <code
-          className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-1 rounded-md text-sm font-mono"
-        >
+        <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-1 rounded-md text-sm font-mono">
           {children}
         </code>
       );
@@ -532,14 +534,14 @@ export default function Documentation({
     const handleMouseMove = (e: MouseEvent) => {
       const containerRect = resizeRef.current?.getBoundingClientRect();
       if (!containerRect) return;
-      
+
       if (isResizingRight) {
         const newWidth = containerRect.right - e.clientX;
         const minWidth = 200;
         const maxWidth = containerRect.width * 0.3;
         setRightNavWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
       }
-      
+
       if (isResizingLeft) {
         const newWidth = e.clientX - containerRect.left;
         const minWidth = 160;
@@ -589,7 +591,7 @@ export default function Documentation({
       if (wikiResponse.status === 'running' || wikiResponse.status === 'pending') {
         setIsGenerating(true);
       }
-      
+
       setInitializing(false);
     } catch (err) {
       console.error('Error checking documentation status:', err);
@@ -652,18 +654,18 @@ export default function Documentation({
   useEffect(() => {
     const handleScroll = () => {
       if (headers.length === 0 || !contentRef.current) return;
-      
+
       const container = contentRef.current;
       const scrollPosition = container.scrollTop + 80;
       let activeId = headers[0].id;
-      
+
       for (const header of headers) {
         const element = document.getElementById(header.id);
         if (element && element.offsetTop - container.offsetTop <= scrollPosition) {
           activeId = header.id;
         }
       }
-      
+
       setActiveHeaderId(activeId);
     };
 
@@ -748,7 +750,13 @@ export default function Documentation({
         throw new Error('Repository URL not available');
       }
 
-      await generateWikiDocumentation(session.jwt_token, repositoryUrl, 'en', true, selectedModel || undefined);
+      await generateWikiDocumentation(
+        session.jwt_token,
+        repositoryUrl,
+        'en',
+        true,
+        selectedModel || 'default',
+      );
     } catch (err) {
       console.error('Error generating documentation:', err);
       setIsGenerating(false);
@@ -818,13 +826,16 @@ export default function Documentation({
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="h-3 w-3 bg-muted/30 rounded animate-pulse" />
-                  <div className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${60 + Math.random() * 40}%`}} />
+                  <div
+                    className="h-3 bg-muted/30 rounded animate-pulse"
+                    style={{ width: `${60 + Math.random() * 40}%` }}
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-        
+
         {/* Loading Main Content */}
         <div className="flex-1 flex items-center justify-center bg-background/20">
           <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
@@ -835,7 +846,7 @@ export default function Documentation({
             </div>
           </div>
         </div>
-        
+
         {/* Loading Right Nav */}
         <div className="hidden xl:block w-64 bg-background/50 backdrop-blur-sm p-6 flex-shrink-0">
           <div className="space-y-3">
@@ -845,7 +856,11 @@ export default function Documentation({
             </div>
             <div className="space-y-2">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${50 + Math.random() * 30}%`}} />
+                <div
+                  key={i}
+                  className="h-3 bg-muted/30 rounded animate-pulse"
+                  style={{ width: `${50 + Math.random() * 30}%` }}
+                />
               ))}
             </div>
           </div>
@@ -878,9 +893,12 @@ export default function Documentation({
     return (
       <div className="h-full flex overflow-hidden">
         {/* Loading Left Sidebar */}
-        <div className="border-r border-border/30 p-6 bg-background/50 backdrop-blur-sm flex-shrink-0 relative" style={{ width: `${leftNavWidth}px` }}>
+        <div
+          className="border-r border-border/30 p-6 bg-background/50 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${leftNavWidth}px` }}
+        >
           {/* Left Resize Handle for Loading State */}
-          <div 
+          <div
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
             onMouseDown={() => setIsResizingLeft(true)}
           >
@@ -897,13 +915,16 @@ export default function Documentation({
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="h-3 w-3 bg-muted/30 rounded animate-pulse" />
-                  <div className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${60 + Math.random() * 40}%`}} />
+                  <div
+                    className="h-3 bg-muted/30 rounded animate-pulse"
+                    style={{ width: `${60 + Math.random() * 40}%` }}
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-        
+
         {/* Loading Main Content */}
         <div className="flex-1 flex items-center justify-center bg-background/20">
           <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
@@ -914,7 +935,7 @@ export default function Documentation({
             </div>
           </div>
         </div>
-        
+
         {/* Loading Right Nav */}
         <div className="hidden xl:block w-64 bg-background/50 backdrop-blur-sm p-6 flex-shrink-0">
           <div className="space-y-3">
@@ -924,7 +945,11 @@ export default function Documentation({
             </div>
             <div className="space-y-2">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${50 + Math.random() * 30}%`}} />
+                <div
+                  key={i}
+                  className="h-3 bg-muted/30 rounded animate-pulse"
+                  style={{ width: `${50 + Math.random() * 30}%` }}
+                />
               ))}
             </div>
           </div>
@@ -938,9 +963,12 @@ export default function Documentation({
     return (
       <div className="h-full flex overflow-hidden">
         {/* Empty Left Sidebar */}
-        <div className="border-r border-border/30 p-6 bg-background/30 backdrop-blur-sm flex-shrink-0 relative" style={{ width: `${leftNavWidth}px` }}>
+        <div
+          className="border-r border-border/30 p-6 bg-background/30 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${leftNavWidth}px` }}
+        >
           {/* Left Resize Handle for No Docs State */}
-          <div 
+          <div
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
             onMouseDown={() => setIsResizingLeft(true)}
           >
@@ -957,13 +985,16 @@ export default function Documentation({
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2 opacity-30">
                   <div className="h-3 w-3 bg-muted/40 rounded animate-pulse" />
-                  <div className="h-3 bg-muted/40 rounded animate-pulse" style={{width: `${40 + Math.random() * 40}%`}} />
+                  <div
+                    className="h-3 bg-muted/40 rounded animate-pulse"
+                    style={{ width: `${40 + Math.random() * 40}%` }}
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-        
+
         {/* Main Generate Section */}
         <div className="flex-1 flex items-center justify-center bg-background/10">
           <div className="text-center space-y-8 p-8 rounded-3xl bg-background/90 backdrop-blur-2xl border border-border/50 shadow-xl max-w-lg mx-4">
@@ -998,19 +1029,23 @@ export default function Documentation({
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Progress</span>
-                    <span className="font-medium text-primary">{currentStatus === 'running' ? '60%' : '30%'}</span>
+                    <span className="font-medium text-primary">
+                      {currentStatus === 'running' ? '60%' : '30%'}
+                    </span>
                   </div>
                   <div className="w-full bg-muted/30 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-primary to-blue-500 h-2 rounded-full transition-all duration-1000 ease-out" 
-                      style={{width: currentStatus === 'running' ? '60%' : '30%'}} 
+                    <div
+                      className="bg-gradient-to-r from-primary to-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: currentStatus === 'running' ? '60%' : '30%' }}
                     />
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" />
                   <span className="capitalize font-medium text-primary">{currentStatus}</span>
-                  {isCheckingStatus && <span className="text-muted-foreground">• Checking status...</span>}
+                  {isCheckingStatus && (
+                    <span className="text-muted-foreground">• Checking status...</span>
+                  )}
                 </div>
               </div>
             )}
@@ -1019,7 +1054,9 @@ export default function Documentation({
               <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
                 <div className="flex items-center gap-2 mb-2">
                   <X className="h-4 w-4 text-red-500" />
-                  <span className="font-medium text-red-600 dark:text-red-400">Generation Failed</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">
+                    Generation Failed
+                  </span>
                 </div>
                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
@@ -1045,7 +1082,7 @@ export default function Documentation({
             </Button>
           </div>
         </div>
-        
+
         {/* Empty Right Nav */}
         <div className="hidden xl:block w-64 bg-background/30 backdrop-blur-sm p-6 flex-shrink-0">
           <div className="space-y-4">
@@ -1055,7 +1092,11 @@ export default function Documentation({
             </div>
             <div className="space-y-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-3 bg-muted/20 rounded animate-pulse opacity-30" style={{width: `${30 + Math.random() * 40}%`}} />
+                <div
+                  key={i}
+                  className="h-3 bg-muted/20 rounded animate-pulse opacity-30"
+                  style={{ width: `${30 + Math.random() * 40}%` }}
+                />
               ))}
             </div>
           </div>
@@ -1097,7 +1138,7 @@ export default function Documentation({
         style={{ width: `${leftNavWidth}px` }}
       >
         {/* Left Resize Handle */}
-        <div 
+        <div
           className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group hidden lg:block"
           onMouseDown={() => setIsResizingLeft(true)}
         >
@@ -1124,7 +1165,6 @@ export default function Documentation({
 
         {/* Sidebar Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-
           {/* File Tree */}
           {documentation?.data?.folder_structure && (
             <div>
@@ -1174,7 +1214,9 @@ export default function Documentation({
                         {activeContent.metadata?.size && (
                           <div className="flex items-center gap-1.5">
                             <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="font-medium">{formatFileSize(activeContent.metadata.size)}</span>
+                            <span className="font-medium">
+                              {formatFileSize(activeContent.metadata.size)}
+                            </span>
                           </div>
                         )}
                         {activeContent.read_time && (
@@ -1191,7 +1233,8 @@ export default function Documentation({
                         )}
                         {activeContent.metadata?.modified && (
                           <div className="text-sm text-muted-foreground">
-                            <span className="font-medium">Last modified:</span> {formatDate(activeContent.metadata.modified)}
+                            <span className="font-medium">Last modified:</span>{' '}
+                            {formatDate(activeContent.metadata.modified)}
                           </div>
                         )}
                       </div>
@@ -1234,12 +1277,12 @@ export default function Documentation({
 
       {/* Right Sidebar - Page Navigation (Resizable & Collapsible) */}
       {!isRightNavCollapsed ? (
-        <div 
+        <div
           className="hidden xl:flex xl:flex-col bg-background/40 backdrop-blur-sm flex-shrink-0 relative"
           style={{ width: `${rightNavWidth}px` }}
         >
           {/* Resize Handle */}
-          <div 
+          <div
             className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
             onMouseDown={() => setIsResizingRight(true)}
           >
@@ -1247,7 +1290,7 @@ export default function Documentation({
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
-          
+
           {/* Right Sidebar Header */}
           <div className="flex items-center justify-between p-4 lg:p-6 border-b border-border/20 shrink-0">
             <h3 className="font-medium flex items-center gap-2 text-foreground text-sm">
@@ -1263,7 +1306,7 @@ export default function Documentation({
               <ChevronRight className="h-3 w-3" />
             </Button>
           </div>
-          
+
           {/* Right Sidebar Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 lg:p-6">
             {headers.length > 0 ? (
@@ -1294,9 +1337,7 @@ export default function Documentation({
                 <div className="w-10 h-10 mx-auto rounded-xl bg-muted/20 flex items-center justify-center mb-3">
                   <Hash className="h-5 w-5 text-muted-foreground/50" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  No headers found in this document.
-                </p>
+                <p className="text-xs text-muted-foreground">No headers found in this document.</p>
               </div>
             ) : (
               <div className="text-center py-8">
