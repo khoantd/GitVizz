@@ -677,7 +677,7 @@ export default function ResultsPage() {
                               : {}
                           }
                           sourceType={sourceType}
-                          selectedModel={(currentModel as { provider?: string }).provider}
+                          userKeyPreferences={userKeyPreferences}
                         />
                       </div>
                     ) : (

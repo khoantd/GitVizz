@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Form
+from fastapi.responses import StreamingResponse
 from huggingface_hub import User
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, AsyncGenerator
 import time
 import asyncio
 import os
+import json
 from concurrent.futures import ThreadPoolExecutor
 from documentationo_generator.core import DocumentationGenerator
 from utils.jwt_utils import get_current_user
@@ -31,8 +33,38 @@ router = APIRouter(prefix="/documentation")
 # TODO: Global storage for task results (in production, use Redis or a database)
 task_results: Dict[str, Dict[str, Any]] = {}
 
+# SSE progress streaming storage
+progress_streams: Dict[str, list] = {}
+
+# Cancellation flags for running tasks
+cancellation_flags: Dict[str, bool] = {}
+
 # Thread pool for CPU-bound tasks
 executor = ThreadPoolExecutor(max_workers=4)
+
+def create_progress_callback(task_id: str):
+    """Create a progress callback function for streaming updates"""
+    def progress_callback(message: str):
+        # Check for cancellation first
+        if cancellation_flags.get(task_id, False):
+            raise Exception("Generation cancelled by user")
+            
+        timestamp = time.time()
+        progress_event = {
+            "timestamp": timestamp,
+            "message": message,
+            "task_id": task_id
+        }
+        
+        # Store progress update
+        if task_id in progress_streams:
+            progress_streams[task_id].append(progress_event)
+            
+        # Also update task status if it's a key message
+        if task_id in task_results:
+            task_results[task_id]["message"] = message
+            
+    return progress_callback
 
 
 def parse_github_url(url: str) -> tuple[str, str]:
@@ -89,6 +121,130 @@ def parse_github_url(url: str) -> tuple[str, str]:
         raise ValueError("Currently only GitHub repositories are supported")
 
 
+@router.get(
+    "/progress-stream/{task_id}",
+    summary="Stream wiki generation progress",
+    description="Server-Sent Events endpoint for real-time wiki generation progress updates.",
+)
+async def stream_wiki_progress(task_id: str):
+    """Stream real-time progress updates for wiki generation via SSE"""
+    
+    async def generate_progress_stream() -> AsyncGenerator[str, None]:
+        last_sent_index = 0
+        
+        while True:
+            # Check if task exists
+            if task_id not in task_results:
+                yield f"data: {{\"error\": \"Task not found\"}}\\n\\n"
+                break
+                
+            task = task_results[task_id]
+            
+            # Send any new progress updates
+            if task_id in progress_streams:
+                progress_updates = progress_streams[task_id]
+                
+                # Send new progress updates
+                for i in range(last_sent_index, len(progress_updates)):
+                    update = progress_updates[i]
+                    yield f"data: {json.dumps(update)}\\n\\n"
+                    
+                last_sent_index = len(progress_updates)
+            
+            # Send task status update
+            status_update = {
+                "type": "status",
+                "task_id": task_id,
+                "status": task["status"],
+                "message": task["message"],
+                "timestamp": time.time()
+            }
+            yield f"data: {json.dumps(status_update)}\\n\\n"
+            
+            # Check if task is complete or cancelled
+            if task["status"] in ["completed", "failed", "cancelled"]:
+                completion_update = {
+                    "type": "complete",
+                    "task_id": task_id,
+                    "status": task["status"],
+                    "final_message": task["message"],
+                    "error": task.get("error"),
+                    "timestamp": time.time()
+                }
+                yield f"data: {json.dumps(completion_update)}\\n\\n"
+                break
+            
+            # Wait before next update
+            await asyncio.sleep(2)
+    
+    return StreamingResponse(
+        generate_progress_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+        },
+    )
+
+
+@router.post(
+    "/cancel-generation/{task_id}",
+    summary="Cancel wiki generation",
+    description="Cancel an ongoing wiki generation task.",
+)
+async def cancel_wiki_generation(
+    task_id: str,
+    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
+):
+    """Cancel an ongoing wiki generation task"""
+    try:
+        # Authenticate user
+        user = await get_current_user(jwt_token)
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
+        
+        # Check if task exists and belongs to user
+        if task_id not in task_results:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        task = task_results[task_id]
+        
+        # Verify user owns this task (via repo ownership)
+        repo = await Repository.find_one(Repository.id == task["repo_id"])
+        if not repo or repo.user.id != user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Cancel the task
+        if task["status"] in ["pending", "running"]:
+            # Set cancellation flag
+            cancellation_flags[task_id] = True
+            
+            task_results[task_id].update({
+                "status": "cancelled",
+                "message": "Task cancelled by user",
+                "completed_at": time.time(),
+            })
+            
+            # Add cancellation event to progress stream
+            if task_id in progress_streams:
+                progress_streams[task_id].append({
+                    "timestamp": time.time(),
+                    "message": "🛑 Generation cancelled by user",
+                    "task_id": task_id,
+                    "type": "cancelled"
+                })
+            
+            return {"success": True, "message": "Task cancelled successfully"}
+        else:
+            return {"success": False, "message": f"Cannot cancel task with status: {task['status']}"}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post(
     "/generate-wiki",
     response_model=WikiGenerationResponse,
@@ -114,7 +270,13 @@ async def generate_wiki(
         True, description="Whether to generate comprehensive documentation"
     ),
     provider_name: Optional[str] = Form(
-        "", description="Provider name for the documentation generation"
+        "gemini", description="Provider name for the documentation generation (openai, anthropic, gemini)"
+    ),
+    model_name: Optional[str] = Form(
+        None, description="Specific model name to use for generation"
+    ),
+    temperature: Optional[float] = Form(
+        0.7, description="Temperature for AI generation (0.0-1.5)"
     )
 ):
     """Generate wiki documentation for a repository"""
@@ -151,8 +313,13 @@ async def generate_wiki(
             status_code=400, detail=f"Failed to parse repository URL: {str(e)}"
         )
 
-    # --- API Key Logic ---
+    # --- Enhanced Multi-Provider API Key Logic ---
     api_key = None
+    
+    # Normalize provider name
+    provider_name = provider_name.lower() if provider_name else "gemini"
+    
+    # Get user's API key for the selected provider
     user_api_key = await UserApiKey.find_one(
         UserApiKey.user.id == user.id,
         UserApiKey.provider == provider_name,
@@ -163,16 +330,36 @@ async def generate_wiki(
         cipher_suite = Fernet(encryption_key)
         api_key = cipher_suite.decrypt(user_api_key.encrypted_key).decode()
 
-    # Fallback to system key if user is not using their own or no session exists
+    # Fallback to system keys based on provider
     if not api_key:
-        api_key = os.getenv("GEMINI_API_KEY")
+        system_keys = {
+            "openai": os.getenv("OPENAI_API_KEY"),
+            "anthropic": os.getenv("ANTHROPIC_API_KEY"), 
+            "gemini": os.getenv("GEMINI_API_KEY"),
+        }
+        api_key = system_keys.get(provider_name)
 
-    # If no key is found from any source, raise an error
+    # If no key is found, try fallback providers
+    original_provider = provider_name
     if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="No Gemini API key found. Please configure your API key in settings or ensure a system key is available."
-        )
+        # Try fallback providers in order of preference
+        fallback_providers = ["gemini", "openai", "anthropic"]
+        if provider_name in fallback_providers:
+            fallback_providers.remove(provider_name)
+        
+        for fallback in fallback_providers:
+            fallback_key = system_keys.get(fallback)
+            if fallback_key:
+                api_key = fallback_key
+                provider_name = fallback
+                print(f"Falling back to {fallback.upper()} provider")
+                break
+        
+        if not api_key:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No API key found for {original_provider.upper()} or fallback providers. Please configure your API key in settings."
+            )
     # --- End of API Key Logic ---
 
 
@@ -180,7 +367,7 @@ async def generate_wiki(
         # Generate unique task ID
         task_id = f"wiki_{hash(repository_url)}_{int(time.time())}"
 
-        # Initialize task status
+        # Initialize task status and progress stream
         task_results[task_id] = {
             "task_id": task_id,
             "repo_id": repo.id,
@@ -191,11 +378,16 @@ async def generate_wiki(
             "created_at": time.time(),
             "completed_at": None,
         }
+        
+        # Initialize progress stream and cancellation flag
+        progress_streams[task_id] = []
+        cancellation_flags[task_id] = False
 
         # Start the background task using asyncio.create_task (better approach)
         asyncio.create_task(
             _generate_wiki_background(
-                task_id, repository_url, output_dir, language, comprehensive, api_key
+                task_id, repository_url, output_dir, language, comprehensive, 
+                api_key, provider_name, model_name, temperature
             )
         )
 
@@ -208,7 +400,8 @@ async def generate_wiki(
 
 
 async def _generate_wiki_background(
-    task_id: str, repo_url: str, output_dir: str, language: str, comprehensive: bool, api_key: str
+    task_id: str, repo_url: str, output_dir: str, language: str, comprehensive: bool, 
+    api_key: str, provider: str = "gemini", model: str = None, temperature: float = 0.7
 ):
     """Background task for wiki generation using asyncio"""
     try:
@@ -221,11 +414,15 @@ async def _generate_wiki_background(
         result = await loop.run_in_executor(
             executor,
             _run_wiki_generation,
+            task_id,
             repo_url,
             output_dir,
             language,
             comprehensive,
-            api_key
+            api_key,
+            provider,
+            model,
+            temperature
         )
 
         # Update task status on success
@@ -250,14 +447,24 @@ async def _generate_wiki_background(
 
 
 def _run_wiki_generation(
-    repo_url: str, output_dir: str, language: str, comprehensive: bool, api_key: str
+    task_id: str, repo_url: str, output_dir: str, language: str, comprehensive: bool, 
+    api_key: str, provider: str = "gemini", model: str = None, temperature: float = 0.7
 ):
     """Synchronous function to run the actual wiki generation"""
     try:
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
 
-        generator = DocumentationGenerator(api_key=api_key)
+        # Create progress callback for this task
+        progress_callback = create_progress_callback(task_id)
+        
+        generator = DocumentationGenerator(
+            api_key=api_key,
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            progress_callback=progress_callback
+        )
         result = generator.generate_complete_wiki(
             repo_url_or_path=repo_url, output_dir=output_dir, language=language
         )

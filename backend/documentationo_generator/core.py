@@ -12,6 +12,7 @@ load_dotenv()
 import re 
 try:
     from ai_client import GeminiAIClient
+    from multi_provider_client import MultiProviderAIClient
     from analyzers import RepositoryAnalyzer
     from parsers import DocumentParser
     from embedders import SemanticEmbedder
@@ -20,6 +21,7 @@ try:
 except ImportError:
     # Fallback for when running as part of a package
     from .ai_client import GeminiAIClient
+    from .multi_provider_client import MultiProviderAIClient
     from .analyzers import RepositoryAnalyzer
     from .parsers import DocumentParser
     from .embedders import SemanticEmbedder
@@ -29,13 +31,30 @@ except ImportError:
 class DocumentationGenerator:
     """Main documentation generator - simplified like GraphGenerator"""
     
-    def __init__(self, api_key: str = None, progress_callback: Callable[[str], None] = None):
+    def __init__(self, api_key: str = None, provider: str = "gemini", model: str = None, 
+                 temperature: float = 0.7, progress_callback: Callable[[str], None] = None):
         if not api_key:
-            raise ValueError("A Gemini API key is required. Please provide your API key to proceed.")
+            raise ValueError("An API key is required. Please provide your API key to proceed.")
+        
         self.api_key = api_key
+        self.provider = provider.lower()
+        self.model = model
+        self.temperature = temperature
             
-        # Initialize components (like graph_generator's parsers)
-        self.ai_client = GeminiAIClient(self.api_key)
+        # Initialize components with multi-provider support
+        try:
+            self.ai_client = MultiProviderAIClient(
+                provider=self.provider,
+                api_key=self.api_key,
+                model=self.model,
+                temperature=self.temperature
+            )
+        except ImportError:
+            # Fallback to Gemini-only client for backward compatibility
+            if self.provider != "gemini":
+                raise ValueError(f"Provider '{self.provider}' not supported. Please use 'gemini' or install litellm.")
+            self.ai_client = GeminiAIClient(self.api_key)
+        
         self.analyzer = RepositoryAnalyzer()
         self.parser = DocumentParser()
         self.embedder = SemanticEmbedder()
@@ -86,12 +105,20 @@ class DocumentationGenerator:
         # Step 5: Generate content for all pages with optimized rate limiting
         print("   Starting content generation with optimized rate limiting...")
         
+        # Use dynamic rate limiting based on provider
+        rate_delay = self.ai_client.get_rate_limit_delay() if hasattr(self.ai_client, 'get_rate_limit_delay') else 20
+        
         generated_pages = []
         for i, page in enumerate(structure.pages):
+            # Check for cancellation (if progress_callback has access to task status)
+            if hasattr(self.progress_callback, '__self__') and hasattr(self.progress_callback.__self__, 'cancelled'):
+                if self.progress_callback.__self__.cancelled:
+                    self.progress_callback("🛑 Generation cancelled")
+                    break
+                    
             if i > 0:
-                # Reduced wait time - AI client handles internal rate limiting
                 self.progress_callback(f"      Brief pause before next page ({i+1}/{len(structure.pages)})...")
-                time.sleep(20)  # Reduced from 120s to 20s
+                time.sleep(rate_delay)  # Dynamic rate limiting based on provider
             
             generated_page = self.generate_page_content(page, language)
             generated_pages.append(generated_page)
@@ -297,11 +324,18 @@ class DocumentationGenerator:
                 self.progress_callback(f"✨ Generated AI title: {ai_title}")
                 page.title = ai_title
 
-        # Generate content using AI with sophisticated prompts
-        generated_content = self.ai_client.generate_page_content(page, relevant_docs, language)
-
-        page.content = generated_content
-        page.mermaid_diagrams = self._extract_mermaid_diagrams(generated_content)
+        # Generate content using multi-provider AI
+        if hasattr(self.ai_client, 'generate_page_content'):
+            # New multi-provider client
+            generated_page = self.ai_client.generate_page_content(
+                page, self.repo_analysis, relevant_docs, language, self.progress_callback
+            )
+            page.content = generated_page.content
+        else:
+            # Fallback to legacy Gemini client
+            generated_content = self.ai_client.generate_page_content(page, relevant_docs, language)
+            page.content = generated_content
+        page.mermaid_diagrams = self._extract_mermaid_diagrams(page.content)
 
         return page
     

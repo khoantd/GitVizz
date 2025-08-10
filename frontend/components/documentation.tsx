@@ -22,15 +22,37 @@ import {
   Sparkles,
   GripVertical,
   List,
+  Settings,
+  RefreshCw,
+  Zap,
+  Brain,
+  RotateCcw,
+  Pause,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   isWikiGenerated,
   generateWikiDocumentation,
   getWikiGenerationStatus,
   getRepositoryDocumentation,
+  getAvailableModels,
+  cancelWikiGeneration,
 } from '@/utils/api';
+import type { AvailableModelsResponse } from '@/api-client/types.gen';
+import { useDocumentationProgress, type ProgressUpdate } from '@/lib/sse-client';
 
 // Markdown and Syntax Highlighting imports
 import ReactMarkdown from 'react-markdown';
@@ -95,8 +117,17 @@ interface DocumentationTabProps {
     repo_url?: string;
   };
   sourceType: string;
-  selectedModel?: string;
+  userKeyPreferences?: Record<string, boolean>;
 }
+
+interface GenerationSettings {
+  provider: string;
+  model: string;
+  temperature: number;
+  comprehensive: boolean;
+  language: string;
+}
+
 
 // Helper function moved outside the component
 const findFileInTree = (
@@ -468,7 +499,7 @@ export default function Documentation({
   currentRepoId,
   sourceData,
   sourceType,
-  selectedModel,
+  userKeyPreferences = {},
 }: DocumentationTabProps) {
   const { data: session } = useSession();
   const [isDocGenerated, setIsDocGenerated] = useState(false);
@@ -494,6 +525,31 @@ export default function Documentation({
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced generation states
+  const [availableModels, setAvailableModels] = useState<AvailableModelsResponse | null>(null);
+  const [generationSettings, setGenerationSettings] = useState<GenerationSettings>({
+    provider: 'gemini',
+    model: 'gemini-2.0-flash',
+    temperature: 0.7,
+    comprehensive: true,
+    language: 'en',
+  });
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [canCancel, setCanCancel] = useState(false);
+  const [showRegenerateOptions, setShowRegenerateOptions] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  
+  // SSE progress streaming
+  const { 
+    progressUpdates: sseUpdates, 
+    currentStatus: sseStatus, 
+    currentMessage: sseMessage,
+    isStreaming,
+    error: sseError,
+    stopStreaming,
+    clearProgress 
+  } = useDocumentationProgress(currentTaskId);
 
   // Helper functions
   const getAncestorPaths = (path: string): Set<string> => {
@@ -569,6 +625,28 @@ export default function Documentation({
       document.body.style.userSelect = '';
     };
   }, [isResizingRight, isResizingLeft]);
+
+  // Load available models
+  const loadAvailableModels = useCallback(async () => {
+    if (!session?.jwt_token) return;
+    try {
+      const models = await getAvailableModels(session.jwt_token);
+      setAvailableModels(models);
+      
+      // Set default model if available
+      const firstProvider = Object.keys(models.providers)[0];
+      const firstModel = firstProvider ? models.providers[firstProvider]?.[0] : undefined;
+      if (firstProvider && firstModel && !generationSettings.provider) {
+        setGenerationSettings(prev => ({
+          ...prev,
+          provider: firstProvider,
+          model: firstModel,
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading models:', error);
+    }
+  }, [session?.jwt_token, generationSettings.provider]);
 
   // Check documentation status
   const checkDocumentationStatus = useCallback(async () => {
@@ -750,28 +828,77 @@ export default function Documentation({
         throw new Error('Repository URL not available');
       }
 
-      await generateWikiDocumentation(
+      const response = await generateWikiDocumentation(
         session.jwt_token,
         repositoryUrl,
-        'en',
-        true,
-        selectedModel || 'default',
+        generationSettings.language,
+        generationSettings.comprehensive,
+        generationSettings.provider,
+        generationSettings.model,
+        generationSettings.temperature,
       );
+      
+      // Start SSE streaming if we got a task ID
+      if (response.task_id) {
+        setCurrentTaskId(response.task_id);
+        setCanCancel(true);
+        clearProgress(); // Clear any existing progress
+      }
     } catch (err) {
       console.error('Error generating documentation:', err);
       setIsGenerating(false);
-      setError(err instanceof Error ? err.message : 'Failed to generate documentation');
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      
+      // Enhanced error handling with user guidance
+      let errorMessage = 'Failed to generate documentation';
+      let actionableAdvice = '';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        
+        // Provider-specific error guidance
+        if (errorMessage.toLowerCase().includes('rate limit')) {
+          actionableAdvice = ' Try switching to a different AI provider or wait a few minutes before retrying.';
+        } else if (errorMessage.toLowerCase().includes('authentication') || errorMessage.toLowerCase().includes('api key')) {
+          actionableAdvice = ' Please check your API key configuration in Settings.';
+        } else if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('billing')) {
+          actionableAdvice = ' Check your API provider billing status and usage limits.';
+        } else if (errorMessage.toLowerCase().includes('model')) {
+          actionableAdvice = ' Try selecting a different model or provider.';
+        }
+      }
+      
+      setError(errorMessage + actionableAdvice);
     }
   };
 
   // Effects
   useEffect(() => {
     if (session?.jwt_token && currentRepoId) {
+      loadAvailableModels();
       checkDocumentationStatus();
     } else {
       setInitializing(false);
     }
-  }, [session?.jwt_token, currentRepoId, checkDocumentationStatus]);
+  }, [session?.jwt_token, currentRepoId, checkDocumentationStatus, loadAvailableModels]);
+
+  // Handle SSE completion
+  useEffect(() => {
+    if (sseStatus === 'completed') {
+      setIsGenerating(false);
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      fetchDocumentation(); // Reload documentation data
+    } else if (sseStatus === 'failed') {
+      setIsGenerating(false);
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      if (sseError) {
+        setError(sseError);
+      }
+    }
+  }, [sseStatus, sseError, fetchDocumentation]);
 
   useEffect(() => {
     if (isDocGenerated && !documentation && !loading) {
@@ -1062,24 +1189,297 @@ export default function Documentation({
               </div>
             )}
 
-            <Button
-              onClick={handleGenerateDocumentation}
-              disabled={isGenerating}
-              size="lg"
-              className="rounded-xl px-8 py-3 text-base font-semibold"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                  {isCheckingStatus ? 'Checking Status...' : 'Generating...'}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-5 w-5 mr-3" />
-                  Generate Documentation
-                </>
+            {/* Model Selection and Settings */}
+            {!isGenerating && (
+              <div className="space-y-6 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-primary" />
+                    Generation Settings
+                  </h3>
+                  
+                  {/* Model Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">AI Provider</Label>
+                      <Select
+                        value={generationSettings.provider}
+                        onValueChange={(provider) => {
+                          const firstModel = availableModels?.providers[provider]?.[0];
+                          if (firstModel) {
+                            setGenerationSettings(prev => ({
+                              ...prev,
+                              provider,
+                              model: firstModel,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            <div className="flex items-center gap-2">
+                              {generationSettings.provider === 'openai' && <Zap className="h-4 w-4" />}
+                              {generationSettings.provider === 'anthropic' && <Brain className="h-4 w-4" />}
+                              {generationSettings.provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                              <span className="capitalize">{generationSettings.provider}</span>
+                            </div>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels && Object.keys(availableModels.providers).map((provider) => (
+                            <SelectItem key={provider} value={provider}>
+                              <div className="flex items-center gap-2">
+                                {provider === 'openai' && <Zap className="h-4 w-4" />}
+                                {provider === 'anthropic' && <Brain className="h-4 w-4" />}
+                                {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                                <span className="capitalize">{provider}</span>
+                                {availableModels.user_has_keys.includes(provider) && (
+                                  <Badge variant="secondary" className="text-xs">Your Key</Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Model</Label>
+                      <Select
+                        value={generationSettings.model}
+                        onValueChange={(model) => 
+                          setGenerationSettings(prev => ({ ...prev, model }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            <Badge variant="outline" className="text-xs">
+                              {generationSettings.model}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels?.providers[generationSettings.provider]?.map((model) => (
+                            <SelectItem key={model} value={model}>
+                              <Badge variant="outline" className="text-xs">{model}</Badge>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Quick Settings */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="comprehensive"
+                        checked={generationSettings.comprehensive}
+                        onCheckedChange={(comprehensive) => 
+                          setGenerationSettings(prev => ({ ...prev, comprehensive }))
+                        }
+                      />
+                      <Label htmlFor="comprehensive" className="text-sm">
+                        Comprehensive Documentation
+                      </Label>
+                    </div>
+                    
+                    <Popover open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Advanced
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Temperature</Label>
+                            <Slider
+                              value={[generationSettings.temperature]}
+                              onValueChange={(value) => 
+                                setGenerationSettings(prev => ({ ...prev, temperature: value[0] }))
+                              }
+                              max={1.5}
+                              min={0}
+                              step={0.1}
+                              className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Focused (0)</span>
+                              <span className="font-medium">{generationSettings.temperature}</span>
+                              <span>Creative (1.5)</span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Language</Label>
+                            <Select
+                              value={generationSettings.language}
+                              onValueChange={(language) => 
+                                setGenerationSettings(prev => ({ ...prev, language }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="en">English</SelectItem>
+                                <SelectItem value="es">Spanish</SelectItem>
+                                <SelectItem value="fr">French</SelectItem>
+                                <SelectItem value="de">German</SelectItem>
+                                <SelectItem value="zh">Chinese</SelectItem>
+                                <SelectItem value="ja">Japanese</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Progress Updates */}
+            {isGenerating && (isStreaming || sseUpdates.length > 0) && (
+              <div className="space-y-4 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  Generation Progress
+                  {isStreaming && (
+                    <Badge variant="secondary" className="text-xs">
+                      Live Updates
+                    </Badge>
+                  )}
+                </h3>
+                
+                {/* Current Status */}
+                {(sseMessage || sseStatus) && (
+                  <div className="p-3 bg-primary/10 rounded-lg border-l-4 border-primary">
+                    <div className="font-medium text-sm text-foreground">
+                      Status: {sseStatus || 'running'}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {sseMessage}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Progress History */}
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {sseUpdates.slice(-5).map((update, index) => (
+                    <div key={index} className="flex items-start gap-3 p-2 bg-background/40 rounded-lg">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse mt-2" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground truncate">
+                          {update.message}
+                        </div>
+                        <div className="text-xs text-muted-foreground/60">
+                          {new Date(update.timestamp * 1000).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Error Display */}
+                {sseError && (
+                  <div className="p-3 bg-destructive/10 rounded-lg border-l-4 border-destructive">
+                    <div className="text-sm text-destructive font-medium">
+                      Connection Error
+                    </div>
+                    <div className="text-xs text-destructive/80 mt-1">
+                      {sseError}
+                    </div>
+                  </div>
+                )}
+                
+                {canCancel && currentTaskId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!session?.jwt_token || !currentTaskId) return;
+                      try {
+                        await cancelWikiGeneration(session.jwt_token, currentTaskId);
+                        stopStreaming();
+                        setCanCancel(false);
+                        setCurrentTaskId(null);
+                        setIsGenerating(false);
+                      } catch (error) {
+                        console.error('Error cancelling generation:', error);
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Cancel Generation
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={handleGenerateDocumentation}
+                disabled={isGenerating || !availableModels}
+                size="lg"
+                className="flex-1 rounded-xl px-8 py-3 text-base font-semibold"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                    {isCheckingStatus ? 'Checking Status...' : 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5 mr-3" />
+                    Generate Documentation
+                  </>
+                )}
+              </Button>
+              
+              {isDocGenerated && !isGenerating && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
+                  className="rounded-xl px-6 py-3"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Regenerate
+                </Button>
               )}
-            </Button>
+            </div>
+            
+            {/* Regenerate Options */}
+            {showRegenerateOptions && isDocGenerated && !isGenerating && (
+              <div className="space-y-3 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-4">
+                <h4 className="text-sm font-medium text-foreground">Regeneration Options</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateDocumentation}
+                    className="rounded-lg"
+                  >
+                    <Sparkles className="h-3 w-3 mr-2" />
+                    Full Regeneration
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {/* TODO: Implement partial regeneration */}}
+                    className="rounded-lg"
+                    disabled
+                  >
+                    <RefreshCw className="h-3 w-3 mr-2" />
+                    Partial Update
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

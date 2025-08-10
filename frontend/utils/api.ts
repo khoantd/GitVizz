@@ -885,19 +885,20 @@ export async function generateWikiDocumentation(
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
-  selectedModel: string | string[],
+  provider: string,
+  model?: string,
+  temperature?: number,
 ): Promise<any> {
   try {
-    // Convert array to string if needed
-    const providerName = Array.isArray(selectedModel) ? selectedModel[0] : selectedModel;
-
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
         jwt_token,
         repository_url,
         language,
         comprehensive,
-        provider_name: providerName,
+        provider_name: provider,
+        model_name: model,
+        temperature,
       },
     });
 
@@ -997,6 +998,31 @@ export async function isWikiGenerated(
     return response.data;
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Cancel wiki documentation generation
+ */
+export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const formData = new FormData();
+    formData.append('jwt_token', jwt_token);
+    
+    const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to cancel generation: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    throw error;
   }
 }
 
