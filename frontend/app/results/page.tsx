@@ -35,6 +35,7 @@ import { useResultData } from '@/context/ResultDataContext';
 import { showToast } from '@/components/toaster';
 import { useSession } from 'next-auth/react';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
+import ThemeToggle from '@/components/theme-toggle';
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -286,9 +287,10 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* API Keys Button */}
-        {session?.accessToken && (
-          <div className="fixed top-6 right-6 z-50">
+        {/* Top Right Controls: Theme + API Keys */}
+        <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 flex items-center gap-2">
+          <ThemeToggle className="bg-muted/40 backdrop-blur-sm rounded-xl px-3 py-1.5 border border-border/30" />
+          {session?.accessToken && (
             <Button
               variant="outline"
               size="sm"
@@ -298,8 +300,8 @@ export default function ResultsPage() {
               <Key className="h-4 w-4" />
               <span className="hidden sm:inline">API Keys</span>
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Info Panel */}
