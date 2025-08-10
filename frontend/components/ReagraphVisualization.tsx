@@ -1316,8 +1316,8 @@ export default function EnhancedReagraphVisualization({
             }`}
           >
             {nodeCount >= currentLimits.maxNodes * 0.8
-              ? `⚠️ Very large graph (${nodeCount.toLocaleString()} nodes) - performance may be severely impacted`
-              : `⚠️ Large graph detected (${nodeCount.toLocaleString()} nodes) - performance may be affected`}
+              ? `⚠️ Very large graph (${nodeCount.toLocaleString()} nodes) - performance may be severely impacted and may take several seconds to load`
+              : `⚠️ Large graph detected (${nodeCount.toLocaleString()} nodes) - performance may be affected may take few seconds to load`}
           </div>
         </div>
       )}

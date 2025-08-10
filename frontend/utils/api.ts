@@ -98,6 +98,185 @@ type ApiFunctionMap = {
   [OperationType.STRUCTURE]: typeof generateStructureEndpointApiRepoGenerateStructurePost;
 };
 
+/**
+ * Helper function to extract owner and repo from GitHub URL
+ */
+function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+  try {
+    const urlObj = new URL(url.toLowerCase());
+    if (!urlObj.hostname.includes('github.com')) {
+      return null;
+    }
+    
+    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+    if (pathParts.length >= 2) {
+      return {
+        owner: pathParts[0],
+        repo: pathParts[1].replace(/\.git$/, ''), // Remove .git suffix if present
+      };
+    }
+  } catch (error) {
+    console.warn('Invalid GitHub URL:', url);
+  }
+  return null;
+}
+
+/**
+ * Get all branches for a GitHub repository
+ */
+export async function getRepositoryBranches(
+  repoUrl: string, 
+  accessToken?: string
+): Promise<string[]> {
+  const repoInfo = parseGitHubUrl(repoUrl);
+  if (!repoInfo) {
+    return []; // fallback for non-GitHub URLs
+  }
+
+  try {
+    const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches`;
+    const headers: HeadersInit = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'gitvizz-app',
+    };
+
+    if (accessToken && accessToken.trim() && accessToken !== 'string') {
+      headers['Authorization'] = `token ${accessToken}`;
+    }
+
+    const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
+    
+    if (response.ok) {
+      const branches = await response.json();
+      return branches.map((branch: any) => branch.name).sort((a: string, b: string) => {
+        // Sort so that common default branches appear first
+        const commonBranches = ['main', 'master', 'develop', 'dev'];
+        const aIndex = commonBranches.indexOf(a);
+        const bIndex = commonBranches.indexOf(b);
+        
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        return a.localeCompare(b);
+      });
+    } else {
+      console.warn(`Could not fetch branches for ${repoUrl}`);
+      return [];
+    }
+  } catch (error) {
+    console.warn(`Error getting branches for ${repoUrl}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get the default branch for a GitHub repository
+ */
+export async function getRepositoryDefaultBranch(
+  repoUrl: string, 
+  accessToken?: string
+): Promise<string> {
+  const repoInfo = parseGitHubUrl(repoUrl);
+  if (!repoInfo) {
+    return 'main'; // fallback for non-GitHub URLs
+  }
+
+  try {
+    const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`;
+    const headers: HeadersInit = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'gitvizz-app',
+    };
+
+    if (accessToken && accessToken.trim() && accessToken !== 'string') {
+      headers['Authorization'] = `token ${accessToken}`;
+    }
+
+    const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.default_branch || 'main';
+    } else {
+      console.warn(`Could not fetch default branch for ${repoUrl}, using 'main' as fallback`);
+      return 'main';
+    }
+  } catch (error) {
+    console.warn(`Error getting default branch for ${repoUrl}:`, error);
+    return 'main';
+  }
+}
+
+/**
+ * Validate if a specific branch exists in the repository
+ */
+export async function validateBranchExists(
+  repoUrl: string, 
+  branch: string, 
+  accessToken?: string
+): Promise<boolean> {
+  const repoInfo = parseGitHubUrl(repoUrl);
+  if (!repoInfo) {
+    return false; // fallback for non-GitHub URLs
+  }
+
+  try {
+    const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches/${branch}`;
+    const headers: HeadersInit = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'gitvizz-app',
+    };
+
+    if (accessToken && accessToken.trim() && accessToken !== 'string') {
+      headers['Authorization'] = `token ${accessToken}`;
+    }
+
+    const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
+    return response.ok;
+  } catch (error) {
+    console.warn(`Error validating branch ${branch} for ${repoUrl}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Resolve the branch to use for a repository
+ * Priority:
+ * 1. If requested branch exists, use it
+ * 2. If requested branch doesn't exist, fall back to default branch
+ * 3. If no requested branch, use repository's default branch
+ */
+export async function resolveBranch(
+  repoUrl: string, 
+  requestedBranch?: string, 
+  accessToken?: string
+): Promise<string> {
+  if (!repoUrl || !repoUrl.includes('github.com')) {
+    return requestedBranch || 'main';
+  }
+
+  try {
+    // If a specific branch was requested, check if it exists
+    if (requestedBranch && requestedBranch !== 'main' && requestedBranch.trim()) {
+      const branchExists = await validateBranchExists(repoUrl, requestedBranch, accessToken);
+      if (branchExists) {
+        console.log(`Using requested branch '${requestedBranch}' for ${repoUrl}`);
+        return requestedBranch;
+      } else {
+        console.warn(`Requested branch '${requestedBranch}' not found, falling back to default branch`);
+      }
+    }
+
+    // Get the repository's default branch
+    const defaultBranch = await getRepositoryDefaultBranch(repoUrl, accessToken);
+    console.log(`Using default branch '${defaultBranch}' for ${repoUrl}`);
+    return defaultBranch;
+  } catch (error) {
+    console.error(`Error resolving branch for ${repoUrl}:`, error);
+    return requestedBranch || 'main';
+  }
+}
+
 // API function mapping
 const API_FUNCTIONS: ApiFunctionMap = {
   [OperationType.TEXT]: generateTextEndpointApiRepoGenerateTextPost,
@@ -130,10 +309,16 @@ async function executeOperation<T extends OperationType>(
   request: RepoRequest,
 ): Promise<ResponseMap[T]> {
   try {
-    // Prepare the request data
+    // Resolve the branch to use if it's a GitHub repo
+    let resolvedBranch = request.branch || 'main';
+    if (request.repo_url && request.repo_url.includes('github.com')) {
+      resolvedBranch = await resolveBranch(request.repo_url, request.branch, request.access_token);
+    }
+
+    // Prepare the request data with resolved branch
     const requestData = {
       repo_url: request.repo_url || null,
-      branch: request.branch || 'main',
+      branch: resolvedBranch,
       access_token: request.access_token || null,
       jwt_token: request.jwt_token || null,
       zip_file: request.zip_file || null,
@@ -170,15 +355,30 @@ async function executeOperation<T extends OperationType>(
  */
 function extractErrorMessage(error: any, operationType: OperationType, isZipFile?: File): string {
   if (typeof error === 'string') {
+    // Check for branch-related errors
+    if (error.includes('Failed to download ZIP') && error.includes('Status: 404')) {
+      return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+    }
     return error;
   }
 
   if (error?.detail) {
     if (typeof error.detail === 'string') {
+      // Check for branch-related errors in detail
+      if (error.detail.includes('Failed to download ZIP') && error.detail.includes('Status: 404')) {
+        return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+      }
       return error.detail;
     }
     if (Array.isArray(error.detail)) {
-      return error.detail.map((err: any) => err.msg || err.message || String(err)).join(', ');
+      const errorMessages = error.detail.map((err: any) => err.msg || err.message || String(err));
+      const joinedMessage = errorMessages.join(', ');
+      
+      // Check for branch-related errors in joined messages
+      if (joinedMessage.includes('Failed to download ZIP') && joinedMessage.includes('Status: 404')) {
+        return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+      }
+      return joinedMessage;
     }
   }
 

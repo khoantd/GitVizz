@@ -13,18 +13,20 @@ import json
 _litellm = None
 _litellm_import_error = None
 
+
 def get_litellm():
     """Lazy import of LiteLLM with error handling"""
     global _litellm, _litellm_import_error
-    
+
     if _litellm is not None:
         return _litellm
-    
+
     if _litellm_import_error is not None:
         raise _litellm_import_error
-    
+
     try:
         import litellm
+
         _litellm = litellm
         return _litellm
     except Exception as e:
@@ -56,8 +58,12 @@ class LLMService:
         # Provider to model mapping for verification
         self.provider_models = {
             "openai": ["gpt-3.5-turbo", "gpt-4", "gpt-4o-mini"],
-            "anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-opus-20240229"],
-            "gemini": ["gemini-pro", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+            "anthropic": [
+                "claude-3-haiku-20240307",
+                "claude-3-sonnet-20240229",
+                "claude-3-opus-20240229",
+            ],
+            "gemini": ["gemini-pro", "gemini-1.5-pro", "gemini-2.0-flash-exp"],
         }
 
         # Model configurations
@@ -191,39 +197,39 @@ class LLMService:
                     "rate_limit": "Variable",
                     "daily_limit": "Variable",
                 },
-                "claude-3": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3-haiku-20240307": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3-opus-20240229": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3-sonnet-20240229": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
             },
             "gemini": {
-                "gemini-1.5-flash": {
+                "gemini-2.5-pro": {
                     "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,  # Free tier
-                    "rate_limit": "15 requests/minute",
-                    "daily_limit": "1500 requests/day",
+                    "cost_per_1k": 0.0,
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gemini-2.5-flash": {
+                    "max_tokens": 1000000,
+                    "cost_per_1k": 0.0,
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gemini-2.5-flash-lite": {
+                    "max_tokens": 1000000,
+                    "cost_per_1k": 0.0,
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
                 },
                 "gemini-2.0-flash": {
+                    "max_tokens": 1000000,
+                    "cost_per_1k": 0.0,
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gemini-2.0-flash-lite": {
+                    "max_tokens": 1000000,
+                    "cost_per_1k": 0.0,
+                    "rate_limit": "Variable",
+                    "daily_limit": "Variable",
+                },
+                "gemini-1.5-flash": {
                     "max_tokens": 1000000,
                     "cost_per_1k": 0.0,  # Free tier
                     "rate_limit": "15 requests/minute",
@@ -241,16 +247,23 @@ class LLMService:
         return self.cipher_suite.decrypt(encrypted_key.encode()).decode()
 
     async def save_user_api_key(
-        self, user: User, provider: str, api_key: str, key_name: Optional[str] = None, verify_key: bool = True
+        self,
+        user: User,
+        provider: str,
+        api_key: str,
+        key_name: Optional[str] = None,
+        verify_key: bool = True,
     ) -> UserApiKey:
         """Save encrypted user API key with optional verification"""
-        
+
         # Verify the API key before saving if requested
         if verify_key:
             is_valid = self.verify_api_key(provider, api_key)
             if not is_valid:
-                raise ValueError(f"Invalid API key for {provider}. Please check your key and try again.")
-        
+                raise ValueError(
+                    f"Invalid API key for {provider}. Please check your key and try again."
+                )
+
         encrypted_key = self.encrypt_api_key(api_key)
 
         # Check if key already exists for this provider
@@ -605,6 +618,7 @@ Instructions:
         """Verify if an API key is valid for a specific provider using standalone verifier."""
         try:
             from utils.api_key_verifier import api_key_verifier
+
             return api_key_verifier.verify_api_key(provider, api_key)
         except Exception as e:
             print(f"Error verifying API key for {provider}: {e}")
@@ -614,6 +628,7 @@ Instructions:
         """Get a list of valid models for a specific provider."""
         try:
             from utils.api_key_verifier import api_key_verifier
+
             return api_key_verifier.get_valid_models_for_provider(provider, api_key)
         except Exception as e:
             print(f"Error getting valid models for {provider}: {e}")

@@ -18,6 +18,7 @@ import {
   AlertCircle,
   ExternalLink,
   Code,
+  ChevronUp,
 } from 'lucide-react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,10 +27,23 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { showToast } from '@/components/toaster';
 
 import { cn } from '@/lib/utils';
-import { fetchGithubRepo, uploadLocalZip } from '@/utils/api';
+import {
+  fetchGithubRepo,
+  uploadLocalZip,
+  getRepositoryDefaultBranch,
+  getRepositoryBranches,
+  resolveBranch,
+} from '@/utils/api';
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { SupportedLanguages, type Language } from '@/components/supported-languages';
@@ -56,6 +70,7 @@ interface Repository {
   stargazers_count: number;
   forks_count: number;
   branch: string;
+  default_branch?: string;
 }
 
 export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
@@ -78,7 +93,12 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   // --- State for GitHub URL & ZIP Upload Tabs ---
   const [repoUrl, setRepoUrl] = useState(prefilledRepo || '');
   const [accessToken, setAccessToken] = useState('');
-  const [branch, setBranch] = useState('main');
+  const [branch, setBranch] = useState('');
+  const [suggestedBranch, setSuggestedBranch] = useState<string>('');
+  const [availableBranches, setAvailableBranches] = useState<string[]>([]);
+  const [isDetectingBranch, setIsDetectingBranch] = useState(false);
+  const [branchDetectionError, setBranchDetectionError] = useState<string>('');
+  const [showBranchInput, setShowBranchInput] = useState(false);
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -97,6 +117,18 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const [activeRepoFilter, setActiveRepoFilter] = useState('all');
   const [processingRepos, setProcessingRepos] = useState<number[]>([]);
 
+  // --- State for My Repos Branch Selection ---
+  const [repoBranchStates, setRepoBranchStates] = useState<{
+    [repoId: number]: {
+      branches: string[];
+      selectedBranch: string;
+      defaultBranch: string;
+      isLoading: boolean;
+      showBranchSelection: boolean;
+    };
+  }>({});
+  const [loadingBranches, setLoadingBranches] = useState<number[]>([]);
+
   useEffect(() => {
     // If the user is logged in and the session contains an access token,
     // update the local state to pre-fill the input field.
@@ -113,6 +145,63 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const handleSuccess = useCallback((message: string) => {
     showToast.success(message);
   }, []);
+
+  // Function to detect default branch and fetch all branches for GitHub repos
+  const detectDefaultBranch = useCallback(
+    async (url: string, token?: string) => {
+      if (!url || !url.includes('github.com')) {
+        setSuggestedBranch('');
+        setAvailableBranches([]);
+        setBranchDetectionError('');
+        return;
+      }
+
+      setIsDetectingBranch(true);
+      setBranchDetectionError('');
+
+      try {
+        // Fetch both default branch and all branches in parallel
+        const [defaultBranch, branches] = await Promise.all([
+          getRepositoryDefaultBranch(url, token),
+          getRepositoryBranches(url, token),
+        ]);
+
+        setSuggestedBranch(defaultBranch);
+        setAvailableBranches(branches);
+
+        // Auto-fill branch if it's empty
+        if (!branch.trim()) {
+          setBranch(defaultBranch);
+        }
+      } catch (error) {
+        console.warn('Could not detect branches:', error);
+        setBranchDetectionError('Could not auto-detect branches');
+        setSuggestedBranch('main'); // fallback
+        setAvailableBranches(['main', 'master', 'develop']); // common fallbacks
+        if (!branch.trim()) {
+          setBranch('main');
+        }
+      } finally {
+        setIsDetectingBranch(false);
+      }
+    },
+    [branch],
+  );
+
+  // Detect default branch when URL or access token changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (repoUrl.trim() && repoUrl.includes('github.com')) {
+        detectDefaultBranch(repoUrl.trim(), accessToken);
+      } else {
+        setSuggestedBranch('');
+        setAvailableBranches([]);
+        setBranchDetectionError('');
+      }
+    }, 1000); // Debounce for 1 second
+
+    return () => clearTimeout(timeoutId);
+  }, [repoUrl, accessToken, detectDefaultBranch]);
 
   // Handle URL auto-fill detection and animation
   useEffect(() => {
@@ -239,17 +328,100 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     }
   };
 
+  // --- My Repos Branch Selection Functions ---
+  const loadRepoBranches = async (repo: Repository) => {
+    if (loadingBranches.includes(repo.id)) return;
+
+    setLoadingBranches((prev) => [...prev, repo.id]);
+
+    try {
+      const repoUrl = repo.html_url;
+      const branches = await getRepositoryBranches(repoUrl, session?.accessToken || null);
+
+      // Use the first common branch or the first available branch
+      const defaultBranch =
+        repo.default_branch ||
+        repo.branch ||
+        branches.find((b) => ['main', 'master'].includes(b)) ||
+        branches[0] ||
+        'main';
+
+      setRepoBranchStates((prev) => ({
+        ...prev,
+        [repo.id]: {
+          branches: branches || [],
+          selectedBranch: defaultBranch,
+          defaultBranch: defaultBranch,
+          isLoading: false,
+          showBranchSelection: true,
+        },
+      }));
+    } catch (error) {
+      console.error('Error loading branches for repo:', error);
+      setRepoBranchStates((prev) => ({
+        ...prev,
+        [repo.id]: {
+          branches: [],
+          selectedBranch: repo.default_branch || repo.branch || 'main',
+          defaultBranch: repo.default_branch || repo.branch || 'main',
+          isLoading: false,
+          showBranchSelection: true,
+        },
+      }));
+    } finally {
+      setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
+    }
+  };
+
+  const toggleRepoBranchSelection = (repo: Repository) => {
+    const currentState = repoBranchStates[repo.id];
+    if (!currentState) {
+      loadRepoBranches(repo);
+    } else {
+      setRepoBranchStates((prev) => ({
+        ...prev,
+        [repo.id]: {
+          ...prev[repo.id],
+          showBranchSelection: !prev[repo.id].showBranchSelection,
+        },
+      }));
+    }
+  };
+
+  const handleRepoBranchSelect = (repoId: number, branch: string) => {
+    setRepoBranchStates((prev) => ({
+      ...prev,
+      [repoId]: {
+        ...prev[repoId],
+        selectedBranch: branch,
+      },
+    }));
+  };
+
   const handleVizifyRepo = async (repo: Repository) => {
     setProcessingRepos((prev) => [...prev, repo.id]);
     setLoading(true);
     setError(null);
 
     try {
+      // Get the selected branch for this repository or use default resolution
+      const repoState = repoBranchStates[repo.id];
+      let finalBranch = repoState?.selectedBranch || repo.branch || 'main';
+
+      if (repo.html_url.includes('github.com')) {
+        const resolvedBranch = await resolveBranch(
+          repo.html_url,
+          finalBranch,
+          session?.accessToken,
+        );
+        finalBranch = resolvedBranch;
+      }
+
       const requestData = {
         repo_url: repo.html_url,
-        branch: repo.branch || 'main',
+        branch: finalBranch,
         jwt_token: session?.jwt_token,
-        access_token: session?.accessToken, // Use the user's personal access token for now
+        access_token: session?.accessToken,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -303,12 +475,30 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     setOutputMessage(null);
 
     try {
+      // Resolve the branch before making the request
+      let finalBranch = branch.trim();
+      if (repoUrl.includes('github.com')) {
+        const resolvedBranch = await resolveBranch(
+          repoUrl.trim(),
+          branch.trim() || undefined,
+          accessToken.trim() || undefined,
+        );
+        finalBranch = resolvedBranch;
+
+        // Update the UI to show the resolved branch
+        if (finalBranch !== branch.trim()) {
+          setBranch(finalBranch);
+          handleSuccess(`Auto-resolved to branch '${finalBranch}'`);
+        }
+      }
+
       const requestData = {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
-        branch: branch.trim() || 'main',
+        branch: finalBranch,
         jwt_token: session?.jwt_token || undefined,
       };
+
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
       setCurrentRepoId(repo_id);
       setOutput(formattedText);
@@ -414,24 +604,24 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                 className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
               >
                 <Github className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden xs:inline">GitHub Repository</span>
-                <span className="xs:hidden">GitHub</span>
+                <span className="hidden sm:inline">GitHub Repository</span>
+                <span className="sm:hidden">GitHub</span>
               </TabsTrigger>
               <TabsTrigger
                 value="upload"
                 className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
               >
                 <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden xs:inline">ZIP Upload</span>
-                <span className="xs:hidden">Upload</span>
+                <span className="hidden sm:inline">ZIP Upload</span>
+                <span className="sm:hidden">Upload</span>
               </TabsTrigger>
               <TabsTrigger
                 value="my-repos"
                 className="rounded-xl px-3 sm:px-8 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 sm:gap-3 min-w-[120px] sm:min-w-[160px] justify-center"
               >
                 <GitBranch className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden xs:inline">My Repositories</span>
-                <span className="xs:hidden">My Repos</span>
+                <span className="hidden sm:inline">My Repositories</span>
+                <span className="sm:hidden">My Repos</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -459,13 +649,14 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
               </div>
               <div className="p-4 sm:p-8">
                 <form onSubmit={handleGitHubSubmit} className="space-y-4 sm:space-y-6">
-                  <div className="space-y-2 sm:space-y-3">
+                  {/* Repository URL Section */}
+                  <div className="space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
                       <Label
                         htmlFor="repo-url"
                         className="flex items-center gap-2 text-sm font-medium"
                       >
-                        <GitBranch className="h-4 w-4 text-primary" /> Repository URL
+                        <Github className="h-4 w-4 text-primary" /> Repository URL
                       </Label>
                       <SupportedLanguages languages={SUPPORTED_LANGUAGES} />
                     </div>
@@ -502,6 +693,128 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                         </div>
                       )}
                     </div>
+
+                    {/* Branch Selection - Appears immediately after URL when GitHub repo is detected */}
+                    {repoUrl.includes('github.com') && (
+                      <div className="animate-in slide-in-from-top-2 duration-300">
+                        <div className="bg-muted/10 backdrop-blur-sm rounded-lg border border-border/20 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                              <GitBranch className="h-3 w-3" />
+                              <span>Branch</span>
+                              {isDetectingBranch && <Loader2 className="h-3 w-3 animate-spin" />}
+                            </Label>
+                            {availableBranches.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs h-5">
+                                  {availableBranches.length}
+                                </Badge>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setShowBranchInput(!showBranchInput)}
+                                  className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  {showBranchInput ? 'List' : 'Custom'}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="relative">
+                            {availableBranches.length > 0 && !showBranchInput ? (
+                              // Show dropdown when branches are available
+                              <Select value={branch || ''} onValueChange={setBranch}>
+                                <SelectTrigger className="h-10 rounded-lg border-border/40 bg-background/70 backdrop-blur-sm text-sm">
+                                  <SelectValue
+                                    placeholder={
+                                      suggestedBranch
+                                        ? `Select branch (default: ${suggestedBranch})`
+                                        : 'Select branch'
+                                    }
+                                  />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[200px]">
+                                  {availableBranches.map((branchName) => (
+                                    <SelectItem key={branchName} value={branchName}>
+                                      <div className="flex items-center gap-2 w-full">
+                                        <GitBranch className="h-3 w-3 shrink-0" />
+                                        <span className="flex-1">{branchName}</span>
+                                        {branchName === suggestedBranch && (
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs ml-2 shrink-0"
+                                          >
+                                            default
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              // Show input when branches are not available or user chooses custom input
+                              <Input
+                                id="branch"
+                                placeholder={
+                                  isDetectingBranch
+                                    ? 'Detecting branches...'
+                                    : suggestedBranch
+                                      ? `Enter branch name (default: ${suggestedBranch})`
+                                      : 'Enter branch name (e.g., main, develop)'
+                                }
+                                value={branch || ''}
+                                onChange={(e) => setBranch(e.target.value)}
+                                className={cn(
+                                  'h-10 rounded-lg border-border/40 bg-background/70 backdrop-blur-sm text-sm',
+                                  suggestedBranch && !branch && 'placeholder:text-primary/70',
+                                  isDetectingBranch && 'placeholder:text-muted-foreground',
+                                )}
+                                disabled={isDetectingBranch}
+                              />
+                            )}
+
+                            {/* Quick suggestion badge for when using input */}
+                            {suggestedBranch &&
+                              suggestedBranch !== branch &&
+                              (availableBranches.length === 0 || showBranchInput) &&
+                              !isDetectingBranch && (
+                                <div className="absolute -top-2 right-2">
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-background/80 backdrop-blur-sm border-primary/20 text-primary text-xs cursor-pointer hover:bg-primary/10 transition-colors"
+                                    onClick={() => setBranch(suggestedBranch)}
+                                  >
+                                    Use '{suggestedBranch}'
+                                  </Badge>
+                                </div>
+                              )}
+                          </div>
+
+                          {/* Status Messages */}
+                          <div className="mt-3 space-y-2">
+                            {branchDetectionError && (
+                              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                                <AlertCircle className="h-3 w-3 shrink-0" />
+                                <span>{branchDetectionError}</span>
+                              </div>
+                            )}
+                            {suggestedBranch && !branchDetectionError && (
+                              <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-lg">
+                                <CheckCircle className="h-3 w-3 shrink-0" />
+                                <span>
+                                  {availableBranches.length > 0
+                                    ? `Found ${availableBranches.length} branches (default: ${suggestedBranch})`
+                                    : `Default branch: ${suggestedBranch}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -521,67 +834,47 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                       />
                     </Button>
                   </div>
+
                   {showAdvanced && (
                     <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2 sm:space-y-3">
-                          <Label
-                            htmlFor="access-token"
-                            className="flex items-center gap-2 text-sm font-medium"
-                          >
-                            <Lock className="h-4 w-4 text-primary" /> Access Token (Optional)
-                          </Label>
-                          <Input
-                            id="access-token"
-                            type="password"
-                            placeholder="ghp_xxxxxxxxxxxx"
-                            value={accessToken || ''}
-                            onChange={(e) => setAccessToken(e.target.value)}
-                            className="h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base"
-                          />
-                        </div>
-                        <div className="space-y-2 sm:space-y-3">
-                          <Label htmlFor="branch" className="text-sm font-medium">
-                            {' '}
-                            Branch{' '}
-                          </Label>
-                          <Input
-                            id="branch"
-                            placeholder="main"
-                            value={branch || ''}
-                            onChange={(e) => setBranch(e.target.value)}
-                            className="h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base"
-                          />
-                        </div>
-                      </div>
-                      <div className="bg-muted/30 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-border/30">
-                        <div className="flex items-start gap-3">
-                          <div className="p-1.5 rounded-full bg-blue-500/10 flex-shrink-0">
-                            <Info className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                          </div>
-                          <div className="space-y-1 flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-medium">Privacy & Security</p>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              Your access token is stored locally and only sent to GitHub. It&apos;s
-                              never shared with our servers.{' '}
-                              <a
-                                href="https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline hover:no-underline"
-                              >
-                                How to create a GitHub token
-                              </a>
-                            </p>
-                          </div>
-                        </div>
+                      <div className="space-y-2 sm:space-y-3">
+                        <Label
+                          htmlFor="access-token"
+                          className="flex items-center gap-2 text-sm font-medium"
+                        >
+                          <Lock className="h-4 w-4 text-primary" /> Access Token (Optional)
+                        </Label>
+                        <Input
+                          id="access-token"
+                          type="password"
+                          placeholder="ghp_xxxxxxxxxxxx"
+                          value={accessToken || ''}
+                          onChange={(e) => setAccessToken(e.target.value)}
+                          className="h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Provide your GitHub token to access private repositories and avoid rate
+                          limits.
+                        </p>
                       </div>
                     </div>
                   )}
+
                   <Button
                     type="submit"
-                    disabled={loading || !repoUrl.trim()}
-                    className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
+                    disabled={
+                      loading ||
+                      !repoUrl.trim() ||
+                      (repoUrl.includes('github.com') && isDetectingBranch)
+                    }
+                    className={cn(
+                      'w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl transition-all duration-200',
+                      loading ||
+                        !repoUrl.trim() ||
+                        (repoUrl.includes('github.com') && isDetectingBranch)
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                        : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-[1.02]',
+                    )}
                     size="lg"
                   >
                     {loading && activeMainTab === 'github' ? (
@@ -589,11 +882,16 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Processing...
                       </>
+                    ) : isDetectingBranch && repoUrl.includes('github.com') ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading branches...
+                      </>
                     ) : (
                       <>
                         <Zap className="h-4 w-4 mr-2" />
-                        <span className="hidden xs:inline">Analyze Repository</span>
-                        <span className="xs:hidden">Analyze</span>
+                        <span className="hidden sm:inline">Analyze Repository</span>
+                        <span className="sm:hidden">Analyze</span>
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </>
                     )}
@@ -709,8 +1007,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                     ) : (
                       <>
                         <Zap className="h-4 w-4 mr-2" />
-                        <span className="hidden xs:inline">Process ZIP File</span>
-                        <span className="xs:hidden">Process</span>
+                        <span className="hidden sm:inline">Process ZIP File</span>
+                        <span className="sm:hidden">Process</span>
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </>
                     )}
@@ -724,16 +1022,32 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
           <TabsContent value="my-repos" className="animate-in fade-in-50 duration-300">
             <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
               {isReposLoading ? (
-                <div className="p-4 sm:p-8 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-10 w-64 rounded-xl" />
-                    <Skeleton className="h-10 w-32 rounded-xl" />
+                <>
+                  {/* Top loader banner */}
+                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-semibold tracking-tight">
+                          Getting your repositories...
+                        </h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          Please wait while we fetch your GitHub repositories
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <Skeleton className="h-12 w-full rounded-2xl" />
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
-                  ))}
-                </div>
+                  <div className="p-4 sm:p-8 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-10 w-64 rounded-xl" />
+                      <Skeleton className="h-10 w-32 rounded-xl" />
+                    </div>
+                    <Skeleton className="h-12 w-full rounded-2xl" />
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                    ))}
+                  </div>
+                </>
               ) : !isAppInstalled ? (
                 <>
                   <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
@@ -794,91 +1108,212 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                   </div>
 
                   <Tabs defaultValue="all" className="w-full" onValueChange={setActiveRepoFilter}>
-                    <div className="flex justify-center border-b border-border/30">
-                      <TabsList className="bg-transparent p-0 h-auto">
+                    <div className="flex justify-center mb-2">
+                      <TabsList className="bg-muted/30 backdrop-blur-sm rounded-xl border border-border/50 p-1 h-auto">
                         <TabsTrigger
                           value="all"
-                          className="text-sm data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                          className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-muted/50"
                         >
-                          All ({repositories.length})
+                          All
+                          <Badge variant="secondary" className="ml-2 text-xs h-5 px-2">
+                            {repositories.length}
+                          </Badge>
                         </TabsTrigger>
                         <TabsTrigger
                           value="public"
-                          className="text-sm data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                          className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-muted/50"
                         >
-                          Public ({repositories.filter((r) => !r.private).length})
+                          <Code className="h-4 w-4 mr-2" />
+                          Public
+                          <Badge variant="secondary" className="ml-2 text-xs h-5 px-2">
+                            {repositories.filter((r) => !r.private).length}
+                          </Badge>
                         </TabsTrigger>
                         <TabsTrigger
                           value="private"
-                          className="text-sm data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                          className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-muted/50"
                         >
-                          Private ({repositories.filter((r) => r.private).length})
+                          <Lock className="h-4 w-4 mr-2" />
+                          Private
+                          <Badge variant="secondary" className="ml-2 text-xs h-5 px-2">
+                            {repositories.filter((r) => r.private).length}
+                          </Badge>
                         </TabsTrigger>
                       </TabsList>
                     </div>
-                    <div className="mt-6">
+                    <div>
                       {filteredRepositories.length > 0 ? (
                         <div className="divide-y divide-border/30 border border-border/50 rounded-xl overflow-hidden bg-background/20 max-h-[45vh] overflow-y-auto">
-                          {filteredRepositories.map((repo) => (
-                            <div
-                              key={repo.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 hover:bg-muted/20 transition-colors"
-                            >
-                              <div className="flex items-center gap-4 mb-3 sm:mb-0 min-w-0">
-                                <div className="p-2 rounded-xl bg-primary/10 shrink-0">
-                                  {repo.private ? (
-                                    <Lock className="h-4 w-4 text-primary" />
-                                  ) : (
-                                    <Code className="h-4 w-4 text-primary" />
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <a
-                                      href={repo.html_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-base font-semibold tracking-tight truncate hover:underline"
-                                    >
-                                      {repo.name}
-                                    </a>
-                                    {repo.private && (
-                                      <Badge variant="outline" className="text-xs rounded-md">
-                                        Private
-                                      </Badge>
-                                    )}
-                                    {repo.language && (
-                                      <Badge variant="secondary" className="text-xs rounded-md">
-                                        {repo.language}
-                                      </Badge>
+                          {filteredRepositories.map((repo) => {
+                            const repoState = repoBranchStates[repo.id];
+                            const isLoadingBranches = loadingBranches.includes(repo.id);
+                            const hasSelectedBranch = repoState?.selectedBranch;
+                            // Fixed: Only show branch UI if explicitly toggled on, not just because branch is selected
+                            const showBranchUI = repoState?.showBranchSelection === true;
+                            const isProcessingRepo = processingRepos.includes(repo.id);
+
+                            return (
+                              <div
+                                key={repo.id}
+                                className={cn(
+                                  'relative p-4 sm:p-5 hover:bg-muted/20 transition-all duration-200',
+                                  (isProcessingRepo || loading) && 'opacity-60 bg-muted/5',
+                                )}
+                              >
+                                {/* Main repository info */}
+                                <div className="flex items-center gap-4 mb-3">
+                                  <div className="p-2 rounded-xl bg-primary/10 shrink-0">
+                                    {repo.private ? (
+                                      <Lock className="h-4 w-4 text-primary" />
+                                    ) : (
+                                      <Code className="h-4 w-4 text-primary" />
                                     )}
                                   </div>
-                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                    {repo.description}
-                                  </p>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <a
+                                        href={repo.html_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-base font-semibold tracking-tight truncate hover:underline"
+                                      >
+                                        {repo.name}
+                                      </a>
+                                      {repo.private && (
+                                        <Badge variant="outline" className="text-xs rounded-md">
+                                          Private
+                                        </Badge>
+                                      )}
+                                      {repo.language && (
+                                        <Badge variant="secondary" className="text-xs rounded-md">
+                                          {repo.language}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                      {repo.description}
+                                    </p>
+                                  </div>
                                 </div>
+
+                                {/* Minimalistic Branch Selection - Inline */}
+                                {showBranchUI && (
+                                  <div className="mb-3 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
+                                    <GitBranch className="h-3 w-3 text-muted-foreground shrink-0" />
+                                    {repoState?.branches.length > 0 ? (
+                                      <Select
+                                        value={repoState.selectedBranch || ''}
+                                        onValueChange={(branch) =>
+                                          handleRepoBranchSelect(repo.id, branch)
+                                        }
+                                      >
+                                        <SelectTrigger className="h-7 text-xs rounded-md bg-background/70 border-border/40 w-auto min-w-[120px]">
+                                          <SelectValue placeholder="Branch" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-[120px]">
+                                          {repoState.branches.map((branchName) => (
+                                            <SelectItem key={branchName} value={branchName}>
+                                              <div className="flex items-center gap-2 w-full">
+                                                <span className="flex-1 truncate">
+                                                  {branchName}
+                                                </span>
+                                                {branchName === repoState.defaultBranch && (
+                                                  <Badge
+                                                    variant="secondary"
+                                                    className="text-xs ml-2 shrink-0"
+                                                  >
+                                                    default
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">
+                                        {repoState?.defaultBranch || 'main'}
+                                      </span>
+                                    )}
+                                    {isLoadingBranches && (
+                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex items-center justify-between">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => toggleRepoBranchSelection(repo)}
+                                    disabled={isLoadingBranches || isProcessingRepo}
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  >
+                                    {isLoadingBranches ? (
+                                      <>
+                                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                                        Loading
+                                      </>
+                                    ) : showBranchUI ? (
+                                      <>
+                                        <ChevronUp className="h-3 w-3 mr-1" />
+                                        Hide
+                                      </>
+                                    ) : (
+                                      <>
+                                        <GitBranch className="h-3 w-3 mr-1" />
+                                        {hasSelectedBranch ? (
+                                          <span className="text-primary">
+                                            {repoState.selectedBranch}
+                                          </span>
+                                        ) : (
+                                          'Branch'
+                                        )}
+                                      </>
+                                    )}
+                                  </Button>
+
+                                  <Button
+                                    className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
+                                    onClick={() => handleVizifyRepo(repo)}
+                                    disabled={isProcessingRepo || loading}
+                                  >
+                                    {isProcessingRepo ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        <span className="hidden sm:inline">Processing...</span>
+                                        <span className="sm:hidden">Processing</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Zap className="h-4 w-4 mr-2" />
+                                        <span className="hidden sm:inline">Vizify</span>
+                                        <span className="sm:hidden">Go</span>
+                                        {hasSelectedBranch && (
+                                          <span className="hidden md:inline ml-2 text-xs opacity-75">
+                                            ({repoState.selectedBranch})
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+
+                                {/* Processing shadow overlay */}
+                                {isProcessingRepo && (
+                                  <div className="absolute inset-0 bg-background/30 backdrop-blur-[2px] flex items-center justify-center rounded-xl border border-border/20">
+                                    <div className="bg-background/90 backdrop-blur-sm border border-border/40 rounded-lg px-3 py-2 shadow-lg">
+                                      <div className="flex items-center gap-2 text-sm text-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                        Processing repository...
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex items-center gap-2 self-end sm:self-center">
-                                <Button
-                                  className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90"
-                                  onClick={() => handleVizifyRepo(repo)}
-                                  disabled={processingRepos.includes(repo.id) || loading}
-                                >
-                                  {processingRepos.includes(repo.id) ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Processing...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Zap className="h-4 w-4 mr-2" />
-                                      Vizify
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-xl">
