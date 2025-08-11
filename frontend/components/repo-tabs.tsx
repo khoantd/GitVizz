@@ -694,12 +694,10 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   // --- Render Method ---
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-      <div className="space-y-6 sm:space-y-8">
-        {/* Recently Indexed Repositories - Only show for authenticated users */}
-
+      <div className="space-y-4">
         <Tabs
           defaultValue="github"
-          className="space-y-6 sm:space-y-8"
+          className="space-y-2 gap-0"
           onValueChange={(val) => {
             if (val === 'my-repos' && status === 'unauthenticated') {
               router.push('/signin');
@@ -1138,7 +1136,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
           {/* My Repositories Tab */}
           <TabsContent value="my-repos" className="animate-in fade-in-50 duration-300">
             <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-              {(() => {
+              {/* {(() => {
                 console.log('[DEBUG] Rendering my-repos tab:', {
                   isReposLoading,
                   isAppInstalled,
@@ -1146,7 +1144,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                   filteredLength: filteredRepositories.length,
                 });
                 return null;
-              })()}
+              })()} */}
               {isReposLoading ? (
                 <>
                   {/* Top loader banner */}
@@ -1460,8 +1458,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
               )}
             </div>
           </TabsContent>
+          {status === 'authenticated' && <IndexedRepositories />}
         </Tabs>
-        {status === 'authenticated' && <IndexedRepositories />}
       </div>
     </div>
   );
