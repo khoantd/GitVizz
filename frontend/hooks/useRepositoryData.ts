@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { fetchGithubRepo, uploadLocalZip } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { useResultData } from '@/context/ResultDataContext';
@@ -24,7 +24,6 @@ interface UseRepositoryDataOptions {
 export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOptions = {}) {
   const { data: session } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const {
     output,
     setOutput,
@@ -83,13 +82,7 @@ export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOpti
         setSourceType('github');
         setSourceData(requestData);
         
-        // Update URL with the repository ID if we have owner and repo but no ID in URL
-        const currentId = searchParams.get('id');
-        if (owner && repo && response.repo_id && !currentId) {
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.set('id', response.repo_id);
-          router.replace(newUrl.toString());
-        }
+        // Repository ID is now stored in the session, no need to update URL
       } else if (sourceType === 'zip' && sourceData instanceof File) {
         // For ZIP files, we would need the actual file, which might not be available on refresh
         throw new Error('ZIP file data not available on page refresh');
@@ -115,7 +108,6 @@ export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOpti
     isGitHubSourceData,
     session?.accessToken,
     session?.jwt_token,
-    searchParams,
     router,
     owner,
     repo,

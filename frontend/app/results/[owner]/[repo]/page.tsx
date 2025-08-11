@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -39,7 +39,6 @@ import ThemeToggle from '@/components/theme-toggle';
 export default function ResultsPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const owner = (params?.owner as string) || '';
   const repo = (params?.repo as string) || '';
   const repoUrl = owner && repo ? `https://github.com/${owner}/${repo}` : '';
@@ -78,9 +77,10 @@ export default function ResultsPage() {
         setSourceType('github');
         setSourceData({ repo_url: repoUrl });
       }
-      const id = searchParams.get('id');
-      if (id && id !== currentRepoId) {
-        setCurrentRepoId(id);
+      // Use user ID from session instead of query parameter
+      const userId = session?.user_id;
+      if (userId && userId !== currentRepoId) {
+        setCurrentRepoId(userId);
       }
     }
   }, [
@@ -91,7 +91,7 @@ export default function ResultsPage() {
     sourceData,
     setSourceType,
     setSourceData,
-    searchParams,
+    session?.user_id,
     setCurrentRepoId,
     currentRepoId,
   ]);

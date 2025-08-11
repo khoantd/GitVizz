@@ -252,7 +252,7 @@ export default function RepositoriesPage() {
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
-        router.push(`/results/${owner}/${name}?id=${repo_id}`);
+        router.push(`/results/${owner}/${name}`);
       } catch {
         router.push('/results');
       }
