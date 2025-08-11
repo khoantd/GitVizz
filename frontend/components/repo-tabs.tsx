@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Code,
   ChevronUp,
+  Edit,
 } from 'lucide-react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -707,161 +708,126 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                       </Label>
                       <SupportedLanguages languages={SUPPORTED_LANGUAGES} />
                     </div>
-                    <div className="relative">
-                      <Input
-                        id="repo-url"
-                        placeholder="https://github.com/username/repository"
-                        value={repoUrl}
-                        onChange={(e) => {
-                          setRepoUrl(e.target.value);
-                          // Clear auto-fill state when user manually edits
-                          if (isAutoFilled) {
-                            setIsAutoFilled(false);
-                            setShowAutoFillBadge(false);
-                            setShouldPulse(false);
-                          }
-                        }}
-                        className={cn(
-                          'h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base transition-all duration-700',
-                          isAutoFilled &&
-                            'ring-2 ring-primary/30 border-primary/60 bg-primary/8 shadow-lg shadow-primary/10',
-                          shouldPulse && 'animate-pulse',
-                        )}
-                        required
-                      />
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Input
+                          id="repo-url"
+                          placeholder="https://github.com/username/repository"
+                          value={repoUrl}
+                          onChange={(e) => {
+                            setRepoUrl(e.target.value);
+                            // Clear auto-fill state when user manually edits
+                            if (isAutoFilled) {
+                              setIsAutoFilled(false);
+                              setShowAutoFillBadge(false);
+                              setShouldPulse(false);
+                            }
+                          }}
+                          className={cn(
+                            'h-10 sm:h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-sm sm:text-base transition-all duration-700',
+                            isAutoFilled &&
+                              'ring-2 ring-primary/30 border-primary/60 bg-primary/8 shadow-lg shadow-primary/10',
+                            shouldPulse && 'animate-pulse',
+                          )}
+                          required
+                        />
 
-                      {/* Auto-fill indication badge */}
-                      {showAutoFillBadge && (
-                        <div className="absolute -top-2 right-2 animate-in fade-in-0 slide-in-from-top-2 duration-300">
-                          <Badge className="bg-primary/90 text-primary-foreground border-primary/20 rounded-xl px-3 py-1 text-xs font-medium shadow-lg backdrop-blur-sm">
-                            <Zap className="h-3 w-3 mr-1.5" />
-                            Auto-filled from URL
-                          </Badge>
+                        {/* Auto-fill indication badge */}
+                        {showAutoFillBadge && (
+                          <div className="absolute -top-2 right-2 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                            <Badge className="bg-primary/90 text-primary-foreground border-primary/20 rounded-xl px-3 py-1 text-xs font-medium shadow-lg backdrop-blur-sm">
+                              <Zap className="h-3 w-3 mr-1.5" />
+                              Auto-filled from URL
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Branch Selection - Appears below URL when GitHub repo is detected */}
+                      {repoUrl.includes('github.com') && (
+                        <div className="animate-in slide-in-from-top-1 duration-300">
+                          <div className="flex items-center gap-3 p-3 bg-muted/30 border border-border/30 rounded-lg">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <GitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span className="text-sm font-medium text-muted-foreground">
+                                Branch:
+                              </span>
+
+                              {availableBranches.length > 0 && !showBranchInput ? (
+                                // Show dropdown when branches are available
+                                <Select
+                                  value={branch || ''}
+                                  onValueChange={(value) => {
+                                    if (value === '__custom__') {
+                                      setShowBranchInput(true);
+                                    } else {
+                                      setBranch(value);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 border-0 bg-background/60 hover:bg-background/80 focus:ring-1 focus:ring-primary/30 text-sm min-w-0 flex-1">
+                                    <SelectValue placeholder={suggestedBranch || 'Select branch'} />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[200px] min-w-[160px]">
+                                    {availableBranches.map((branchName) => (
+                                      <SelectItem key={branchName} value={branchName}>
+                                        <div className="flex items-center gap-2 w-full">
+                                          <span className="flex-1 truncate">{branchName}</span>
+                                          {branchName === suggestedBranch && (
+                                            <Badge
+                                              variant="secondary"
+                                              className="text-[10px] px-1.5 py-0.5"
+                                            >
+                                              default
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem value="__custom__">
+                                      <div className="flex items-center gap-2 w-full text-muted-foreground">
+                                        <Edit className="h-3 w-3" />
+                                        <span>Custom branch...</span>
+                                      </div>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                // Show input when branches are not available or user chooses custom input
+                                <Input
+                                  placeholder={suggestedBranch || 'main'}
+                                  value={branch || ''}
+                                  onChange={(e) => setBranch(e.target.value)}
+                                  className="h-8 border-0 bg-background/60 hover:bg-background/80 focus:ring-1 focus:ring-primary/30 text-sm min-w-0 flex-1"
+                                  disabled={isDetectingBranch}
+                                />
+                              )}
+                            </div>
+
+                            {/* Status indicators */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isDetectingBranch ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              ) : suggestedBranch && !branchDetectionError ? (
+                                <div className="flex items-center gap-1">
+                                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span className="text-xs text-emerald-600">
+                                    {availableBranches.length > 0
+                                      ? `${availableBranches.length} found`
+                                      : 'detected'}
+                                  </span>
+                                </div>
+                              ) : branchDetectionError ? (
+                                <div className="flex items-center gap-1">
+                                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                                  <span className="text-xs text-amber-600">Manual</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
-
-                    {/* Branch Selection - Appears immediately after URL when GitHub repo is detected */}
-                    {repoUrl.includes('github.com') && (
-                      <div className="animate-in slide-in-from-top-2 duration-300">
-                        <div className="bg-muted/10 backdrop-blur-sm rounded-lg border border-border/20 p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <Label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                              <GitBranch className="h-3 w-3" />
-                              <span>Branch</span>
-                              {isDetectingBranch && <Loader2 className="h-3 w-3 animate-spin" />}
-                            </Label>
-                            {availableBranches.length > 0 && (
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs h-5">
-                                  {availableBranches.length}
-                                </Badge>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setShowBranchInput(!showBranchInput)}
-                                  className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                  {showBranchInput ? 'List' : 'Custom'}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="relative">
-                            {availableBranches.length > 0 && !showBranchInput ? (
-                              // Show dropdown when branches are available
-                              <Select value={branch || ''} onValueChange={setBranch}>
-                                <SelectTrigger className="h-10 rounded-lg border-border/40 bg-background/70 backdrop-blur-sm text-sm">
-                                  <SelectValue
-                                    placeholder={
-                                      suggestedBranch
-                                        ? `Select branch (default: ${suggestedBranch})`
-                                        : 'Select branch'
-                                    }
-                                  />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                  {availableBranches.map((branchName) => (
-                                    <SelectItem key={branchName} value={branchName}>
-                                      <div className="flex items-center gap-2 w-full">
-                                        <GitBranch className="h-3 w-3 shrink-0" />
-                                        <span className="flex-1">{branchName}</span>
-                                        {branchName === suggestedBranch && (
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-xs ml-2 shrink-0"
-                                          >
-                                            default
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              // Show input when branches are not available or user chooses custom input
-                              <Input
-                                id="branch"
-                                placeholder={
-                                  isDetectingBranch
-                                    ? 'Detecting branches...'
-                                    : suggestedBranch
-                                      ? `Enter branch name (default: ${suggestedBranch})`
-                                      : 'Enter branch name (e.g., main, develop)'
-                                }
-                                value={branch || ''}
-                                onChange={(e) => setBranch(e.target.value)}
-                                className={cn(
-                                  'h-10 rounded-lg border-border/40 bg-background/70 backdrop-blur-sm text-sm',
-                                  suggestedBranch && !branch && 'placeholder:text-primary/70',
-                                  isDetectingBranch && 'placeholder:text-muted-foreground',
-                                )}
-                                disabled={isDetectingBranch}
-                              />
-                            )}
-
-                            {/* Quick suggestion badge for when using input */}
-                            {suggestedBranch &&
-                              suggestedBranch !== branch &&
-                              (availableBranches.length === 0 || showBranchInput) &&
-                              !isDetectingBranch && (
-                                <div className="absolute -top-2 right-2">
-                                  <Badge
-                                    variant="outline"
-                                    className="bg-background/80 backdrop-blur-sm border-primary/20 text-primary text-xs cursor-pointer hover:bg-primary/10 transition-colors"
-                                    onClick={() => setBranch(suggestedBranch)}
-                                  >
-                                    Use &apos;{suggestedBranch}&apos;
-                                  </Badge>
-                                </div>
-                              )}
-                          </div>
-
-                          {/* Status Messages */}
-                          <div className="mt-3 space-y-2">
-                            {branchDetectionError && (
-                              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
-                                <AlertCircle className="h-3 w-3 shrink-0" />
-                                <span>{branchDetectionError}</span>
-                              </div>
-                            )}
-                            {suggestedBranch && !branchDetectionError && (
-                              <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-lg">
-                                <CheckCircle className="h-3 w-3 shrink-0" />
-                                <span>
-                                  {availableBranches.length > 0
-                                    ? `Found ${availableBranches.length} branches (default: ${suggestedBranch})`
-                                    : `Default branch: ${suggestedBranch}`}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
