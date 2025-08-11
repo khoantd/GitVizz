@@ -1,638 +1,863 @@
+"""
+Minimal LLM Service - Thin wrapper around LiteLLM
+Handles API key management, model selection, and basic LLM operations
+"""
+
 import os
-from typing import Optional, Dict, List, Any, Tuple, AsyncGenerator, Union
-from cryptography.fernet import Fernet
-from datetime import datetime
-from models.chat import UserApiKey, ChatSession
-from models.user import User
-from beanie import BeanieObjectId
-import asyncio
-import httpx
 import json
+from typing import Optional, Dict, List, Any, AsyncGenerator, Union
+from cryptography.fernet import Fernet
+from datetime import datetime, timezone
+from pydantic import BaseModel
 
-# Lazy import LiteLLM to avoid Pydantic compatibility issues
-_litellm = None
-_litellm_import_error = None
+
+# Model Configuration Schema
+class ModelConfig(BaseModel):
+    """Configuration for a specific model"""
+    max_tokens: int
+    max_output_tokens: int
+    cost_per_1M_input: float
+    cost_per_1M_output: float
+    cost_per_1M_cached_input: Optional[float] = None
+    supports_function_calling: bool
+    supports_vision: bool
+    knowledge_cutoff: str
+    is_reasoning_model: bool
+
+# Response Models
+class LLMResponse(BaseModel):
+    """Standard response for LLM calls"""
+    success: bool
+    content: Optional[str] = None
+    structured_data: Optional[Dict[str, Any]] = None
+    function_calls: Optional[List[Dict[str, Any]]] = None
+    usage: Optional[Dict[str, Any]] = None
+    model: str
+    provider: str
+    error: Optional[str] = None
 
 
-def get_litellm():
-    """Lazy import of LiteLLM with error handling"""
-    global _litellm, _litellm_import_error
-
-    if _litellm is not None:
-        return _litellm
-
-    if _litellm_import_error is not None:
-        raise _litellm_import_error
-
-    try:
-        import litellm
-
-        _litellm = litellm
-        return _litellm
-    except Exception as e:
-        _litellm_import_error = e
-        raise e
+class LLMStreamResponse(BaseModel):
+    """Streaming response for LLM calls"""
+    type: str  # token, complete, error, function_call
+    content: Optional[str] = None
+    function_call: Optional[Dict[str, Any]] = None
+    structured_data: Optional[Dict[str, Any]] = None
+    usage: Optional[Dict[str, Any]] = None
+    model: str
+    provider: str
+    error: Optional[str] = None
 
 
 class LLMService:
-    """Service for handling LLM operations with multiple providers"""
-
+    """Minimal LLM Service - Thin wrapper around LiteLLM"""
+    
     def __init__(self):
+        # API key encryption
         self.encryption_key = os.getenv("ENCRYPTION_KEY", Fernet.generate_key())
         self.cipher_suite = Fernet(self.encryption_key)
-
+        
         # Default API keys from environment
         self.default_keys = {
             "openai": os.getenv("OPENAI_API_KEY"),
-            "anthropic": os.getenv("ANTHROPIC_API_KEY"),
+            "anthropic": os.getenv("ANTHROPIC_API_KEY"), 
             "gemini": os.getenv("GEMINI_API_KEY"),
+            "groq": os.getenv("GROQ_API_KEY"),
         }
-
-        # Daily limits for users without their own keys
-        self.daily_limits = {
-            "free": 100,  # Free tier users
-            "premium": 500,  # Premium users
-            "unlimited": -1,  # Users with their own keys
-        }
-
-        # Provider to model mapping for verification
-        self.provider_models = {
-            "openai": ["gpt-3.5-turbo", "gpt-4", "gpt-4o-mini"],
-            "anthropic": [
-                "claude-3-haiku-20240307",
-                "claude-3-sonnet-20240229",
-                "claude-3-opus-20240229",
-            ],
-            "gemini": ["gemini-pro", "gemini-1.5-pro", "gemini-2.0-flash-exp"],
-        }
-
-        # Model configurations
+        
+        # Comprehensive model configurations
         self.model_configs = {
             "openai": {
-                "gpt-4.1": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4.1-mini": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4.1-nano": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "o4-mini": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "o3-mini": {
-                    "max_tokens": 32000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "o3": {
-                    "max_tokens": 32000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "o1-mini": {
-                    "max_tokens": 32000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "o1-preview": {
-                    "max_tokens": 32000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4o-mini": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4o-mini-2024-07-18": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4o": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4o-2024-08-06": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4o-2024-05-13": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gpt-4-turbo": {
-                    "max_tokens": 128000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
+                "gpt-5": ModelConfig(
+                    max_tokens=272000,
+                    max_output_tokens=128000,
+                    cost_per_1M_input=1.25,
+                    cost_per_1M_output=10.00,
+                    cost_per_1M_cached_input=0.125,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-10-24",
+                    is_reasoning_model=True,
+                ),
+                "gpt-5-mini": ModelConfig(
+                    max_tokens=272000,
+                    max_output_tokens=128000,
+                    cost_per_1M_input=0.25,
+                    cost_per_1M_output=2.00,
+                    cost_per_1M_cached_input=0.025,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-06-24",
+                    is_reasoning_model=True,
+                ),
+                "gpt-5-nano": ModelConfig(
+                    max_tokens=400000,
+                    max_output_tokens=128000,
+                    cost_per_1M_input=0.05,
+                    cost_per_1M_output=0.40,
+                    cost_per_1M_cached_input=0.005,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-05-31",
+                    is_reasoning_model=True,
+                ),
+                "gpt-5-chat": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=16384,
+                    cost_per_1M_input=1.25,
+                    cost_per_1M_output=10.00,
+                    cost_per_1M_cached_input=0.125,
+                    supports_function_calling=False,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-10-24",
+                    is_reasoning_model=True,
+                ),
+                "gpt-4.1": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=4096,
+                    cost_per_1M_input=1.00,
+                    cost_per_1M_output=4.00,
+                    supports_function_calling=True,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "gpt-4.1-mini": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=4096,
+                    cost_per_1M_input=0.20,
+                    cost_per_1M_output=0.80,
+                    supports_function_calling=True,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "gpt-4.1-nano": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=4096,
+                    cost_per_1M_input=0.05,
+                    cost_per_1M_output=0.20,
+                    supports_function_calling=True,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "o4-mini": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=0.55,
+                    cost_per_1M_output=2.20,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-10",
+                    is_reasoning_model=True,
+                ),
+                "o3-mini": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=0.55,
+                    cost_per_1M_output=2.20,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-10",
+                    is_reasoning_model=True,
+                ),
+                "o3": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=1.00,
+                    cost_per_1M_output=4.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-10",
+                    is_reasoning_model=True,
+                ),
+                "o1-mini": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=0.55,
+                    cost_per_1M_output=2.20,
+                    supports_function_calling=False,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-10",
+                    is_reasoning_model=True,
+                ),
+                "o1-preview": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=0.55,
+                    cost_per_1M_output=2.20,
+                    supports_function_calling=False,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-10",
+                    is_reasoning_model=True,
+                ),
+                "gpt-4o-mini": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=16384,
+                    cost_per_1M_input=0.075,
+                    cost_per_1M_output=0.30,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-10",
+                    is_reasoning_model=False,
+                ),
+                "gpt-4o-mini-2024-07-18": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=16384,
+                    cost_per_1M_input=0.075,
+                    cost_per_1M_output=0.30,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-10",
+                    is_reasoning_model=False,
+                ),
+                "gpt-4o": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=16384,
+                    cost_per_1M_input=1.25,
+                    cost_per_1M_output=5.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-10",
+                    is_reasoning_model=False,
+                ),
+                "gpt-4-turbo": ModelConfig(
+                    max_tokens=128000,
+                    max_output_tokens=4096,
+                    cost_per_1M_input=5.00,
+                    cost_per_1M_output=15.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-04",
+                    is_reasoning_model=False,
+                ),
             },
             "anthropic": {
-                "claude-4": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-opus-4-20250514": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-sonnet-4-20250514": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3.7": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3-7-sonnet-20250219": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3.5": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "claude-3-5-sonnet-20240620": {
-                    "max_tokens": 200000,
-                    "cost_per_1k": 0.0,  # Pricing not specified
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
+                "claude-4": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=3.00,
+                    cost_per_1M_output=15.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-03",
+                    is_reasoning_model=False,
+                ),
+                "claude-opus-4-20250514": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=32000,
+                    cost_per_1M_input=15.00,
+                    cost_per_1M_output=75.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-03",
+                    is_reasoning_model=False,
+                ),
+                "claude-sonnet-4-20250514": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=64000,
+                    cost_per_1M_input=3.00,
+                    cost_per_1M_output=15.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-03",
+                    is_reasoning_model=False,
+                ),
+                "claude-3.7": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=128000,
+                    cost_per_1M_input=3.00,
+                    cost_per_1M_output=15.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-02",
+                    is_reasoning_model=True,
+                ),
+                "claude-3.5": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=3.00,
+                    cost_per_1M_output=15.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "claude-3-5-sonnet-20241022": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=3.00,
+                    cost_per_1M_output=15.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "claude-3-5-haiku-20241022": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=1.00,
+                    cost_per_1M_output=5.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-07",
+                    is_reasoning_model=False,
+                ),
+                "claude-3-opus-20240229": ModelConfig(
+                    max_tokens=200000,
+                    max_output_tokens=4096,
+                    cost_per_1M_input=15.00,
+                    cost_per_1M_output=75.00,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2023-08",
+                    is_reasoning_model=False,
+                ),
             },
             "gemini": {
-                "gemini-2.5-pro": {
-                    "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gemini-2.5-flash": {
-                    "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gemini-2.5-flash-lite": {
-                    "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gemini-2.0-flash": {
-                    "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gemini-2.0-flash-lite": {
-                    "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,
-                    "rate_limit": "Variable",
-                    "daily_limit": "Variable",
-                },
-                "gemini-1.5-flash": {
-                    "max_tokens": 1000000,
-                    "cost_per_1k": 0.0,  # Free tier
-                    "rate_limit": "15 requests/minute",
-                    "daily_limit": "1500 requests/day",
-                },
+                "gemini-2.5-pro": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=65536,
+                    cost_per_1M_input=0.30,
+                    cost_per_1M_output=2.50,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-01",
+                    is_reasoning_model=True,
+                ),
+                "gemini-2.5-flash": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=65536,
+                    cost_per_1M_input=0.30,
+                    cost_per_1M_output=2.50,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-01",
+                    is_reasoning_model=True,
+                ),
+                "gemini-2.5-flash-lite": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=65536,
+                    cost_per_1M_input=0.10,
+                    cost_per_1M_output=0.40,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-01",
+                    is_reasoning_model=False,
+                ),
+                "gemini-2.0-flash": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=65536,
+                    cost_per_1M_input=0.10,
+                    cost_per_1M_output=0.40,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-06",
+                    is_reasoning_model=False,
+                ),
+                "gemini-2.0-flash-exp": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=65536,
+                    cost_per_1M_input=0.10,
+                    cost_per_1M_output=0.40,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-06",
+                    is_reasoning_model=False,
+                ),
+                "gemini-2.0-flash-lite": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=65536,
+                    cost_per_1M_input=0.10,
+                    cost_per_1M_output=0.40,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-06",
+                    is_reasoning_model=False,
+                ),
+                "gemini-1.5-pro": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=3.50,
+                    cost_per_1M_output=10.50,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "gemini-1.5-flash": ModelConfig(
+                    max_tokens=1000000,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=0.075,
+                    cost_per_1M_output=0.30,
+                    supports_function_calling=True,
+                    supports_vision=True,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+            },
+            "groq": {
+                "llama-3.3-70b-versatile": ModelConfig(
+                    max_tokens=32768,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=0.59,
+                    cost_per_1M_output=0.79,
+                    supports_function_calling=True,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-12",
+                    is_reasoning_model=False,
+                ),
+                "llama-3.1-8b-instant": ModelConfig(
+                    max_tokens=131072,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=0.05,
+                    cost_per_1M_output=0.08,
+                    supports_function_calling=True,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-07",
+                    is_reasoning_model=False,
+                ),
+                "llama3-70b-8192": ModelConfig(
+                    max_tokens=8192,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=0.59,
+                    cost_per_1M_output=0.79,
+                    supports_function_calling=False,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
+                "llama3-8b-8192": ModelConfig(
+                    max_tokens=8192,
+                    max_output_tokens=8192,
+                    cost_per_1M_input=0.05,
+                    cost_per_1M_output=0.08,
+                    supports_function_calling=False,
+                    supports_vision=False,
+                    knowledge_cutoff="2024-04",
+                    is_reasoning_model=False,
+                ),
             },
         }
-
+        
+        # Model to provider mapping - automatically detect provider from model name
+        self.model_to_provider = {}
+        for provider, models in self.model_configs.items():
+            for model_name in models.keys():
+                self.model_to_provider[model_name] = provider
+        
+        # Model mapping for LiteLLM
+        self.model_mapping = {
+            "openai": lambda model: model,
+            "anthropic": lambda model: model if model.startswith("claude") else f"claude-3-{model}",
+            "gemini": lambda model: f"gemini/{model}" if not model.startswith("gemini/") else model,
+            "groq": lambda model: f"groq/{model}" if not model.startswith("groq/") else model,
+        }
+    
+    def get_litellm(self):
+        """Lazy import LiteLLM"""
+        try:
+            import litellm
+            return litellm
+        except ImportError:
+            raise ImportError("LiteLLM is required. Install with: pip install litellm")
+    
+    # API Key Management
     def encrypt_api_key(self, api_key: str) -> str:
         """Encrypt API key for secure storage"""
         return self.cipher_suite.encrypt(api_key.encode()).decode()
-
+    
     def decrypt_api_key(self, encrypted_key: str) -> str:
         """Decrypt API key for usage"""
         return self.cipher_suite.decrypt(encrypted_key.encode()).decode()
-
-    async def save_user_api_key(
-        self,
-        user: User,
-        provider: str,
-        api_key: str,
-        key_name: Optional[str] = None,
-        verify_key: bool = True,
-    ) -> UserApiKey:
-        """Save encrypted user API key with optional verification"""
-
-        # Verify the API key before saving if requested
-        if verify_key:
-            is_valid = self.verify_api_key(provider, api_key)
-            if not is_valid:
-                raise ValueError(
-                    f"Invalid API key for {provider}. Please check your key and try again."
-                )
-
+    
+    async def save_user_api_key(self, user, provider: str, api_key: str, verify: bool = True):
+        """Save encrypted user API key with verification"""
+        if verify and not self.verify_api_key(provider, api_key):
+            raise ValueError(f"Invalid API key for {provider}")
+        
+        from models.chat import UserApiKey
+        from beanie import BeanieObjectId
+        
         encrypted_key = self.encrypt_api_key(api_key)
-
-        # Check if key already exists for this provider
+        
+        # Update or create user API key
         existing_key = await UserApiKey.find_one(
             UserApiKey.user.id == BeanieObjectId(user.id),
             UserApiKey.provider == provider,
-            UserApiKey.is_active == True,
+            UserApiKey.is_active == True
         )
-
+        
         if existing_key:
             existing_key.encrypted_key = encrypted_key
-            existing_key.key_name = key_name
-            existing_key.updated_at = datetime.utcnow()
+            existing_key.updated_at = datetime.now(timezone.utc)
             await existing_key.save()
             return existing_key
         else:
             new_key = UserApiKey(
                 user=user,
                 provider=provider,
-                encrypted_key=encrypted_key,
-                key_name=key_name,
+                encrypted_key=encrypted_key
             )
             await new_key.save()
             return new_key
-
-    async def get_user_api_key(self, user: User, provider: str) -> Optional[str]:
+    
+    async def get_user_api_key(self, user, provider: str) -> Optional[str]:
         """Get decrypted user API key"""
+        from models.chat import UserApiKey
+        from beanie import BeanieObjectId
+        
         user_key = await UserApiKey.find_one(
             UserApiKey.user.id == BeanieObjectId(user.id),
             UserApiKey.provider == provider,
-            UserApiKey.is_active == True,
+            UserApiKey.is_active == True
         )
-
+        
         if user_key:
             try:
                 return self.decrypt_api_key(user_key.encrypted_key)
-            except Exception as e:
-                print(f"Error decrypting API key: {e}")
+            except:
                 return None
         return None
-
-    async def get_api_key_for_request(
-        self, user: User, provider: str, use_user: bool
-    ) -> Optional[str]:
-        """Get API key to use for the request (user's or default)"""
-        # First try check if use_user = true
-        if use_user:
+    
+    async def get_api_key(self, provider: str, user=None, use_user_key: bool = False) -> str:
+        """Get API key for request (user's or system)"""
+        if use_user_key and user:
             user_key = await self.get_user_api_key(user, provider)
-
             if user_key:
                 return user_key
-            else:
-                # If use_user is True but no valid user key found, raise an error
-                raise Exception(
-                    f"No valid API key found for {provider}. Please add your API key or disable 'use own key' option."
-                )
-
-        # Fall back to default key only if use_user is False
-        return self.default_keys.get(provider)
-
-    def get_model_name_for_provider(self, provider: str, model: str) -> str:
-        """Get the correct model name for litellm"""
-        model_mapping = {
-            "openai": model,
-            "anthropic": f"claude-3-{model}"
-            if not model.startswith("claude")
-            else model,
-            "gemini": f"gemini/{model}" if not model.startswith("gemini/") else model,
-        }
-        return model_mapping.get(provider, model)
-
-    async def check_rate_limit(
-        self, user: User, chat_session: ChatSession, user_tier: str = None
-    ) -> Tuple[bool, str]:
-        """Check if user can make a request based on rate limits"""
-        if chat_session.use_own_key:
-            return True, "Using own API key"
-
-        # Get user tier from user object if not provided
-        if user_tier is None:
-            user_tier = getattr(user, "user_tier", "free")
-
-        daily_limit = self.daily_limits.get(user_tier, self.daily_limits["free"])
-        if daily_limit == -1:  # Unlimited
-            return True, "Unlimited usage"
-
-        # Use user's rate limiting, not chat_session's
-        user.reset_daily_count_if_needed()
-
-        if user.daily_requests_count >= daily_limit:
-            return (
-                False,
-                f"Daily limit of {daily_limit} requests reached. Please upgrade or add your own API key.",
-            )
-
-        return True, f"Rate limit OK ({user.daily_requests_count}/{daily_limit})"
-
-    def prepare_messages_for_llm(
-        self, messages: List[Dict], context: Optional[str] = None
-    ) -> List[Dict]:
-        """Prepare messages for LLM with context injection"""
-        llm_messages = []
-
-        # Add system message with context if provided
-        if context:
-            system_message = {
-                "role": "system",
-                "content": f"""You are a helpful AI assistant that answers questions about code repositories. 
-Use the following repository context to answer user questions accurately and helpfully.
-
-Repository Context:
-{context}
-
-Instructions:
-- Answer based on the provided repository context
-- If the question cannot be answered from the context, say so clearly
-- Be specific and reference relevant files/functions when possible
-- Keep responses concise but informative""",
-            }
-            llm_messages.append(system_message)
-
-        # Add conversation messages
-        for msg in messages:
-            if msg["role"] in ["user", "assistant"]:
-                llm_messages.append({"role": msg["role"], "content": msg["content"]})
-
-        return llm_messages
-
-    async def generate_response(
+            raise ValueError(f"No user API key found for {provider}")
+        
+        system_key = self.default_keys.get(provider)
+        if not system_key:
+            raise ValueError(f"No system API key configured for {provider}")
+        
+        return system_key
+    
+    def verify_api_key(self, provider: str, api_key: str) -> bool:
+        """Verify API key is valid"""
+        try:
+            from utils.api_key_verifier import api_key_verifier
+            return api_key_verifier.verify_api_key(provider, api_key)
+        except:
+            return False
+    
+    def detect_provider_from_model(self, model: str) -> str:
+        """Automatically detect provider from model name"""
+        # Check direct mapping first
+        if model in self.model_to_provider:
+            return self.model_to_provider[model]
+        
+        # Fallback: detect from model name patterns
+        if model.startswith(("gpt-", "o1-", "o3-", "o4-")):
+            return "openai"
+        elif model.startswith("claude-") or "claude" in model.lower():
+            return "anthropic"  
+        elif model.startswith("gemini-") or "gemini" in model.lower():
+            return "gemini"
+        elif any(pattern in model.lower() for pattern in ["llama", "mixtral", "groq"]):
+            return "groq"
+        
+        # Default fallback
+        return "openai"
+    
+    def get_model_name(self, provider: str, model: str) -> str:
+        """Get LiteLLM-compatible model name"""
+        mapper = self.model_mapping.get(provider, lambda x: x)
+        return mapper(model)
+    
+    # Core LLM Operations
+    async def generate(
         self,
-        user: User,
-        use_user: bool,
-        chat_session: ChatSession,
-        messages: List[Dict],
-        context: Optional[str] = None,
-        provider: str = "openai",
-        model: str = "gpt-3.5-turbo",
+        messages: List[Dict[str, str]],
+        model: str = "gpt-4o-mini", 
+        provider: Optional[str] = None,
+        system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
-    ) -> Union[Dict[str, Any], AsyncGenerator[Dict, None]]:
-        """Generate response with optional streaming support"""
-
+        functions: Optional[List[Dict]] = None,
+        function_call: Optional[str] = None,
+        response_format: Optional[Dict] = None,
+        user=None,
+        use_user_key: bool = False
+    ) -> Union[LLMResponse, AsyncGenerator[LLMStreamResponse, None]]:
+        """
+        Main LLM generation method
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            model: Model name (provider auto-detected from model)
+            provider: Optional provider override (openai, anthropic, gemini, groq)  
+            system_prompt: Optional system prompt to prepend
+            temperature: Response randomness (0.0-2.0)
+            max_tokens: Maximum tokens to generate
+            stream: Whether to stream response
+            functions: Function schemas for function calling
+            function_call: Function calling mode
+            response_format: Structured output format
+            user: User object for API key lookup
+            use_user_key: Whether to use user's API key
+            
+        Returns:
+            LLMResponse or AsyncGenerator of LLMStreamResponse
+        """
         try:
-            # Check rate limits only if use_user is False (i.e., using default/shared key)
-            if not use_user:
-                can_proceed, rate_limit_msg = await self.check_rate_limit(
-                    user, chat_session
-                )
-                if not can_proceed:
-                    error_response = {
-                        "success": False,
-                        "error": rate_limit_msg,
-                        "error_type": "rate_limit",
-                    }
-                    if stream:
-
-                        async def error_generator():
-                            yield error_response
-
-                        return error_generator()
-                    return error_response
-
+            # Auto-detect provider if not specified
+            if not provider:
+                provider = self.detect_provider_from_model(model)
+            
             # Get API key
-            api_key = await self.get_api_key_for_request(
-                user, provider, use_user=use_user
-            )
-            if not api_key:
-                error_response = {
-                    "success": False,
-                    "error": f"No API key available for {provider}",
-                    "error_type": "no_api_key",
-                }
-                if stream:
-
-                    async def error_generator():
-                        yield error_response
-
-                    return error_generator()
-                return error_response
-
+            api_key = await self.get_api_key(provider, user, use_user_key)
+            
             # Prepare messages
-            llm_messages = self.prepare_messages_for_llm(messages, context)
-
-            # Get model name for provider
-            model_name = self.get_model_name_for_provider(provider, model)
-
-            # Return appropriate response type
-            if stream:
-                return self._generate_streaming_response(
-                    api_key=api_key,
-                    model_name=model_name,
-                    messages=llm_messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    provider=provider,
-                    chat_session=chat_session,
-                    user=user,
-                )
-            else:
-                return await self._generate_non_streaming_response(
-                    api_key=api_key,
-                    model_name=model_name,
-                    messages=llm_messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    provider=provider,
-                    chat_session=chat_session,
-                    user=user,
-                )
-
-        except Exception as e:
-            error_type = self._get_error_type(e)
-            error_response = {
-                "success": False,
-                "error": str(e),
-                "error_type": error_type,
-            }
-            if stream:
-
-                async def error_generator():
-                    yield error_response
-
-                return error_generator()
-            return error_response
-
-    async def _generate_non_streaming_response(
-        self,
-        api_key: str,
-        model_name: str,
-        messages: List[Dict],
-        temperature: float,
-        max_tokens: Optional[int],
-        provider: str,
-        chat_session: ChatSession,
-        user: User,
-    ) -> Dict[str, Any]:
-        """Generate non-streaming response"""
-        litellm = get_litellm()
-        response = await litellm.acompletion(
-            model=model_name,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=120,
-            api_key=api_key,
-        )
-
-        response_content = response.choices[0].message.content
-        usage = response.usage
-
-        # Update request count
-        user.increment_request_count()
-        await user.save()
-
-        return {
-            "success": True,
-            "content": response_content,
-            "usage": {
-                "prompt_tokens": usage.prompt_tokens,
-                "completion_tokens": usage.completion_tokens,
-                "total_tokens": usage.total_tokens,
-            },
-            "model_used": model_name,
-            "provider": provider,
-        }
-
-    async def _generate_streaming_response(
-        self,
-        api_key: str,
-        model_name: str,
-        messages: List[Dict],
-        temperature: float,
-        max_tokens: Optional[int],
-        provider: str,
-        chat_session: ChatSession,
-        user: User,
-    ) -> AsyncGenerator[Dict, None]:
-        """Generate streaming response"""
-        request_attempted = False
-        try:
-            # Start streaming request
-            litellm = get_litellm()
-            response = await litellm.acompletion(
-                model=model_name,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                timeout=120,
-                stream=True,
-                api_key=api_key,
-            )
-            request_attempted = True
-
-            # Stream responses
-            async for chunk in response:
-                if chunk.choices[0].delta.content:
-                    yield {
-                        "type": "token",
-                        "token": chunk.choices[0].delta.content,
-                        "provider": provider,
-                        "model": model_name,
-                    }
-
-            # Final status message
-            yield {"type": "complete", "provider": provider, "model": model_name}
-
-            # Update request count after successful stream
-            user.increment_request_count()
-            await user.save()
-
-        except Exception as e:
-            error_type = self._get_error_type(e)
-            # Handle partial completion
-            if request_attempted:
-                chat_session.increment_request_count()
-                await chat_session.save()
-
-            yield {
-                "type": "error",
-                "error": str(e),
-                "error_type": error_type,
-                "provider": provider,
+            llm_messages = messages.copy()
+            if system_prompt:
+                llm_messages.insert(0, {"role": "system", "content": system_prompt})
+            
+            # Get LiteLLM model name
+            model_name = self.get_model_name(provider, model)
+            
+            # Prepare LiteLLM kwargs
+            kwargs = {
                 "model": model_name,
+                "messages": llm_messages,
+                "api_key": api_key,
+                "temperature": temperature,
+                "stream": stream
             }
-
-    def _get_error_type(self, error: Exception) -> str:
-        """Classify error types"""
-        error_msg = str(error).lower()
-        if "rate limit" in error_msg:
-            return "provider_rate_limit"
-        elif "quota" in error_msg:
-            return "quota_exceeded"
-        elif "unauthorized" in error_msg or "invalid" in error_msg:
-            return "invalid_api_key"
-        elif "timeout" in error_msg:
-            return "timeout"
-        return "unknown"
-
+            
+            if max_tokens:
+                kwargs["max_tokens"] = max_tokens
+            if functions:
+                # Convert functions to tools format for LiteLLM
+                kwargs["tools"] = functions
+            if function_call:
+                kwargs["tool_choice"] = function_call
+            if response_format:
+                kwargs["response_format"] = response_format
+            
+            litellm = self.get_litellm()
+            
+            if stream:
+                return self._stream_generate(litellm, kwargs, provider, model)
+            else:
+                return await self._generate(litellm, kwargs, provider, model)
+                
+        except Exception as e:
+            if stream:
+                return self._error_stream(str(e), provider, model)
+            return LLMResponse(
+                success=False,
+                error=str(e),
+                model=model,
+                provider=provider
+            )
+    
+    async def _generate(self, litellm, kwargs, provider: str, model: str) -> LLMResponse:
+        """Non-streaming generation"""
+        response = await litellm.acompletion(**kwargs)
+        
+        choice = response.choices[0]
+        message = choice.message
+        
+        # Extract content
+        content = getattr(message, 'content', None)
+        
+        # Extract function calls (tool calls)
+        function_calls = None
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            function_calls = [{
+                "name": call.function.name,
+                "arguments": call.function.arguments,
+                "id": getattr(call, 'id', None)
+            } for call in message.tool_calls]
+        elif hasattr(message, 'function_call') and message.function_call:
+            # Legacy function_call support
+            function_calls = [{
+                "name": message.function_call.name,
+                "arguments": message.function_call.arguments
+            }]
+        
+        # Extract structured data
+        structured_data = None
+        if content and kwargs.get("response_format"):
+            try:
+                structured_data = json.loads(content)
+            except json.JSONDecodeError:
+                pass
+        
+        # Extract usage
+        usage = None
+        if hasattr(response, 'usage'):
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+        
+        return LLMResponse(
+            success=True,
+            content=content,
+            structured_data=structured_data,
+            function_calls=function_calls,
+            usage=usage,
+            model=model,
+            provider=provider
+        )
+    
+    async def _stream_generate(self, litellm, kwargs, provider: str, model: str) -> AsyncGenerator[LLMStreamResponse, None]:
+        """Streaming generation"""
+        response = await litellm.acompletion(**kwargs)
+        accumulated_content = ""
+        
+        async for chunk in response:
+            delta = chunk.choices[0].delta
+            
+            # Handle content tokens
+            if hasattr(delta, 'content') and delta.content:
+                accumulated_content += delta.content
+                yield LLMStreamResponse(
+                    type="token",
+                    content=delta.content,
+                    model=model,
+                    provider=provider
+                )
+            
+            # Handle function calls
+            if hasattr(delta, 'function_call') and delta.function_call:
+                yield LLMStreamResponse(
+                    type="function_call",
+                    function_call={
+                        "name": delta.function_call.name,
+                        "arguments": delta.function_call.arguments
+                    },
+                    model=model,
+                    provider=provider
+                )
+            
+            # Handle tool calls
+            if hasattr(delta, 'tool_calls') and delta.tool_calls:
+                for tool_call in delta.tool_calls:
+                    yield LLMStreamResponse(
+                        type="function_call",
+                        function_call={
+                            "name": tool_call.function.name,
+                            "arguments": tool_call.function.arguments,
+                            "id": tool_call.id
+                        },
+                        model=model,
+                        provider=provider
+                    )
+        
+        # Handle structured output
+        structured_data = None
+        if accumulated_content and kwargs.get("response_format"):
+            try:
+                structured_data = json.loads(accumulated_content)
+            except json.JSONDecodeError:
+                pass
+        
+        # Final completion
+        yield LLMStreamResponse(
+            type="complete",
+            content=accumulated_content,
+            structured_data=structured_data,
+            model=model,
+            provider=provider
+        )
+    
+    async def _error_stream(self, error: str, provider: str, model: str) -> AsyncGenerator[LLMStreamResponse, None]:
+        """Error response for streaming"""
+        yield LLMStreamResponse(
+            type="error",
+            error=error,
+            model=model,
+            provider=provider
+        )
+    
+    # Convenience methods
+    async def chat(self, message: str, **kwargs) -> LLMResponse:
+        """Simple chat method"""
+        messages = [{"role": "user", "content": message}]
+        return await self.generate(messages, **kwargs)
+    
+    async def complete(self, prompt: str, **kwargs) -> LLMResponse:
+        """Simple completion method"""
+        messages = [{"role": "user", "content": prompt}]
+        return await self.generate(messages, **kwargs)
+    
     def get_available_models(self) -> Dict[str, List[str]]:
-        """Get available models for each provider"""
+        """Get available models per provider"""
         return {
             provider: list(models.keys())
             for provider, models in self.model_configs.items()
         }
-
-    def get_model_info(self, provider: str, model: str) -> Optional[Dict]:
-        """Get information about a specific model"""
+    
+    def get_model_config(self, provider: str, model: str) -> Optional[ModelConfig]:
+        """Get configuration for a specific model"""
         return self.model_configs.get(provider, {}).get(model)
-
-    def verify_api_key(self, provider: str, api_key: str, model: str = None) -> bool:
-        """Verify if an API key is valid for a specific provider using standalone verifier."""
-        try:
-            from utils.api_key_verifier import api_key_verifier
-
-            return api_key_verifier.verify_api_key(provider, api_key)
-        except Exception as e:
-            print(f"Error verifying API key for {provider}: {e}")
-            return False
-
-    def get_valid_models_for_provider(self, provider: str, api_key: str) -> List[str]:
-        """Get a list of valid models for a specific provider."""
-        try:
-            from utils.api_key_verifier import api_key_verifier
-
-            return api_key_verifier.get_valid_models_for_provider(provider, api_key)
-        except Exception as e:
-            print(f"Error getting valid models for {provider}: {e}")
-            return []
+    
+    def get_max_context_length(self, provider: str, model: str) -> int:
+        """Get maximum context length for a model"""
+        config = self.get_model_config(provider, model)
+        return config.max_tokens if config else 0
+    
+    def get_max_output_tokens(self, provider: str, model: str) -> int:
+        """Get maximum output tokens for a model"""
+        config = self.get_model_config(provider, model)
+        return config.max_output_tokens if config else 0
+    
+    def supports_function_calling(self, provider: str, model: str) -> bool:
+        """Check if model supports function calling"""
+        config = self.get_model_config(provider, model)
+        return config.supports_function_calling if config else False
+    
+    def supports_vision(self, provider: str, model: str) -> bool:
+        """Check if model supports vision/images"""
+        config = self.get_model_config(provider, model)
+        return config.supports_vision if config else False
+    
+    def is_reasoning_model(self, provider: str, model: str) -> bool:
+        """Check if model is a reasoning model (like o1)"""
+        config = self.get_model_config(provider, model)
+        return config.is_reasoning_model if config else False
+    
+    def get_cost_per_million_tokens(self, provider: str, model: str) -> Dict[str, float]:
+        """Get cost per million tokens for input and output"""
+        config = self.get_model_config(provider, model)
+        if not config:
+            return {"input": 0.0, "output": 0.0}
+        
+        cost_info = {
+            "input": config.cost_per_1M_input,
+            "output": config.cost_per_1M_output
+        }
+        
+        if config.cost_per_1M_cached_input:
+            cost_info["cached_input"] = config.cost_per_1M_cached_input
+            
+        return cost_info
+    
+    def get_models_with_feature(self, feature: str) -> Dict[str, List[str]]:
+        """Get models that support a specific feature (function_calling, vision, reasoning)"""
+        result = {}
+        
+        for provider, models in self.model_configs.items():
+            matching_models = []
+            for model_name, config in models.items():
+                if feature == "function_calling" and config.supports_function_calling:
+                    matching_models.append(model_name)
+                elif feature == "vision" and config.supports_vision:
+                    matching_models.append(model_name)
+                elif feature == "reasoning" and config.is_reasoning_model:
+                    matching_models.append(model_name)
+            
+            if matching_models:
+                result[provider] = matching_models
+                
+        return result
 
 
 # Global instance
