@@ -67,6 +67,10 @@ export default function ResultsPage() {
     repoId: currentRepoId || undefined,
   });
 
+  // Suppress unused variable warnings
+  void currentModel;
+  void refreshData;
+
   // Hydrate context from URL params on first load/refresh
   useEffect(() => {
     if (owner && repo) {
@@ -404,7 +408,7 @@ export default function ResultsPage() {
       )}
 
       {/* Main Content */}
-      <main className="max-w-[95vw] mx-auto px-2 sm:px-4 py-2 sm:py-4 lg:py-6 lg:pt-20">
+      <main className="w-full max-w-[100vw] sm:max-w-[95vw] lg:max-w-[90vw] xl:max-w-[95vw] mx-auto px-1 sm:px-2 md:px-4 py-2 sm:py-4 lg:py-6 lg:pt-20">
         {/* Add top padding on mobile to account for sticky header */}
         <div className="lg:hidden h-4"></div>
 
@@ -556,8 +560,8 @@ export default function ResultsPage() {
             {/* Enhanced Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">
               <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[800px]">
-                  <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
+                  <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                     <div className="h-full w-full">
                       <StructureTab />
                     </div>
@@ -570,9 +574,9 @@ export default function ResultsPage() {
             <TabsContent value="graph" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[800px]">
+                  <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
                     {sourceType && sourceData ? (
-                      <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
+                      <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
                         <ReagraphVisualization
                           setParentActiveTab={setActiveTab}
                           onError={(msg) => showToast.error(msg)}
@@ -603,8 +607,8 @@ export default function ResultsPage() {
             <TabsContent value="explorer" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[800px]">
-                    <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                  <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
+                    <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
                         <CodeViewer />
                       </div>
@@ -618,14 +622,16 @@ export default function ResultsPage() {
             <TabsContent value="documentation" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[800px]">
-                    <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                  <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
+                    <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       {(currentRepoId || (owner && repo)) && (sourceData || (owner && repo)) ? (
                         <div className="h-full w-full overflow-auto">
                           <DocumentationTab
                             currentRepoId={currentRepoId || `${owner}/${repo}`}
                             sourceData={
-                              sourceData && typeof sourceData === 'object' && 'repo_url' in sourceData
+                              sourceData &&
+                              typeof sourceData === 'object' &&
+                              'repo_url' in sourceData
                                 ? { repo_url: (sourceData as { repo_url?: string }).repo_url }
                                 : { repo_url: repoUrl }
                             }
@@ -640,7 +646,9 @@ export default function ResultsPage() {
                               <BookOpen className="h-6 w-6 text-muted-foreground/50" />
                             </div>
                             <div className="space-y-2">
-                              <h3 className="font-medium text-foreground">Loading Repository Data</h3>
+                              <h3 className="font-medium text-foreground">
+                                Loading Repository Data
+                              </h3>
                               <p className="text-sm text-muted-foreground max-w-sm">
                                 Please wait while we fetch the repository information needed for
                                 documentation

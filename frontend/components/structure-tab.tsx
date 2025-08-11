@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Folder,
   FolderOpen,
@@ -287,7 +287,7 @@ export function StructureTab() {
     return filterNodes(fileTree);
   }, [fileTree, searchTerm]);
 
-  const generateStructureTree = (nodes: FileNode[], prefix = ''): string => {
+  const generateStructureTree = useCallback((nodes: FileNode[], prefix = ''): string => {
     let treeString = '';
     nodes.forEach((node, index) => {
       const isLast = index === nodes.length - 1;
@@ -309,7 +309,7 @@ export function StructureTab() {
       }
     });
     return treeString;
-  };
+  }, [selectedFiles, getAllDescendantFilePaths]);
 
   const selectedContent = useMemo(() => {
     const content: string[] = [];
@@ -326,7 +326,7 @@ export function StructureTab() {
     fileTree.forEach(processNode);
     const structureTree = generateStructureTree(fileTree);
     return (structureTree ? `\`\`\`\n${structureTree}\`\`\`\n\n` : '') + content.join('\n\n');
-  }, [fileTree, selectedFiles]);
+  }, [fileTree, selectedFiles, generateStructureTree]);
 
   /*
      Helper functions for toggling folders and file selections

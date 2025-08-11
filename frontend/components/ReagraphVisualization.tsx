@@ -34,6 +34,8 @@ import {
   Search,
   ToggleLeft,
   ToggleRight,
+  Target,
+  Focus,
 } from 'lucide-react';
 import { CodeReferenceAnalyzer } from '@/components/code-reference-analyzer';
 import { HierarchyTab } from '@/components/hierarchy-tab';
@@ -852,11 +854,60 @@ export default function EnhancedReagraphVisualization({
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
   const [visualizationType, setVisualizationType] = useState<'reagraph' | 'sigma'>('sigma');
-  const [hierarchyDepth, setHierarchyDepth] = useState<number>(3);
+  const [hierarchyDepth, setHierarchyDepth] = useState<number>(1);
+  const [viewMode, setViewMode] = useState<'highlight' | 'isolate'>('highlight');
+  const [isolatedSubgraph, setIsolatedSubgraph] = useState<{nodes: GraphNode[], edges: GraphEdge[]} | null>(null);
   const { data: session } = useSession();
 
   const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub);
   const generateGraphFromZipWithAuth = useApiWithAuth(generateGraphFromZip);
+
+  // Function to build isolated subgraph based on hierarchy depth
+  const buildIsolatedSubgraph = useCallback((nodeId: string, depth: number) => {
+    if (!graphData) return null;
+    
+    const visited = new Set<string>();
+    const subgraphNodes: GraphNode[] = [];
+    const subgraphEdges: GraphEdge[] = [];
+    
+    const queue: Array<{id: string, currentDepth: number}> = [{id: nodeId, currentDepth: 0}];
+    
+    while (queue.length > 0) {
+      const {id, currentDepth} = queue.shift()!;
+      
+      if (visited.has(id) || currentDepth > depth) continue;
+      visited.add(id);
+      
+      // Add node to subgraph
+      const node = graphData.nodes.find(n => n.id === id);
+      if (node) {
+        subgraphNodes.push(node);
+      }
+      
+      if (currentDepth < depth) {
+        // Find all connected nodes
+        const connectedEdges = graphData.edges.filter(edge => 
+          (edge.source === id || edge.target === id) &&
+          !visited.has(edge.source === id ? edge.target : edge.source)
+        );
+        
+        for (const edge of connectedEdges) {
+          const connectedNodeId = edge.source === id ? edge.target : edge.source;
+          queue.push({id: connectedNodeId, currentDepth: currentDepth + 1});
+        }
+      }
+    }
+    
+    // Add edges that connect nodes within the subgraph
+    const nodeIds = new Set(subgraphNodes.map(n => n.id));
+    for (const edge of graphData.edges) {
+      if (nodeIds.has(edge.source) && nodeIds.has(edge.target)) {
+        subgraphEdges.push(edge);
+      }
+    }
+    
+    return {nodes: subgraphNodes, edges: subgraphEdges};
+  }, [graphData]);
 
   const hasLoadedRef = useRef(false);
   const currentRequestKeyRef = useRef<string | null>(null);
@@ -1019,30 +1070,55 @@ export default function EnhancedReagraphVisualization({
     } catch {}
   }, []);
 
+  // Track double-click timing
+  const lastClickTimeRef = useRef<number>(0);
+  const lastClickNodeRef = useRef<string | null>(null);
+
   const handleNodeClick = useCallback(
     (node: ReaGraphGraphNode) => {
       const graphNode = graphData?.nodes.find((n) => n.id === node.id);
-      if (graphNode) {
-        setSelectedNode(graphNode);
-        setActiveNodeId(graphNode.id);
-        // Set hierarchy as default for better UX
-        setActiveTab('hierarchy');
-        setIsMobileSidebarOpen(true);
-        onNodeClick?.(graphNode);
-
-        // Scroll to top of analysis content after a brief delay
-        setTimeout(() => {
-          if (analysisScrollRef.current) {
-            analysisScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }, 100);
-
-        // Center and highlight in graph
-        centerAndHighlightNode(node.id);
+      if (!graphNode) return;
+      
+      const currentTime = Date.now();
+      const isDoubleClick = currentTime - lastClickTimeRef.current < 300 && lastClickNodeRef.current === node.id;
+      
+      if (isDoubleClick) {
+        // Double-click: Enter isolate mode
+        setViewMode('isolate');
+        const subgraph = buildIsolatedSubgraph(node.id, hierarchyDepth);
+        setIsolatedSubgraph(subgraph);
       }
+      
+      setSelectedNode(graphNode);
+      setActiveNodeId(graphNode.id);
+      // Set hierarchy as default for better UX
+      setActiveTab('hierarchy');
+      setIsMobileSidebarOpen(true);
+      onNodeClick?.(graphNode);
+
+      // Scroll to top of analysis content after a brief delay
+      setTimeout(() => {
+        if (analysisScrollRef.current) {
+          analysisScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
+
+      // Center and highlight in graph
+      centerAndHighlightNode(node.id);
+      
+      lastClickTimeRef.current = currentTime;
+      lastClickNodeRef.current = node.id;
     },
-    [graphData?.nodes, onNodeClick, centerAndHighlightNode],
+    [graphData?.nodes, onNodeClick, centerAndHighlightNode, buildIsolatedSubgraph, hierarchyDepth],
   );
+  
+  // Handle canvas click to exit isolate mode
+  const handleCanvasClick = useCallback(() => {
+    if (viewMode === 'isolate') {
+      setViewMode('highlight');
+      setIsolatedSubgraph(null);
+    }
+  }, [viewMode]);
 
   const handleOpenFile = useCallback(
     (filePath: string, line?: number) => {
@@ -1073,13 +1149,15 @@ export default function EnhancedReagraphVisualization({
   }, [graphData, selectedFilePath, selectedFileLine, centerAndHighlightNode]);
 
   const reagraphData = useMemo((): ReagraphData | null => {
-    if (!graphData?.nodes?.length) return null;
+    // Use isolated subgraph if in isolate mode, otherwise use full graph
+    const dataToUse = viewMode === 'isolate' && isolatedSubgraph ? isolatedSubgraph : graphData;
+    if (!dataToUse?.nodes?.length) return null;
 
-    const nodeCount = graphData.nodes.length;
+    const nodeCount = dataToUse.nodes.length;
     const isLargeGraph = nodeCount >= 500;
 
     return {
-      nodes: graphData.nodes.map((node) => ({
+      nodes: dataToUse.nodes.map((node) => ({
         id: node.id,
         label: node.name,
         fill:
@@ -1090,7 +1168,7 @@ export default function EnhancedReagraphVisualization({
         size: isLargeGraph ? 6 : Math.max(8, Math.min(16, node.name.length * 0.6 + 6)),
       })),
       edges:
-        graphData.edges?.map((edge, edgeIndex) => ({
+        dataToUse.edges?.map((edge, edgeIndex) => ({
           id: `edge-${edgeIndex}`,
           source: edge.source,
           target: edge.target,
@@ -1098,24 +1176,26 @@ export default function EnhancedReagraphVisualization({
           label: isLargeGraph ? undefined : edge.relationship,
         })) || [],
     };
-  }, [graphData?.nodes, graphData?.edges, nodeCategories]);
+  }, [nodeCategories, viewMode, isolatedSubgraph, graphData]);
 
   const sigmaData = useMemo((): SigmaGraphInnerData | null => {
-    if (!graphData?.nodes?.length) return null;
+    // Use isolated subgraph if in isolate mode, otherwise use full graph
+    const dataToUse = viewMode === 'isolate' && isolatedSubgraph ? isolatedSubgraph : graphData;
+    if (!dataToUse?.nodes?.length) return null;
 
     return {
-      nodes: graphData.nodes.map((node) => ({
+      nodes: dataToUse.nodes.map((node) => ({
         id: node.id,
         name: node.name,
         category: node.category,
       })),
-      edges: graphData.edges.map((edge, idx) => ({
+      edges: dataToUse.edges.map((edge, idx) => ({
         id: `e-${idx}-${edge.source}-${edge.target}`,
         source: edge.source,
         target: edge.target,
       })),
     };
-  }, [graphData?.nodes, graphData?.edges]);
+  }, [viewMode, isolatedSubgraph, graphData]);
 
   const categoryData = useMemo(() => {
     if (!graphData?.nodes) return [];
@@ -1401,7 +1481,7 @@ export default function EnhancedReagraphVisualization({
                         <HierarchyTab
                           selectedNode={selectedCodeReference}
                           graphData={analysisGraphData}
-                          maxDepth={3}
+                          maxDepth={1}
                           onDepthChange={setHierarchyDepth}
                           onOpenFile={handleOpenFile}
                           onSelectGraphNode={(id) => centerAndHighlightNode(id)}
@@ -1450,7 +1530,7 @@ export default function EnhancedReagraphVisualization({
         </div>
 
         {/* Stats Badge for mobile */}
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3 flex items-center gap-1">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-2 py-1 text-xs">
             {visualizationType === 'reagraph' && reagraphData
               ? `${reagraphData.nodes.length}N • ${reagraphData.edges.length}E`
@@ -1458,13 +1538,23 @@ export default function EnhancedReagraphVisualization({
                 ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E`
                 : '0N • 0E'}
           </Badge>
+          <Badge 
+            variant={viewMode === 'isolate' ? 'default' : 'secondary'}
+            className={`backdrop-blur-sm border-border/60 rounded-xl px-1.5 py-1 text-xs ${
+              viewMode === 'isolate' 
+                ? 'bg-primary text-primary-foreground border-primary/50' 
+                : 'bg-background/90'
+            }`}
+          >
+            {viewMode === 'isolate' ? 'I' : 'H'}
+          </Badge>
         </div>
       </div>
 
       {/* Desktop Graph Canvas - Only show on lg and above */}
       <div className="hidden lg:block lg:flex-1 relative min-w-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm">
-          {visualizationType === 'reagraph' ? (
+          {visualizationType === 'reagraph' && reagraphData ? (
             <GraphCanvas
               ref={graphRef}
               nodes={reagraphData.nodes}
@@ -1480,6 +1570,7 @@ export default function EnhancedReagraphVisualization({
               // Avoid centrality sizing on large graphs to reduce internal computation
               sizingType={isLargeGraph ? 'attribute' : 'centrality'}
               onNodeClick={handleNodeClick}
+              onCanvasClick={handleCanvasClick}
             />
           ) : (
             sigmaData && (
@@ -1487,7 +1578,8 @@ export default function EnhancedReagraphVisualization({
                 data={sigmaData}
                 onNodeClick={(nodeId: string) => {
                   if (nodeId === '') {
-                    // Canvas click - clear focus
+                    // Canvas click - clear focus and exit isolate mode if active
+                    handleCanvasClick();
                     setActiveNodeId(null);
                     setSelectedNode(null);
                     return;
@@ -1497,10 +1589,17 @@ export default function EnhancedReagraphVisualization({
                     handleNodeClick({ id: graphNode.id, label: graphNode.name });
                   }
                 }}
+                onDoubleClick={(nodeId: string) => {
+                  // Double-click: Enter isolate mode
+                  setViewMode('isolate');
+                  const subgraph = buildIsolatedSubgraph(nodeId, hierarchyDepth);
+                  setIsolatedSubgraph(subgraph);
+                }}
                 focusedNodeId={activeNodeId}
                 nodeCategories={nodeCategories}
                 hierarchyDepth={hierarchyDepth}
                 selectedRootNodeId={selectedCodeReference?.id}
+                viewMode={viewMode}
               />
             )
           )}
@@ -1547,16 +1646,55 @@ export default function EnhancedReagraphVisualization({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={viewMode === 'isolate' ? 'secondary' : 'outline'}
+                  size="icon"
+                  className={`h-8 w-8 rounded-xl backdrop-blur-sm border-border/60 ${
+                    viewMode === 'isolate' 
+                      ? 'bg-primary text-primary-foreground border-primary/50' 
+                      : 'bg-background/90'
+                  }`}
+                  onClick={() => {
+                    if (viewMode === 'isolate') {
+                      setViewMode('highlight');
+                      setIsolatedSubgraph(null);
+                    } else {
+                      setViewMode('isolate');
+                    }
+                  }}
+                >
+                  {viewMode === 'isolate' ? <Focus className="h-4 w-4" /> : <Target className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {viewMode === 'isolate' ? 'Exit Isolate Mode' : 'Enter Isolate Mode (double-click node)'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Stats Badge for desktop */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-3 py-1 text-xs">
             {visualizationType === 'reagraph' && reagraphData
               ? `${reagraphData.nodes.length} nodes • ${reagraphData.edges.length} edges`
               : sigmaData
                 ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E`
                 : '0N • 0E'}
+          </Badge>
+          <Badge 
+            variant={viewMode === 'isolate' ? 'default' : 'secondary'}
+            className={`backdrop-blur-sm border-border/60 rounded-xl px-2 py-1 text-xs ${
+              viewMode === 'isolate' 
+                ? 'bg-primary text-primary-foreground border-primary/50' 
+                : 'bg-background/90'
+            }`}
+          >
+            {viewMode === 'isolate' ? 'Isolate' : 'Highlight'}
           </Badge>
         </div>
       </div>
@@ -1647,7 +1785,7 @@ export default function EnhancedReagraphVisualization({
                     <HierarchyTab
                       selectedNode={selectedCodeReference}
                       graphData={analysisGraphData}
-                      maxDepth={3}
+                      maxDepth={1}
                       onDepthChange={setHierarchyDepth}
                       onOpenFile={handleOpenFile}
                       onSelectGraphNode={(id) => centerAndHighlightNode(id)}

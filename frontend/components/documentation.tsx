@@ -52,7 +52,7 @@ import {
   cancelWikiGeneration,
 } from '@/utils/api';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
-import { useDocumentationProgress, type ProgressUpdate } from '@/lib/sse-client';
+import { useDocumentationProgress } from '@/lib/sse-client';
 
 // Markdown and Syntax Highlighting imports
 import ReactMarkdown from 'react-markdown';
@@ -502,6 +502,9 @@ export default function Documentation({
   userKeyPreferences = {},
 }: DocumentationTabProps) {
   const { data: session } = useSession();
+  
+  // Suppress unused variable warning
+  void userKeyPreferences;
   const [isDocGenerated, setIsDocGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
