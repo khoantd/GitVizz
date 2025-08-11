@@ -295,6 +295,27 @@ export type BodyGetConversationHistoryApiBackendChatConversationsConversationIdP
 };
 
 /**
+ * Body_get_indexed_repositories_api_indexed_repos__post
+ */
+export type BodyGetIndexedRepositoriesApiIndexedReposPost = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Limit
+   * Maximum number of repositories to return
+   */
+  limit?: number;
+  /**
+   * Offset
+   * Number of repositories to skip
+   */
+  offset?: number;
+};
+
+/**
  * Body_get_wiki_status_api_documentation_wiki_status_post
  */
 export type BodyGetWikiStatusApiDocumentationWikiStatusPost = {
@@ -1025,6 +1046,66 @@ export type HttpValidationError = {
    * Detail
    */
   detail?: Array<ValidationError>;
+};
+
+/**
+ * IndexedRepositoriesResponse
+ */
+export type IndexedRepositoriesResponse = {
+  /**
+   * Repositories
+   */
+  repositories: Array<IndexedRepository>;
+  /**
+   * Total Count
+   */
+  total_count: number;
+  /**
+   * User Tier
+   */
+  user_tier: string;
+};
+
+/**
+ * IndexedRepository
+ */
+export type IndexedRepository = {
+  /**
+   * Repo Id
+   */
+  repo_id: string;
+  /**
+   * Repo Name
+   */
+  repo_name: string;
+  /**
+   * Branch
+   */
+  branch: string;
+  /**
+   * Source
+   */
+  source: string;
+  /**
+   * Github Url
+   */
+  github_url?: string | null;
+  /**
+   * Commit Sha
+   */
+  commit_sha?: string | null;
+  /**
+   * Created At
+   */
+  created_at: Date;
+  /**
+   * Updated At
+   */
+  updated_at: Date;
+  /**
+   * File Size Mb
+   */
+  file_size_mb?: number | null;
 };
 
 /**
@@ -2234,6 +2315,41 @@ export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses = {
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponse =
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses];
+
+export type GetIndexedRepositoriesApiIndexedReposPostData = {
+  body: BodyGetIndexedRepositoriesApiIndexedReposPost;
+  path?: never;
+  query?: never;
+  url: '/api/indexed-repos/';
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostErrors = {
+  /**
+   * Authentication required - missing or invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Server error while fetching repositories
+   */
+  500: ErrorResponse;
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostError =
+  GetIndexedRepositoriesApiIndexedReposPostErrors[keyof GetIndexedRepositoriesApiIndexedReposPostErrors];
+
+export type GetIndexedRepositoriesApiIndexedReposPostResponses = {
+  /**
+   * Successfully retrieved indexed repositories
+   */
+  200: IndexedRepositoriesResponse;
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostResponse =
+  GetIndexedRepositoriesApiIndexedReposPostResponses[keyof GetIndexedRepositoriesApiIndexedReposPostResponses];
 
 export type ClientOptions = {
   baseUrl: 'http://localhost:8003' | (string & {});

@@ -9,6 +9,8 @@ import {
   type AvailableModelsResponse,
   type ChatSessionListItem,
 } from '@/utils/api';
+import { useApiWithAuth } from '@/hooks/useApiWithAuth';
+import { extractJwtToken } from '@/utils/token-utils';
 import {
   createStreamingChatRequest,
   parseStreamingResponse,
@@ -56,6 +58,11 @@ export function useChatSidebar(
 ) {
   const { data: session } = useSession();
   const { autoLoad = true } = options ?? {};
+  
+  // Wrap API calls with auth handling
+  const getUserChatSessionsWithAuth = useApiWithAuth(getUserChatSessions);
+  const getConversationHistoryWithAuth = useApiWithAuth(getConversationHistory);
+  const getAvailableModelsWithAuth = useApiWithAuth(getAvailableModels);
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
     isLoading: false,
@@ -112,7 +119,7 @@ export function useChatSidebar(
     if (!session?.jwt_token) return;
 
     try {
-      const models = await getAvailableModels(session.jwt_token);
+      const models = await getAvailableModelsWithAuth(extractJwtToken(session.jwt_token));
       setAvailableModels(models);
 
       // Set default model if current one is not available
@@ -145,7 +152,7 @@ export function useChatSidebar(
     isFetchingHistoryRef.current = true;
     setIsLoadingHistory(true);
     try {
-      const chatSessions = await getUserChatSessions(session.jwt_token, repositoryId);
+      const chatSessions = await getUserChatSessionsWithAuth(extractJwtToken(session.jwt_token), repositoryId);
       if (chatSessions.success) {
         setChatHistory(chatSessions.sessions);
       } else {
@@ -192,7 +199,7 @@ export function useChatSidebar(
       }
 
       const streamingRequest: StreamingChatRequest = {
-        token: session.jwt_token,
+        token: extractJwtToken(session.jwt_token),
         message: content,
         repository_id: repositoryId,
         use_user: modelState.provider ? (useUserKeys[modelState.provider] ?? false) : false,
@@ -371,7 +378,7 @@ export function useChatSidebar(
     setChatState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const conversation = await getConversationHistory(session.jwt_token, conversationId);
+      const conversation = await getConversationHistoryWithAuth(extractJwtToken(session.jwt_token), conversationId);
 
       const messages: Message[] = conversation.messages.map((msg) => ({
         role: msg.role,

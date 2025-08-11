@@ -109,15 +109,9 @@ async def refresh_access_token(refresh_token: str):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 
-# middleware to decode JWT token from request headers
-async def get_current_user(
-    authorization: Optional[str] = Header(None),
-) -> Optional[User]:
-    if not authorization or not authorization.startswith("Bearer "):
-        return None  # No token → allow anonymous access
-
-    token = authorization.split(" ")[1]
-
+# Helper function to decode JWT token from string
+async def _decode_jwt_token(token: str) -> Optional[User]:
+    """Internal function to decode JWT token and return user"""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
@@ -139,3 +133,26 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Token has expired")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+# Overloaded function to support both direct token string and FastAPI dependency
+async def get_current_user(
+    token_or_authorization: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+) -> Optional[User]:
+    """
+    Get current user from JWT token. Supports two usage patterns:
+    1. As FastAPI dependency: get_current_user() - reads from Authorization header
+    2. As direct function call: get_current_user(token_string) - uses provided token
+    """
+
+    # If token_or_authorization is provided, treat it as a direct token string call
+    if token_or_authorization is not None:
+        return await _decode_jwt_token(token_or_authorization)
+
+    # Otherwise, use the authorization header (FastAPI dependency pattern)
+    if not authorization or not authorization.startswith("Bearer "):
+        return None  # No token → allow anonymous access
+
+    token = authorization.split(" ")[1]
+    return await _decode_jwt_token(token)

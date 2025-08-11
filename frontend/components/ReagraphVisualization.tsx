@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo, useCallback, useRef, memo } from 'react';
 import dynamic from 'next/dynamic';
 import type { GraphCanvasRef } from 'reagraph';
 import { generateGraphFromGithub, generateGraphFromZip } from '@/utils/api';
+import { extractJwtToken } from '@/utils/token-utils';
 import type {
   GraphResponse,
   GraphNode as ApiGraphNode,
@@ -167,17 +168,17 @@ const COLOR_PALETTE = [
 const getLighterColor = (color: string): string => {
   // Remove the # if present
   const hex = color.replace('#', '');
-  
+
   // Parse the hex color
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-  
+
   // Make it lighter by blending with white
   const lighterR = Math.round(r + (255 - r) * 0.4);
   const lighterG = Math.round(g + (255 - g) * 0.4);
   const lighterB = Math.round(b + (255 - b) * 0.4);
-  
+
   // Convert back to hex
   return `#${lighterR.toString(16).padStart(2, '0')}${lighterG.toString(16).padStart(2, '0')}${lighterB.toString(16).padStart(2, '0')}`;
 };
@@ -877,59 +878,65 @@ export default function EnhancedReagraphVisualization({
   const [visualizationType, setVisualizationType] = useState<'reagraph' | 'sigma'>('sigma');
   const [hierarchyDepth, setHierarchyDepth] = useState<number>(1);
   const [viewMode, setViewMode] = useState<'highlight' | 'isolate'>('highlight');
-  const [isolatedSubgraph, setIsolatedSubgraph] = useState<{nodes: GraphNode[], edges: GraphEdge[]} | null>(null);
+  const [isolatedSubgraph, setIsolatedSubgraph] = useState<{
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  } | null>(null);
   const { data: session } = useSession();
 
   const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub);
   const generateGraphFromZipWithAuth = useApiWithAuth(generateGraphFromZip);
 
   // Function to build isolated subgraph based on hierarchy depth
-  const buildIsolatedSubgraph = useCallback((nodeId: string, depth: number) => {
-    if (!graphData) return null;
-    
-    const visited = new Set<string>();
-    const subgraphNodes: GraphNode[] = [];
-    const subgraphEdges: GraphEdge[] = [];
-    
-    const queue: Array<{id: string, currentDepth: number}> = [{id: nodeId, currentDepth: 0}];
-    
-    while (queue.length > 0) {
-      const {id, currentDepth} = queue.shift()!;
-      
-      if (visited.has(id) || currentDepth > depth) continue;
-      visited.add(id);
-      
-      // Add node to subgraph
-      const node = graphData.nodes.find(n => n.id === id);
-      if (node) {
-        subgraphNodes.push(node);
-      }
-      
-      if (currentDepth < depth) {
-        // Find all connected nodes
-        const connectedEdges = graphData.edges.filter(edge => 
-          (edge.source === id || edge.target === id) &&
-          !visited.has(edge.source === id ? edge.target : edge.source)
-        );
-        
-        for (const edge of connectedEdges) {
-          const connectedNodeId = edge.source === id ? edge.target : edge.source;
-          queue.push({id: connectedNodeId, currentDepth: currentDepth + 1});
+  const buildIsolatedSubgraph = useCallback(
+    (nodeId: string, depth: number) => {
+      if (!graphData) return null;
+
+      const visited = new Set<string>();
+      const subgraphNodes: GraphNode[] = [];
+      const subgraphEdges: GraphEdge[] = [];
+
+      const queue: Array<{ id: string; currentDepth: number }> = [{ id: nodeId, currentDepth: 0 }];
+
+      while (queue.length > 0) {
+        const { id, currentDepth } = queue.shift()!;
+
+        if (visited.has(id) || currentDepth > depth) continue;
+        visited.add(id);
+
+        // Add node to subgraph
+        const node = graphData.nodes.find((n) => n.id === id);
+        if (node) {
+          subgraphNodes.push(node);
+        }
+
+        if (currentDepth < depth) {
+          // Find all connected nodes
+          const connectedEdges = graphData.edges.filter(
+            (edge) =>
+              (edge.source === id || edge.target === id) &&
+              !visited.has(edge.source === id ? edge.target : edge.source),
+          );
+
+          for (const edge of connectedEdges) {
+            const connectedNodeId = edge.source === id ? edge.target : edge.source;
+            queue.push({ id: connectedNodeId, currentDepth: currentDepth + 1 });
+          }
         }
       }
-    }
-    
-    // Add edges that connect nodes within the subgraph
-    const nodeIds = new Set(subgraphNodes.map(n => n.id));
-    for (const edge of graphData.edges) {
-      if (nodeIds.has(edge.source) && nodeIds.has(edge.target)) {
-        subgraphEdges.push(edge);
+
+      // Add edges that connect nodes within the subgraph
+      const nodeIds = new Set(subgraphNodes.map((n) => n.id));
+      for (const edge of graphData.edges) {
+        if (nodeIds.has(edge.source) && nodeIds.has(edge.target)) {
+          subgraphEdges.push(edge);
+        }
       }
-    }
-    
-    return {nodes: subgraphNodes, edges: subgraphEdges};
-  }, [graphData]);
-  
+
+      return { nodes: subgraphNodes, edges: subgraphEdges };
+    },
+    [graphData],
+  );
 
   const hasLoadedRef = useRef(false);
   const currentRequestKeyRef = useRef<string | null>(null);
@@ -977,10 +984,13 @@ export default function EnhancedReagraphVisualization({
         if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
           data = await generateGraphFromGithubWithAuth({
             ...sourceData,
-            jwt_token: session?.jwt_token || '',
+            jwt_token: extractJwtToken(session?.jwt_token) || '',
           });
         } else if (sourceType === 'zip' && sourceData instanceof File) {
-          data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
+          data = await generateGraphFromZipWithAuth(
+            sourceData,
+            extractJwtToken(session?.jwt_token) || '',
+          );
         } else {
           throw new Error('Invalid source type or data');
         }
@@ -1100,17 +1110,18 @@ export default function EnhancedReagraphVisualization({
     (node: ReaGraphGraphNode) => {
       const graphNode = graphData?.nodes.find((n) => n.id === node.id);
       if (!graphNode) return;
-      
+
       const currentTime = Date.now();
-      const isDoubleClick = currentTime - lastClickTimeRef.current < 300 && lastClickNodeRef.current === node.id;
-      
+      const isDoubleClick =
+        currentTime - lastClickTimeRef.current < 300 && lastClickNodeRef.current === node.id;
+
       if (isDoubleClick) {
         // Double-click: Enter isolate mode
         setViewMode('isolate');
         const subgraph = buildIsolatedSubgraph(node.id, hierarchyDepth);
         setIsolatedSubgraph(subgraph);
       }
-      
+
       setSelectedNode(graphNode);
       setActiveNodeId(graphNode.id);
       // Set hierarchy as default for better UX
@@ -1127,13 +1138,13 @@ export default function EnhancedReagraphVisualization({
 
       // Center and highlight in graph
       centerAndHighlightNode(node.id);
-      
+
       lastClickTimeRef.current = currentTime;
       lastClickNodeRef.current = node.id;
     },
     [graphData?.nodes, onNodeClick, centerAndHighlightNode, buildIsolatedSubgraph, hierarchyDepth],
   );
-  
+
   // Handle canvas click to exit isolate mode or clear highlights
   const handleCanvasClick = useCallback(() => {
     if (viewMode === 'isolate') {
@@ -1181,28 +1192,29 @@ export default function EnhancedReagraphVisualization({
 
     const nodeCount = dataToUse.nodes.length;
     const isLargeGraph = nodeCount >= 500;
-    
+
     // Calculate node depths for highlighting (same logic as Sigma.js)
     const nodeDepths = new Map<string, number>();
     if (selectedNode && hierarchyDepth && viewMode === 'highlight') {
       const visited = new Set<string>();
-      const queue: Array<{id: string, depth: number}> = [{id: selectedNode.id, depth: 0}];
-      
+      const queue: Array<{ id: string; depth: number }> = [{ id: selectedNode.id, depth: 0 }];
+
       while (queue.length > 0) {
-        const {id, depth} = queue.shift()!;
+        const { id, depth } = queue.shift()!;
         if (visited.has(id) || depth > hierarchyDepth) continue;
         visited.add(id);
         nodeDepths.set(id, depth);
-        
+
         if (depth < hierarchyDepth) {
-          const connectedEdges = dataToUse.edges.filter(edge => 
-            (edge.source === id || edge.target === id) &&
-            !visited.has(edge.source === id ? edge.target : edge.source)
+          const connectedEdges = dataToUse.edges.filter(
+            (edge) =>
+              (edge.source === id || edge.target === id) &&
+              !visited.has(edge.source === id ? edge.target : edge.source),
           );
-          
+
           for (const edge of connectedEdges) {
             const connectedNodeId = edge.source === id ? edge.target : edge.source;
-            queue.push({id: connectedNodeId, depth: depth + 1});
+            queue.push({ id: connectedNodeId, depth: depth + 1 });
           }
         }
       }
@@ -1210,17 +1222,18 @@ export default function EnhancedReagraphVisualization({
 
     return {
       nodes: dataToUse.nodes.map((node) => {
-        const baseColor = nodeCategories[node.category?.toLowerCase() || 'other']?.color ||
+        const baseColor =
+          nodeCategories[node.category?.toLowerCase() || 'other']?.color ||
           nodeCategories['other']?.color ||
           '#90A4AE';
-        
+
         let nodeColor = baseColor;
         let nodeSize = isLargeGraph ? 6 : Math.max(8, Math.min(16, node.name.length * 0.6 + 6));
-        
+
         // Apply depth-based highlighting in highlight mode (match Sigma.js exactly)
         if (viewMode === 'highlight' && selectedNode && hierarchyDepth) {
           const nodeDepth = nodeDepths.get(node.id);
-          
+
           if (node.id === selectedNode.id) {
             // Root node - special highlighting (match Sigma.js)
             nodeSize = nodeSize * 1.6;
@@ -1235,7 +1248,7 @@ export default function EnhancedReagraphVisualization({
             nodeColor = baseColor + '30';
           }
         }
-        
+
         return {
           id: node.id,
           label: node.name,
@@ -1247,12 +1260,12 @@ export default function EnhancedReagraphVisualization({
         dataToUse.edges?.map((edge, edgeIndex) => {
           let edgeColor = '#e5e7eb';
           let edgeSize = 0.8;
-          
+
           // Apply edge highlighting in highlight mode (match Sigma.js exactly)
           if (viewMode === 'highlight' && selectedNode && hierarchyDepth) {
             const sourceDepth = nodeDepths.get(edge.source);
             const targetDepth = nodeDepths.get(edge.target);
-            
+
             if (
               sourceDepth !== undefined &&
               targetDepth !== undefined &&
@@ -1275,7 +1288,7 @@ export default function EnhancedReagraphVisualization({
               edgeSize = 0.6;
             }
           }
-          
+
           return {
             id: `edge-${edgeIndex}`,
             source: edge.source,
@@ -1650,11 +1663,11 @@ export default function EnhancedReagraphVisualization({
           </Badge>
           {/* Only show mode badge for Sigma.js */}
           {visualizationType === 'sigma' && (
-            <Badge 
+            <Badge
               variant={viewMode === 'isolate' ? 'default' : 'secondary'}
               className={`backdrop-blur-sm border-border/60 rounded-xl px-1.5 py-1 text-xs ${
-                viewMode === 'isolate' 
-                  ? 'bg-primary text-primary-foreground border-primary/50' 
+                viewMode === 'isolate'
+                  ? 'bg-primary text-primary-foreground border-primary/50'
                   : 'bg-background/90'
               }`}
             >
@@ -1759,7 +1772,7 @@ export default function EnhancedReagraphVisualization({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           {/* Only show isolate mode toggle for Sigma.js */}
           {visualizationType === 'sigma' && (
             <TooltipProvider>
@@ -1769,8 +1782,8 @@ export default function EnhancedReagraphVisualization({
                     variant={viewMode === 'isolate' ? 'secondary' : 'outline'}
                     size="icon"
                     className={`h-8 w-8 rounded-xl backdrop-blur-sm border-border/60 ${
-                      viewMode === 'isolate' 
-                        ? 'bg-primary text-primary-foreground border-primary/50' 
+                      viewMode === 'isolate'
+                        ? 'bg-primary text-primary-foreground border-primary/50'
                         : 'bg-background/90'
                     }`}
                     onClick={() => {
@@ -1782,11 +1795,17 @@ export default function EnhancedReagraphVisualization({
                       }
                     }}
                   >
-                    {viewMode === 'isolate' ? <Focus className="h-4 w-4" /> : <Target className="h-4 w-4" />}
+                    {viewMode === 'isolate' ? (
+                      <Focus className="h-4 w-4" />
+                    ) : (
+                      <Target className="h-4 w-4" />
+                    )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {viewMode === 'isolate' ? 'Exit Isolate Mode' : 'Enter Isolate Mode (double-click node)'}
+                  {viewMode === 'isolate'
+                    ? 'Exit Isolate Mode'
+                    : 'Enter Isolate Mode (double-click node)'}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1804,11 +1823,11 @@ export default function EnhancedReagraphVisualization({
           </Badge>
           {/* Only show mode badge for Sigma.js */}
           {visualizationType === 'sigma' && (
-            <Badge 
+            <Badge
               variant={viewMode === 'isolate' ? 'default' : 'secondary'}
               className={`backdrop-blur-sm border-border/60 rounded-xl px-2 py-1 text-xs ${
-                viewMode === 'isolate' 
-                  ? 'bg-primary text-primary-foreground border-primary/50' 
+                viewMode === 'isolate'
+                  ? 'bg-primary text-primary-foreground border-primary/50'
                   : 'bg-background/90'
               }`}
             >

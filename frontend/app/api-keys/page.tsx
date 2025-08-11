@@ -37,6 +37,7 @@ import { showToast } from '@/components/toaster';
 import { saveApiKey, getAvailableModels, verifyApiKey } from '@/utils/api';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useResultData } from '@/context/ResultDataContext';
+import { extractJwtToken } from '@/utils/token-utils';
 
 export default function ApiKeysPage() {
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function ApiKeysPage() {
       if (!session?.jwt_token) return;
       try {
         setIsLoading(true);
-        const models = await getAvailableModels(session.jwt_token);
+        const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
         setAvailableModels(models);
 
         // Initialize preferences if they don't exist
@@ -109,7 +110,7 @@ export default function ApiKeysPage() {
 
     try {
       const result = await verifyApiKey({
-        token: session.jwt_token,
+        token: extractJwtToken(session?.jwt_token) || '',
         provider,
         api_key: apiKey.trim(),
       });
@@ -143,7 +144,7 @@ export default function ApiKeysPage() {
     setIsSaving(true);
     try {
       await saveApiKey({
-        token: session.jwt_token,
+        token: extractJwtToken(session?.jwt_token) || '',
         provider,
         api_key: apiKey.trim(),
         key_name: keyName.trim() || undefined,
@@ -157,7 +158,7 @@ export default function ApiKeysPage() {
       );
 
       // Refetch models to update the UI with the new key status
-      const models = await getAvailableModels(session.jwt_token);
+      const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
       setAvailableModels(models);
 
       // Ensure the new key is enabled by default in preferences

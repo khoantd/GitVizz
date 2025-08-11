@@ -1,5 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 # =====================
 # Models
@@ -47,3 +48,22 @@ class TextResponse(BaseModel):
     text_content: str
     filename_suggestion: str
     repo_id: str
+
+
+# Schema for indexed repository information
+class IndexedRepository(BaseModel):
+    repo_id: str
+    repo_name: str
+    branch: str
+    source: str  # "github" or "zip"
+    github_url: Optional[str] = None
+    commit_sha: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    file_size_mb: Optional[float] = None  # Size in MB for display
+
+
+class IndexedRepositoriesResponse(BaseModel):
+    repositories: List[IndexedRepository]
+    total_count: int
+    user_tier: str
