@@ -1,4 +1,6 @@
 // streaming-chat.ts
+import type { DailyUsage } from '@/api-client/types.gen';
+
 export interface StreamingChatRequest {
   token: string;
   message: string;
@@ -10,7 +12,6 @@ export interface StreamingChatRequest {
   model?: string;
   temperature?: number;
   max_tokens?: number;
-  include_full_context?: boolean;
   context_search_query?: string;
   scope_preference?: string;
 }
@@ -33,6 +34,7 @@ export interface StreamingChunk {
   provider?: string;
   model?: string;
   context_metadata?: Record<string, unknown>;
+  daily_usage?: DailyUsage;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
@@ -53,12 +55,6 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   if (request.temperature !== undefined)
     formData.append('temperature', request.temperature.toString());
   if (request.max_tokens) formData.append('max_tokens', request.max_tokens.toString());
-
-  // Handle boolean fields properly - only append if explicitly true to avoid FastAPI parsing "false" as truthy
-  if (request.include_full_context === true) {
-    formData.append('include_full_context', 'true');
-  }
-  // Don't append if false or undefined - let it default to False on backend
 
   if (request.context_search_query)
     formData.append('context_search_query', request.context_search_query);
@@ -142,6 +138,7 @@ export async function* parseStreamingResponse(
                 usage: data.usage,
                 provider: data.provider,
                 model: data.model,
+                daily_usage: data.daily_usage,
               };
               yield { type: 'done' }; // Signal end
               break;
@@ -185,6 +182,7 @@ export async function* parseStreamingResponse(
             chat_id: data.chat_id,
             conversation_id: data.conversation_id,
             usage: data.usage,
+            daily_usage: data.daily_usage,
           };
         }
       } catch (parseError) {

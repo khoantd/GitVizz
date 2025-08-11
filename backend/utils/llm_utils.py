@@ -274,16 +274,16 @@ class LLMService:
                     knowledge_cutoff="2024-02",
                     is_reasoning_model=True,
                 ),
-                "claude-3.5": ModelConfig(
-                    max_tokens=200000,
-                    max_output_tokens=8192,
-                    cost_per_1M_input=3.00,
-                    cost_per_1M_output=15.00,
-                    supports_function_calling=True,
-                    supports_vision=True,
-                    knowledge_cutoff="2024-04",
-                    is_reasoning_model=False,
-                ),
+                # "claude-3.5": ModelConfig(
+                #     max_tokens=200000,
+                #     max_output_tokens=8192,
+                #     cost_per_1M_input=3.00,
+                #     cost_per_1M_output=15.00,
+                #     supports_function_calling=True,
+                #     supports_vision=True,
+                #     knowledge_cutoff="2024-04",
+                #     is_reasoning_model=False,
+                # ),  
                 "claude-3-5-sonnet-20241022": ModelConfig(
                     max_tokens=200000,
                     max_output_tokens=8192,
@@ -870,6 +870,10 @@ class LLMService:
                 result[provider] = matching_models
                 
         return result
+    
+    def get_valid_models_for_provider(self, provider: str, api_key: str = None) -> List[str]:
+        """Get valid models for a provider (used by chat controller)"""
+        return list(self.model_configs.get(provider, {}).keys())
 
 
 # Global instance

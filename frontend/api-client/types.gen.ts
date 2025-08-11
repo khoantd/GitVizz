@@ -674,12 +674,16 @@ export type ChatResponse = {
    * Model Used
    */
   model_used?: string | null;
-  provider?: ModelProvider | null;
+  /**
+   * Provider
+   */
+  provider?: string | null;
   /**
    * Response Time
    * Response time in seconds
    */
   response_time?: number | null;
+  daily_usage?: DailyUsage | null;
 };
 
 /**
@@ -897,6 +901,25 @@ export type ConversationHistoryResponse = {
    * Model Name
    */
   model_name: string;
+};
+
+/**
+ * DailyUsage
+ * Daily usage tracking
+ */
+export type DailyUsage = {
+  /**
+   * Requests Used
+   */
+  requests_used: number;
+  /**
+   * Requests Limit
+   */
+  requests_limit: number;
+  /**
+   * Reset Date
+   */
+  reset_date: string;
 };
 
 /**
@@ -1203,7 +1226,7 @@ export type MessageResponse = {
  * ModelProvider
  * Supported LLM providers
  */
-export type ModelProvider = 'openai' | 'anthropic' | 'gemini';
+export type ModelProvider = 'openai' | 'anthropic' | 'gemini' | 'groq';
 
 /**
  * ModelProvider
@@ -1213,6 +1236,7 @@ export const ModelProvider = {
   OPENAI: 'openai',
   ANTHROPIC: 'anthropic',
   GEMINI: 'gemini',
+  GROQ: 'groq',
 } as const;
 
 /**

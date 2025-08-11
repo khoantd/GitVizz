@@ -1166,12 +1166,13 @@ export const ChatResponseSchema = {
     provider: {
       anyOf: [
         {
-          $ref: '#/components/schemas/ModelProvider',
+          type: 'string',
         },
         {
           type: 'null',
         },
       ],
+      title: 'Provider',
     },
     response_time: {
       anyOf: [
@@ -1184,6 +1185,16 @@ export const ChatResponseSchema = {
       ],
       title: 'Response Time',
       description: 'Response time in seconds',
+    },
+    daily_usage: {
+      anyOf: [
+        {
+          $ref: '#/components/schemas/DailyUsage',
+        },
+        {
+          type: 'null',
+        },
+      ],
     },
   },
   type: 'object',
@@ -1524,6 +1535,27 @@ export const ConversationHistoryResponseSchema = {
   ],
   title: 'ConversationHistoryResponse',
   description: 'Response model for conversation history',
+} as const;
+
+export const DailyUsageSchema = {
+  properties: {
+    requests_used: {
+      type: 'integer',
+      title: 'Requests Used',
+    },
+    requests_limit: {
+      type: 'integer',
+      title: 'Requests Limit',
+    },
+    reset_date: {
+      type: 'string',
+      title: 'Reset Date',
+    },
+  },
+  type: 'object',
+  required: ['requests_used', 'requests_limit', 'reset_date'],
+  title: 'DailyUsage',
+  description: 'Daily usage tracking',
 } as const;
 
 export const DocumentationFileSchema = {
@@ -1965,7 +1997,7 @@ export const MessageResponseSchema = {
 
 export const ModelProviderSchema = {
   type: 'string',
-  enum: ['openai', 'anthropic', 'gemini'],
+  enum: ['openai', 'anthropic', 'gemini', 'groq'],
   title: 'ModelProvider',
   description: 'Supported LLM providers',
 } as const;

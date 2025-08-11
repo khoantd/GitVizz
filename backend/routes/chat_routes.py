@@ -111,8 +111,8 @@ async def stream_chat_response(
     model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
     temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
     max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-    include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
-    context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None
+    context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
+    scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
 ):
     return StreamingResponse(
         chat_controller.process_streaming_chat(
@@ -126,8 +126,8 @@ async def stream_chat_response(
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
-            include_full_context=include_full_context,
-            context_search_query=context_search_query
+            context_search_query=context_search_query,
+            scope_preference=scope_preference
         ),
         media_type="application/x-ndjson"
     )

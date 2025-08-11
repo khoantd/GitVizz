@@ -4,7 +4,7 @@ from fastapi import HTTPException, Form
 from typing import Optional, AsyncGenerator, Annotated
 import uuid
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from beanie import BeanieObjectId
 from models.chat import ChatSession, Conversation, UserApiKey
@@ -14,6 +14,7 @@ from utils.llm_utils import llm_service
 from utils.file_utils import file_manager
 from utils.jwt_utils import get_current_user
 from utils.repo_utils import extract_zip_contents, smart_filter_files, format_repo_contents, cleanup_temp_files
+from utils.repo_utils import find_user_repository
 from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
     ChatSessionResponse, ApiKeyResponse,
@@ -27,62 +28,6 @@ logger = logging.getLogger(__name__)
 class ChatController:
     """Controller for handling chat-related operations"""
     
-    async def _find_repository(self, repo_id: str, user: User) -> Repository:
-        """Find repository by ID or name, handling both ObjectId and owner/repo formats"""
-        repository = None
-        
-        print(f"Looking for repository: {repo_id} for user: {user.id}")
-        
-
-        # Strategy 2: Try exact repo_name match (for generated identifiers like "microsoft_vscode_main")
-        if not repository:
-            repository = await Repository.find_one(
-                Repository.repo_name == repo_id,
-                Repository.user.id == user.id
-            )
-            if repository:
-                print(f"Found repository by exact repo_name match: {repository.repo_name}")
-        
-        # Strategy 3: Try to find by GitHub URL (if repo_id looks like owner/repo)
-        if not repository and '/' in repo_id:
-            github_url = f"https://github.com/{repo_id}"
-            repository = await Repository.find_one(
-                Repository.github_url == github_url,
-                Repository.user.id == user.id
-            )
-            if repository:
-                print(f"Found repository by GitHub URL: {repository.repo_name}")
-        
-        # Strategy 4: Try common repo_name patterns from owner/repo format
-        if not repository and '/' in repo_id:
-            owner, repo = repo_id.split('/', 1)
-            # Try different branch combinations
-            possible_names = [
-                f"{owner}_{repo}_main",
-                f"{owner}_{repo}_master", 
-                f"{owner}_{repo}_develop",
-                f"{owner}_{repo}_dev"
-            ]
-            
-            print(f"Trying repo_name patterns: {possible_names}")
-            for possible_name in possible_names:
-                repository = await Repository.find_one(
-                    Repository.repo_name == possible_name,
-                    Repository.user.id == user.id
-                )
-                if repository:
-                    print(f"Found repository by pattern match: {repository.repo_name}")
-                    break
-        
-        if not repository:
-            print("Repository not found with any strategy")
-            raise HTTPException(
-                status_code=404, 
-                detail="Repository not found or access denied"
-            )
-            
-        return repository
-    
     async def get_or_create_chat_session(
         self, 
         user: User, 
@@ -91,8 +36,8 @@ class ChatController:
     ) -> ChatSession:
         """Get existing chat session or create a new one"""
         
-        # Find repository using helper method
-        repository = await self._find_repository(repository_id, user)
+        # Find repository using utility function
+        repository = await find_user_repository(repository_id, user)
         
         if chat_id:
             # Try to find existing chat session with fetch_links to get full repository
@@ -136,10 +81,9 @@ class ChatController:
     async def get_repository_context(
         self, 
         repository: Repository, 
-        include_full_context: bool = False,
         context_search_query: Optional[str] = None,
         user_query: Optional[str] = None,
-        max_context_tokens: int = 4000,
+        max_context_tokens: int = 8000,
         scope_preference: str = "moderate"
     ) -> tuple[str, dict]:
         """
@@ -301,7 +245,6 @@ class ChatController:
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
         context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
         scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
     ) -> ChatResponse:
@@ -348,31 +291,46 @@ class ChatController:
             # Add user message to conversation
             conversation.add_message("user", message)
             
-            # Get repository context
+            # Get repository context with intelligent selection
             context, context_metadata = await self.get_repository_context(
                 chat_session.repository,
-                include_full_context,
                 context_search_query,
                 user_query=message,
-                max_context_tokens=max_tokens or 4000,
+                max_context_tokens=max_tokens or 8000,
                 scope_preference=scope_preference
             )
             
-            # Prepare messages for LLM
-            messages = [
-                {"role": msg.role, "content": msg.content} 
-                for msg in conversation.messages[-10:]  # Last 10 messages for context
-            ]
+            # Prepare messages for LLM with intelligent context window management
+            recent_messages = conversation.messages[-20:]  # Get more recent context
+            messages = []
+            total_chars = 0
+            max_context_chars = 8000  # Roughly 2000 tokens
+            
+            # Include messages from newest to oldest until we hit context limit
+            for msg in reversed(recent_messages):
+                msg_content = f"{msg.role}: {msg.content}"
+                if total_chars + len(msg_content) > max_context_chars and messages:
+                    break
+                messages.insert(0, {"role": msg.role, "content": msg.content})
+                total_chars += len(msg_content)
             
             # Generate AI response using the new LLM service
             try:
                 # Prepare system prompt with repository context
-                system_prompt = f"""You are an AI assistant helping with code analysis and questions about a repository.
+                system_prompt = f"""You are an AI assistant specialized in code analysis and repository exploration. You have access to the complete codebase and can help with:
+- Code explanation and documentation
+- Architecture understanding
+- Bug identification and debugging
+- Implementation suggestions
+- Best practices recommendations
+
+Repository: {chat_session.repository.repo_name}
+Branch: {chat_session.repository.branch}
 
 Repository Context:
 {context}
 
-Please provide helpful, accurate responses based on the repository content above and the conversation history."""
+Provide detailed, accurate responses based on the repository content. Reference specific files and line numbers when relevant."""
 
                 llm_response = await llm_service.generate(
                     messages=messages,
@@ -436,7 +394,7 @@ Please provide helpful, accurate responses based on the repository content above
             daily_usage = {
                 "requests_used": chat_session.daily_requests_count,
                 "requests_limit": 50 if not chat_session.use_own_key else -1,
-                "reset_date": (datetime.utcnow() + timedelta(days=1)).date().isoformat()
+                "reset_date": (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
             }
             
             return ChatResponse(
@@ -474,7 +432,6 @@ Please provide helpful, accurate responses based on the repository content above
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
         context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
         scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
     ) -> AsyncGenerator[str, None]:
@@ -558,28 +515,43 @@ Please provide helpful, accurate responses based on the repository content above
             # Get repository context - use the repository from chat_session which we know is fully loaded
             context, context_metadata = await self.get_repository_context(
                 chat_session.repository,
-                include_full_context,
                 context_search_query,
                 user_query=message,
-                max_context_tokens=max_tokens or 4000,
+                max_context_tokens=max_tokens or 8000,
                 scope_preference=scope_preference
             )
             
-            # Prepare messages for LLM
-            messages = [
-                {"role": msg.role, "content": msg.content} 
-                for msg in conversation.messages[-10:]  # Last 10 messages for context
-            ]
+            # Prepare messages for LLM with intelligent context window management
+            recent_messages = conversation.messages[-20:]  # Get more recent context
+            messages = []
+            total_chars = 0
+            max_context_chars = 8000  # Roughly 2000 tokens
+            
+            # Include messages from newest to oldest until we hit context limit
+            for msg in reversed(recent_messages):
+                msg_content = f"{msg.role}: {msg.content}"
+                if total_chars + len(msg_content) > max_context_chars and messages:
+                    break
+                messages.insert(0, {"role": msg.role, "content": msg.content})
+                total_chars += len(msg_content)
             
             # Generate streaming response using the new LLM service
             try:
                 # Prepare system prompt with repository context
-                system_prompt = f"""You are an AI assistant helping with code analysis and questions about a repository.
+                system_prompt = f"""You are an AI assistant specialized in code analysis and repository exploration. You have access to the complete codebase and can help with:
+- Code explanation and documentation
+- Architecture understanding
+- Bug identification and debugging
+- Implementation suggestions
+- Best practices recommendations
+
+Repository: {chat_session.repository.repo_name}
+Branch: {chat_session.repository.branch}
 
 Repository Context:
 {context}
 
-Please provide helpful, accurate responses based on the repository content above and the conversation history."""
+Provide detailed, accurate responses based on the repository content. Reference specific files and line numbers when relevant."""
 
                 response_generator = await llm_service.generate(
                     messages=messages,
@@ -719,9 +691,9 @@ Please provide helpful, accurate responses based on the repository content above
             
             user_object_id = BeanieObjectId(user.id)
             
-            # Find repository using helper method
+            # Find repository using utility function
             try:
-                repository = await self._find_repository(repo_id, user)
+                repository = await find_user_repository(repo_id, user)
             except HTTPException:
                 # Repository not found, return empty list
                 return ChatSessionListResponse(
@@ -1078,7 +1050,7 @@ Please provide helpful, accurate responses based on the repository content above
                 updated_fields["default_temperature"] = default_temperature
                 
             if updated_fields:
-                chat_session.updated_at = datetime.utcnow()
+                chat_session.updated_at = datetime.now(timezone.utc)
                 await chat_session.save()
             
             return ChatSettingsResponse(
@@ -1106,7 +1078,7 @@ Please provide helpful, accurate responses based on the repository content above
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
-            repository = await self._find_repository(repository_id, user)
+            repository = await find_user_repository(repository_id, user)
             
             # Load repository content
             content = await file_manager.load_text_content(repository.file_paths.text)

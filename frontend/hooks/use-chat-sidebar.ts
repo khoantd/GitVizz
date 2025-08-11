@@ -17,6 +17,7 @@ import {
   parseStreamingResponse,
   type StreamingChatRequest,
 } from '@/lib/streaming-chat';
+import type { DailyUsage } from '@/api-client/types.gen';
 import { showToast } from '@/components/toaster';
 
 interface ContextSettings {
@@ -170,7 +171,7 @@ export function useChatSidebar(
     }
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
 
     const userMessage: Message = {
@@ -210,7 +211,6 @@ export function useChatSidebar(
         provider: modelState.provider,
         model: modelState.model,
         temperature: temperature,
-        include_full_context: contextSettings.includeFullContext,
         context_search_query: content, // Send user message as context search query for smart search
         scope_preference: contextSettings.scope,
         max_tokens: contextSettings.maxTokens,
@@ -224,6 +224,7 @@ export function useChatSidebar(
       let hasStartedResponse = false;
       let metadataReceived = false;
       let hasReceivedTokens = false;
+      let dailyUsage: DailyUsage | null = null;
 
       // Add placeholder assistant message immediately
       setChatState((prev) => ({
@@ -288,6 +289,11 @@ export function useChatSidebar(
           } else if (chunk.type === 'complete') {
             console.log('Stream completed successfully');
 
+            // Capture daily usage data
+            if (chunk.daily_usage) {
+              dailyUsage = chunk.daily_usage;
+            }
+
             // Update the final assistant message with context metadata if available
             if (chunk.context_metadata) {
               setChatState((prev) => {
@@ -321,6 +327,11 @@ export function useChatSidebar(
                 router.push('/api-keys');
               }, 2000);
               throw new Error('API key required. Please add your API key to continue.');
+            }
+
+            // Handle repository not found errors
+            if (errorType === 'server_error' && errorMessage.includes('not found')) {
+              throw new Error('Repository not processed yet. Please process the repository first before chatting.');
             }
 
             // Check for specific error types
@@ -365,6 +376,9 @@ export function useChatSidebar(
       console.log('Message sent successfully, refreshing chat history');
       // Refresh chat history after successful message
       await loadChatHistory();
+      
+      // Return daily usage data if available
+      return dailyUsage ? { daily_usage: dailyUsage } : undefined;
     } catch (error) {
       console.error('Chat error:', error);
 

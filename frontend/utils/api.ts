@@ -66,8 +66,8 @@ export interface ChatRequest {
   model?: string;
   temperature?: number;
   max_tokens?: number;
-  include_full_context?: boolean;
   context_search_query?: string;
+  scope_preference?: string;
 }
 
 export interface ApiKeyRequest {
@@ -574,8 +574,8 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
-        include_full_context: chatRequest.include_full_context || false,
         context_search_query: chatRequest.context_search_query || null,
+        scope_preference: chatRequest.scope_preference || 'moderate',
       },
     });
 
@@ -610,8 +610,8 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
-        include_full_context: chatRequest.include_full_context || false,
         context_search_query: chatRequest.context_search_query || null,
+        scope_preference: chatRequest.scope_preference || 'moderate',
       },
     });
 

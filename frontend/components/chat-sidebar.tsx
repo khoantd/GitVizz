@@ -23,6 +23,8 @@ import {
   Sparkles,
   ExternalLink,
   Brain,
+  AlertTriangle,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatHistory } from './chat-history';
@@ -30,7 +32,10 @@ import { ChatMessage } from './chat-message';
 import { ModelSelector } from './model-selector';
 import { ContextIndicator, ContextMetadata } from './context-indicator';
 import { ContextControls } from './context-controls';
+import { ApiKeyModal } from './api-key-modal';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
+import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
+import type { DailyUsage } from '@/api-client/types.gen';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -66,12 +71,15 @@ export function ChatSidebar({
     autoLoad: isOpen && Boolean(repositoryId),
   }); // Pass preferences to hook
 
+  const apiKeyValidation = useApiKeyValidation();
+
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showContextControls, setShowContextControls] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
+  const [lastDailyUsage, setLastDailyUsage] = useState<DailyUsage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -93,9 +101,22 @@ export function ChatSidebar({
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
+    // Check for API keys before sending message
+    const canProceed = await apiKeyValidation.checkApiKeysBeforeAction();
+    if (!canProceed) return;
+
     const message = input.trim();
     setInput('');
-    await sendMessage(message);
+    
+    try {
+      const response = await sendMessage(message);
+      // Update daily usage if available in response
+      if (response?.daily_usage) {
+        setLastDailyUsage(response.daily_usage);
+      }
+    } catch {
+      // sendMessage already handles errors
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -268,50 +289,92 @@ export function ChatSidebar({
               </div>
 
               {/* API Keys Status */}
-              {userHasKeys.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">API Keys</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleApiKeysClick}
-                        className="text-xs h-6 px-2"
-                      >
-                        Manage
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {activeUserKeys.length > 0 ? (
-                        <>
-                          <span className="text-green-600 dark:text-green-400">
-                            {activeUserKeys.length} user key{activeUserKeys.length !== 1 ? 's' : ''}{' '}
-                            active
-                          </span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {activeUserKeys.map((key) => (
-                              <Badge
-                                key={key}
-                                variant="outline"
-                                className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
-                              >
-                                {key}
-                              </Badge>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          Using system keys (rate limited)
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">API Configuration</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleApiKeysClick}
+                    className="text-xs h-6 px-2"
+                  >
+                    {userHasKeys.length > 0 ? 'Manage' : 'Setup'}
+                    <ExternalLink className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+
+                {/* API Key Status */}
+                <div className="space-y-2">
+                  {activeUserKeys.length > 0 ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          {activeUserKeys.length} user key{activeUserKeys.length !== 1 ? 's' : ''} active
                         </span>
-                      )}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {activeUserKeys.map((key) => (
+                          <Badge
+                            key={key}
+                            variant="outline"
+                            className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
+                          >
+                            {key}
+                          </Badge>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 p-2 rounded-md bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                      <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                      <span className="text-xs text-orange-600 dark:text-orange-400">
+                        Rate limited - Add your keys for unlimited access
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Daily Usage */}
+                {lastDailyUsage && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-3 w-3 text-blue-500" />
+                      <span className="text-xs font-medium">Today&apos;s Usage</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Requests</span>
+                        <span className="font-medium">
+                          {lastDailyUsage.requests_used} / {lastDailyUsage.requests_limit}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div
+                          className={cn(
+                            "h-1.5 rounded-full transition-all",
+                            lastDailyUsage.requests_used / lastDailyUsage.requests_limit > 0.8
+                              ? "bg-red-500"
+                              : lastDailyUsage.requests_used / lastDailyUsage.requests_limit > 0.6
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          )}
+                          style={{
+                            width: `${Math.min(
+                              (lastDailyUsage.requests_used / lastDailyUsage.requests_limit) * 100,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Resets: {new Date(lastDailyUsage.reset_date).toLocaleDateString()}
+                      </div>
                     </div>
                   </div>
-                </>
-              )}
+                )}
+              </div>
 
               <Separator />
 
@@ -469,7 +532,7 @@ export function ChatSidebar({
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   placeholder="Ask about the repository..."
                   disabled={isLoading}
                   className="pr-12 h-11 rounded-xl border-border/50 focus:border-primary/50 focus:ring-primary/20"
@@ -519,6 +582,14 @@ export function ChatSidebar({
             </div>
           </div>
         )}
+
+        {/* API Key Modal */}
+        <ApiKeyModal
+          isOpen={apiKeyValidation.showApiKeyModal}
+          onClose={() => apiKeyValidation.setShowApiKeyModal(false)}
+          userHasKeys={apiKeyValidation.userHasKeys}
+          availableProviders={apiKeyValidation.availableProviders}
+        />
       </div>
     </>
   );

@@ -10,10 +10,86 @@ from fastapi import UploadFile, HTTPException
 import requests
 from urllib.parse import urlparse
 from config import CONFIG
+from beanie import BeanieObjectId
+from models.repository import Repository
+from models.user import User
 
 # =====================
 # Utility Functions
 # =====================
+
+"""
+Repository utilities for efficient lookup and management
+"""
+
+
+async def find_user_repository(repo_id: str, user: User) -> Repository:
+    """
+    Find repository by ID using ObjectId or repo_name
+    
+    Args:
+        repo_id: Repository ObjectId or repo_name (format: owner_repo_branch)
+        user: User object for access control
+        
+    Returns:
+        Repository object
+        
+    Raises:
+        HTTPException: If repository not found or access denied
+    """
+    try:
+        # Try ObjectId format first (most efficient for database lookups)
+        if len(repo_id) == 24:
+            repository = await Repository.find_one(
+                Repository.id == BeanieObjectId(repo_id),
+                Repository.user.id == user.id
+            )
+            if repository:
+                return repository
+    except (ValueError, TypeError):
+        # Invalid ObjectId format, continue with repo_name lookup
+        pass
+    
+    # Try exact repo_name match (for identifiers like "microsoft_vscode_main")
+    repository = await Repository.find_one(
+        Repository.repo_name == repo_id,
+        Repository.user.id == user.id
+    )
+    
+    # If not found by repo_name, try to match by URL format (owner/repo)
+    if not repository and '/' in repo_id:
+        # Handle owner/repo format by searching for repositories with matching URL
+        owner_repo = repo_id
+        search_url = f"https://github.com/{owner_repo}"
+        repository = await Repository.find_one(
+            Repository.github_url == search_url,
+            Repository.user.id == user.id
+        )
+    
+    if not repository:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Repository '{repo_id}' not found"
+        )
+        
+    return repository
+
+
+async def get_user_repositories(user: User, limit: int = 50) -> List[Repository]:
+    """Get all repositories for a user"""
+    return await Repository.find(
+        Repository.user.id == user.id
+    ).sort(-Repository.updated_at).limit(limit).to_list()
+
+
+async def check_repository_access(repo_id: str, user: User) -> bool:
+    """Check if user has access to repository without returning it"""
+    try:
+        await find_user_repository(repo_id, user)
+        return True
+    except HTTPException:
+        return False
+
 def parse_repo_url(repo_url: str) -> Dict[str, str]:
     """Parse GitHub repository URL into owner, repo, and optional branch/path."""
     pattern = r"github.com[:/](?P<owner>[^/]+)/(?P<repo>[^/#]+)(?:/(tree|blob)/(?P<last_string>.+))?"

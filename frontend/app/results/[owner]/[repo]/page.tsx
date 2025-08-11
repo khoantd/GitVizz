@@ -89,6 +89,11 @@ export default function ResultsPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleChat = () => {
+    // Allow chat if we have output (repository has been processed) or if chat is already open
+    if (!output && !currentRepoId && !isChatOpen) {
+      showToast.error('Repository not processed yet. Please wait for processing to complete before chatting.');
+      return;
+    }
     setIsChatOpen(!isChatOpen);
   };
 
