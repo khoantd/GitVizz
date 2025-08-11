@@ -54,7 +54,6 @@ export default function ResultsPage() {
     userKeyPreferences,
     setSourceType,
     setSourceData,
-    setCurrentRepoId,
   } = useResultData();
   const { data: session } = useSession();
   const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences);
