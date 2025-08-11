@@ -13,8 +13,7 @@ export interface StreamingChatRequest {
   model?: string;
   temperature?: number;
   max_tokens?: number;
-  context_search_query?: string;
-  scope_preference?: string;
+  context_mode?: string;
 }
 
 export interface StreamingChunk {
@@ -58,9 +57,9 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
     formData.append('temperature', request.temperature.toString());
   if (request.max_tokens) formData.append('max_tokens', request.max_tokens.toString());
 
-  if (request.context_search_query)
-    formData.append('context_search_query', request.context_search_query);
-  if (request.scope_preference) formData.append('scope_preference', request.scope_preference);
+  if (request.context_mode) {
+    formData.append('context_mode', request.context_mode);
+  }
 
   // Make the request to your backend
   const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {

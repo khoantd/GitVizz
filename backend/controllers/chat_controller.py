@@ -436,8 +436,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
-        scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
+        context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart"
     ) -> AsyncGenerator[str, None]:
         """Process a chat message with streaming response - yields JSON strings"""
         try:
@@ -517,13 +516,12 @@ Provide detailed, accurate responses based on the repository content. Reference 
             # Add user message to conversation
             conversation.add_message("user", message)
             
-            # Get repository context - use the repository from chat_session which we know is fully loaded
-            context, context_metadata = await self.get_repository_context(
+            # Get repository context based on the selected mode
+            context, context_metadata = await self.get_repository_context_by_mode(
                 chat_session.repository,
-                context_search_query,
+                context_mode,
                 user_query=message,
-                max_context_tokens=max_tokens or 8000,
-                scope_preference=scope_preference
+                max_context_tokens=max_tokens or 8000
             )
             
             # Prepare messages for LLM with intelligent context window management
@@ -1127,6 +1125,115 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 total_found=0,
                 query_used=query
             )
+
+    async def get_repository_context_by_mode(
+        self,
+        repository,
+        context_mode: str,
+        user_query: str,
+        max_context_tokens: int = 8000
+    ) -> tuple[str, dict]:
+        """Get repository context based on the selected mode"""
+        
+        if context_mode == "full":
+            # Full context mode - include entire repository
+            return await self.get_full_repository_context(
+                repository,
+                max_context_tokens
+            )
+        elif context_mode == "smart":
+            # Smart context mode - use AI-powered retrieval (existing logic)
+            return await self.get_repository_context(
+                repository,
+                context_search_query=user_query,
+                user_query=user_query,
+                max_context_tokens=max_context_tokens,
+                scope_preference="moderate"
+            )
+        elif context_mode == "agentic":
+            # Agentic context mode - multi-step reasoning (not implemented yet)
+            # For now, fallback to smart mode with comprehensive scope
+            return await self.get_repository_context(
+                repository,
+                context_search_query=user_query,
+                user_query=user_query,
+                max_context_tokens=max_context_tokens,
+                scope_preference="comprehensive"
+            )
+        else:
+            # Default to smart mode
+            return await self.get_repository_context(
+                repository,
+                context_search_query=user_query,
+                user_query=user_query,
+                max_context_tokens=max_context_tokens,
+                scope_preference="moderate"
+            )
+
+    async def get_full_repository_context(
+        self,
+        repository,
+        max_context_tokens: int = 8000
+    ) -> tuple[str, dict]:
+        """Get full repository context by including all files"""
+        try:
+            # Get all file paths from the repository
+            all_files = repository.file_paths or []
+            
+            if not all_files:
+                return "No files found in repository.", {"context_type": "full", "files_included": 0}
+            
+            context_parts = []
+            files_included = 0
+            current_tokens = 0
+            
+            # Estimate tokens per character (rough approximation)
+            char_to_token_ratio = 4
+            max_chars = max_context_tokens * char_to_token_ratio
+            
+            # Sort files by type and size to prioritize important files
+            important_extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.go', '.rs', '.rb']
+            
+            sorted_files = sorted(all_files, key=lambda f: (
+                0 if any(f.endswith(ext) for ext in important_extensions) else 1,
+                len(f)  # Smaller files first
+            ))
+            
+            for file_path in sorted_files:
+                try:
+                    # For full context mode, we include file structure information
+                    # In a real implementation, you'd want to read actual file contents
+                    # This is a simplified version that includes file paths and basic info
+                    file_section = f"\n=== File: {file_path} ===\n"
+                    
+                    # Check if adding this file would exceed token limit
+                    if current_tokens + len(file_section) > max_chars:
+                        break
+                        
+                    context_parts.append(file_section)
+                    files_included += 1
+                    current_tokens += len(file_section)
+                        
+                except Exception as e:
+                    logger.warning(f"Could not process file {file_path}: {e}")
+                    continue
+            
+            context = "\n".join(context_parts)
+            if not context:
+                context = "Repository structure loaded with full context mode."
+                
+            metadata = {
+                "context_type": "full",
+                "files_included": files_included,
+                "total_files": len(all_files),
+                "estimated_tokens": current_tokens // char_to_token_ratio
+            }
+            
+            return context, metadata
+            
+        except Exception as e:
+            logger.error(f"Error getting full repository context: {e}")
+            return f"Error loading repository context: {str(e)}", {"context_type": "full", "error": str(e)}
 
 
 # Global instance

@@ -323,9 +323,9 @@ function HierarchyNodeComponent({
         {/* Children */}
         {hasChildren && !hideChildren && (
           <CollapsibleContent className="space-y-2">
-            {node.children.map((child) => (
+            {node.children.map((child, index) => (
               <HierarchyNodeComponent
-                key={child.id}
+                key={`${node.id}-child-${child.id}-${index}`}
                 node={child}
                 tree={tree}
                 onToggleExpansion={onToggleExpansion}
@@ -391,11 +391,14 @@ export function HierarchyTab({
     setTree((prevTree) => collapseAll(prevTree));
   }, []);
 
-  const handleExpandToDepth = useCallback((depth: number) => {
-    setTree((prevTree) => expandToDepth(prevTree, depth));
-    setCurrentDepth(depth);
-    onDepthChange(depth);
-  }, [onDepthChange]);
+  const handleExpandToDepth = useCallback(
+    (depth: number) => {
+      setTree((prevTree) => expandToDepth(prevTree, depth));
+      setCurrentDepth(depth);
+      onDepthChange(depth);
+    },
+    [onDepthChange],
+  );
 
   if (!selectedNode) {
     return (
@@ -554,9 +557,9 @@ export function HierarchyTab({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-3">
                       <div className="space-y-2">
-                        {tree.rootNode.parents.map((parent) => (
+                        {tree.rootNode.parents.map((parent, index) => (
                           <HierarchyNodeComponent
-                            key={parent.id}
+                            key={`parent-${parent.id}-${index}`}
                             node={parent}
                             tree={tree}
                             onToggleExpansion={handleToggleExpansion}
@@ -592,9 +595,9 @@ export function HierarchyTab({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-3">
                       <div className="space-y-2">
-                        {tree.rootNode.children.map((child) => (
+                        {tree.rootNode.children.map((child, index) => (
                           <HierarchyNodeComponent
-                            key={child.id}
+                            key={`child-${child.id}-${index}`}
                             node={child}
                             tree={tree}
                             onToggleExpansion={handleToggleExpansion}

@@ -37,13 +37,7 @@ import {
 import { showToast } from '@/components/toaster';
 
 import { cn } from '@/lib/utils';
-import {
-  fetchGithubRepo,
-  uploadLocalZip,
-  getRepositoryDefaultBranch,
-  getRepositoryBranches,
-  resolveBranch,
-} from '@/utils/api';
+import { fetchGithubRepo, uploadLocalZip, getRepositoryBranches, resolveBranch } from '@/utils/api';
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { SupportedLanguages, type Language } from '@/components/supported-languages';
@@ -208,15 +202,14 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
           throw new Error('Invalid GitHub URL format');
         }
 
-        // Fetch repo info, default branch and all branches in parallel
-        const [repoInfo, defaultBranch, branches] = await Promise.all([
-          // GitHub API call for repository info
-          fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-            headers: token ? { Authorization: `token ${token}` } : {},
-          }).then((res) => res.json()),
-          getRepositoryDefaultBranch(url, token),
-          getRepositoryBranches(url, token),
-        ]);
+        // Fetch repo info (size + default_branch) and branches together
+        const repoInfoPromise = fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+          headers: token ? { Authorization: `token ${token}` } : {},
+        }).then((res) => res.json());
+
+        const branchesPromise = getRepositoryBranches(url, token);
+
+        const [repoInfo, branches] = await Promise.all([repoInfoPromise, branchesPromise]);
 
         // Set repository size (in KB)
         if (repoInfo.size) {
@@ -224,6 +217,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
           // Consider repos over 50MB (50000 KB) as large
           setIsLargeRepo(repoInfo.size > 50000);
         }
+
+        const defaultBranch = repoInfo?.default_branch || 'main';
 
         setSuggestedBranch(defaultBranch);
         setAvailableBranches(branches);

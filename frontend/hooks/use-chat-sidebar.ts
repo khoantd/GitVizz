@@ -61,7 +61,7 @@ export function useChatSidebar(
   const { data: session } = useSession();
   const router = useRouter();
   const { autoLoad = true } = options ?? {};
-  
+
   // Wrap API calls with auth handling
   const getUserChatSessionsWithAuth = useApiWithAuth(getUserChatSessions);
   const getConversationHistoryWithAuth = useApiWithAuth(getConversationHistory);
@@ -103,6 +103,15 @@ export function useChatSidebar(
     if (!autoLoad) return;
     if (!session?.jwt_token) return;
     if (!repositoryId) return;
+
+    // Skip if repositoryId looks like owner/repo format (not a valid ObjectId)
+    if (repositoryId.includes('/')) {
+      console.warn(
+        'Repository ID appears to be in owner/repo format, skipping chat history load:',
+        repositoryId,
+      );
+      return;
+    }
 
     // Models: only load once per token
     if (lastModelsTokenRef.current !== session.jwt_token) {
@@ -155,7 +164,10 @@ export function useChatSidebar(
     isFetchingHistoryRef.current = true;
     setIsLoadingHistory(true);
     try {
-      const chatSessions = await getUserChatSessionsWithAuth(extractJwtToken(session.jwt_token), repositoryId);
+      const chatSessions = await getUserChatSessionsWithAuth(
+        extractJwtToken(session.jwt_token),
+        repositoryId,
+      );
       if (chatSessions.success) {
         setChatHistory(chatSessions.sessions);
       } else {
@@ -171,8 +183,21 @@ export function useChatSidebar(
     }
   };
 
-  const sendMessage = async (content: string): Promise<{ daily_usage?: DailyUsage } | undefined> => {
+  const sendMessage = async (
+    content: string,
+  ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
+
+    // Check if repository ID is valid (not in owner/repo format)
+    if (repositoryId.includes('/')) {
+      console.error(
+        'Cannot send message: Repository ID appears to be in owner/repo format:',
+        repositoryId,
+      );
+      throw new Error(
+        'Repository not processed yet. Please wait for repository processing to complete.',
+      );
+    }
 
     const userMessage: Message = {
       role: 'user',
@@ -212,8 +237,7 @@ export function useChatSidebar(
         provider: modelState.provider,
         model: modelState.model,
         temperature: temperature,
-        context_search_query: content, // Send user message as context search query for smart search
-        scope_preference: contextSettings.scope,
+        context_mode: contextSettings.includeFullContext ? 'full' : 'smart',
         max_tokens: contextSettings.maxTokens,
       };
 
@@ -332,7 +356,9 @@ export function useChatSidebar(
 
             // Handle repository not found errors
             if (errorType === 'server_error' && errorMessage.includes('not found')) {
-              throw new Error('Repository not processed yet. Please process the repository first before chatting.');
+              throw new Error(
+                'Repository not processed yet. Please process the repository first before chatting.',
+              );
             }
 
             // Check for specific error types
@@ -377,7 +403,7 @@ export function useChatSidebar(
       console.log('Message sent successfully, refreshing chat history');
       // Refresh chat history after successful message
       await loadChatHistory();
-      
+
       // Return daily usage data if available
       return dailyUsage ? { daily_usage: dailyUsage } : undefined;
     } catch (error) {
@@ -386,7 +412,7 @@ export function useChatSidebar(
       let errorMessage = 'Failed to send message';
       if (error instanceof Error) {
         errorMessage = error.message;
-        
+
         // Check if it's an API key error and redirect if needed
         if (errorMessage.toLowerCase().includes('api key required')) {
           // The redirect is already handled in the streaming error handler
@@ -411,7 +437,10 @@ export function useChatSidebar(
     setChatState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const conversation = await getConversationHistoryWithAuth(extractJwtToken(session.jwt_token), conversationId);
+      const conversation = await getConversationHistoryWithAuth(
+        extractJwtToken(session.jwt_token),
+        conversationId,
+      );
 
       const messages: Message[] = conversation.messages.map((msg) => ({
         role: msg.role,

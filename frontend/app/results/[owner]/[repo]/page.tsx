@@ -56,11 +56,14 @@ export default function ResultsPage() {
     setSourceData,
   } = useResultData();
   const { data: session } = useSession();
-  const repositoryBranch = (sourceData && typeof sourceData === 'object' && 'branch' in sourceData) 
-    ? (sourceData as { branch?: string }).branch 
-    : 'main';
-  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences, { 
-    repositoryBranch 
+  const repositoryBranch =
+    sourceData && typeof sourceData === 'object' && 'branch' in sourceData
+      ? (sourceData as { branch?: string }).branch
+      : 'main';
+  // Only initialize chat sidebar with valid repository ID (not owner/repo format)
+  const validRepositoryId = currentRepoId && !currentRepoId.includes('/') ? currentRepoId : '';
+  const { currentModel } = useChatSidebar(validRepositoryId, userKeyPreferences, {
+    repositoryBranch,
   });
 
   // Use the repository data hook to auto-fetch data on page load/refresh
@@ -96,7 +99,9 @@ export default function ResultsPage() {
   const toggleChat = () => {
     // Allow chat if we have output (repository has been processed) or if chat is already open
     if (!output && !currentRepoId && !isChatOpen) {
-      showToast.error('Repository not processed yet. Please wait for processing to complete before chatting.');
+      showToast.error(
+        'Repository not processed yet. Please wait for processing to complete before chatting.',
+      );
       return;
     }
     setIsChatOpen(!isChatOpen);
@@ -477,7 +482,7 @@ export default function ResultsPage() {
           </div>
 
           {/* Desktop Tab Navigation */}
-          <div className="hidden lg:flex justify-center items-center gap-4 relative">
+          <div className="hidden lg:flex justify-center items-center gap-4 relative mb-0">
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-muted/30 -z-10"></div>
             <TabsList className="bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-2 shadow-lg min-h-[60px] relative z-10">
               <TabsTrigger
@@ -814,7 +819,7 @@ export default function ResultsPage() {
           <ChatSidebar
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
-            repositoryId={currentRepoId || `${owner}/${repo}`}
+            repositoryId={validRepositoryId}
             repositoryName={getRepoName()}
             repositoryBranch={repositoryBranch}
             userKeyPreferences={userKeyPreferences}

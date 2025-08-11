@@ -3,12 +3,18 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bot, User, Copy, Check, Clock, Code, FileText } from 'lucide-react';
+import { Bot, User, Copy, Check, Clock, Code, FileText, Cpu, Zap, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from 'next-themes';
+
+interface FunctionCall {
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: unknown;
+}
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -16,6 +22,7 @@ interface Message {
   timestamp: Date;
   context_used?: string | null;
   metadata?: Record<string, unknown> | null;
+  function_calls?: FunctionCall[];
 }
 
 interface ChatMessageProps {
@@ -88,7 +95,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <div className="prose prose-sm dark:prose-invert max-w-none w-full">
               <ReactMarkdown
                 components={{
-                  code({ inline, className, children, ...props }) {
+                  code(props: any) {
+                    const { inline, className, children } = props;
                     const match = /language-(\w+)/.exec(className || '');
                     return !inline && match ? (
                       <div className="relative group/code my-3 w-full">
@@ -199,6 +207,60 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </div>
           )}
         </div>
+
+        {/* Function Calls */}
+        {!isUser && message.function_calls && message.function_calls.length > 0 && (
+          <div className="space-y-2">
+            {message.function_calls.map((call, index) => (
+              <div
+                key={index}
+                className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Cpu className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                    Function Call: {call.name}
+                  </span>
+                </div>
+
+                {Object.keys(call.arguments).length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <ArrowRight className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                      <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
+                        Arguments:
+                      </span>
+                    </div>
+                    <div className="bg-orange-100 dark:bg-orange-900/30 rounded p-2 text-xs font-mono">
+                      <pre className="whitespace-pre-wrap text-orange-800 dark:text-orange-200">
+                        {JSON.stringify(call.arguments, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* Result */}
+                {call.result != null && (
+                  <div className="space-y-1 mt-2">
+                    <div className="flex items-center gap-1">
+                      <Zap className="h-3 w-3 text-green-600 dark:text-green-400" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                        Result:
+                      </span>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded p-2 text-xs">
+                      <pre className="whitespace-pre-wrap text-green-800 dark:text-green-200">
+                        {typeof call.result === 'string'
+                          ? call.result
+                          : JSON.stringify(call.result, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Message Footer */}
         <div
