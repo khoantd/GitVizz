@@ -74,12 +74,16 @@ import type {
   ListRepositoryDocsApiDocumentationRepositoryDocsPostData,
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses,
   ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors,
+  GetIndexedRepositoriesApiIndexedReposPostData,
+  GetIndexedRepositoriesApiIndexedReposPostResponses,
+  GetIndexedRepositoriesApiIndexedReposPostErrors,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
   getConversationHistoryApiBackendChatConversationsConversationIdPostResponseTransformer,
   getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer,
   saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
+  getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
 } from './transformers.gen';
 
 export type Options<
@@ -599,6 +603,37 @@ export const listRepositoryDocsApiDocumentationRepositoryDocsPost = <
   >({
     ...urlSearchParamsBodySerializer,
     url: '/api/documentation/repository-docs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get user's indexed repositories
+ * Retrieve all repositories that have been previously indexed/analyzed by the authenticated user.
+ * Returns clean, minimal repository data for frontend display including:
+ * - Repository name and branch
+ * - Source (GitHub or ZIP)
+ * - Creation/update timestamps
+ * - File sizes
+ * - User tier information
+ *
+ * Requires authentication via JWT token in request body.
+ */
+export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends boolean = false>(
+  options: Options<GetIndexedRepositoriesApiIndexedReposPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetIndexedRepositoriesApiIndexedReposPostResponses,
+    GetIndexedRepositoriesApiIndexedReposPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    responseTransformer: getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
+    url: '/api/indexed-repos/',
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { fetchGithubRepo, uploadLocalZip } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { useResultData } from '@/context/ResultDataContext';
+import { extractJwtToken } from '@/utils/token-utils';
 import type { SourceData, SourceType } from '@/utils/models';
 
 interface GitHubSourceData {
@@ -73,7 +74,7 @@ export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOpti
         const requestData = {
           ...sourceData,
           access_token: session?.accessToken || undefined,
-          jwt_token: session?.jwt_token || undefined,
+          jwt_token: extractJwtToken(session?.jwt_token) || undefined,
         };
 
         const response = await fetchGithubRepoWithAuth(requestData);

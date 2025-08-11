@@ -47,6 +47,8 @@ import {
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { SupportedLanguages, type Language } from '@/components/supported-languages';
+import { IndexedRepositories } from '@/components/IndexedRepositories';
+import { extractJwtToken } from '@/utils/token-utils';
 
 // --- Constants & Types ---
 const SUPPORTED_LANGUAGES: Language[] = [
@@ -99,6 +101,23 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const [isDetectingBranch, setIsDetectingBranch] = useState(false);
   const [branchDetectionError, setBranchDetectionError] = useState<string>('');
   const [showBranchInput, setShowBranchInput] = useState(false);
+  const [repoSize, setRepoSize] = useState<number | null>(null);
+  const [isDetectingRepo, setIsDetectingRepo] = useState(false);
+  const [showBranchSection, setShowBranchSection] = useState(false);
+  const [buttonTextIndex, setButtonTextIndex] = useState(0);
+  const [isLargeRepo, setIsLargeRepo] = useState(false);
+
+  // Button text rotation during loading for better UX
+  const loadingButtonTexts = [
+    'Analyzing Repository',
+    'Generating Insights',
+    'Processing & Visualizing',
+    'Extracting Structure',
+    'Mapping Dependencies',
+    'Building Visualization',
+    'Creating Documentation',
+    'Parsing Code Structure',
+  ];
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -163,62 +182,105 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     showToast.success(message);
   }, []);
 
-  // Function to detect default branch and fetch all branches for GitHub repos
-  const detectDefaultBranch = useCallback(
+  // Function to detect repository info (size, branches) for GitHub repos
+  const detectRepositoryInfo = useCallback(
     async (url: string, token?: string) => {
       if (!url || !url.includes('github.com')) {
         setSuggestedBranch('');
         setAvailableBranches([]);
         setBranchDetectionError('');
+        setRepoSize(null);
+        setIsLargeRepo(false);
+        setShowBranchSection(false);
         return;
       }
 
       setIsDetectingBranch(true);
+      setIsDetectingRepo(true);
       setBranchDetectionError('');
 
       try {
-        // Fetch both default branch and all branches in parallel
-        const [defaultBranch, branches] = await Promise.all([
+        // Extract owner and repo from URL
+        const urlObj = new URL(url);
+        const [, owner, repo] = urlObj.pathname.split('/');
+
+        if (!owner || !repo) {
+          throw new Error('Invalid GitHub URL format');
+        }
+
+        // Fetch repo info, default branch and all branches in parallel
+        const [repoInfo, defaultBranch, branches] = await Promise.all([
+          // GitHub API call for repository info
+          fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+            headers: token ? { Authorization: `token ${token}` } : {},
+          }).then((res) => res.json()),
           getRepositoryDefaultBranch(url, token),
           getRepositoryBranches(url, token),
         ]);
 
+        // Set repository size (in KB)
+        if (repoInfo.size) {
+          setRepoSize(repoInfo.size);
+          // Consider repos over 50MB (50000 KB) as large
+          setIsLargeRepo(repoInfo.size > 50000);
+        }
+
         setSuggestedBranch(defaultBranch);
         setAvailableBranches(branches);
+        setShowBranchSection(true);
 
         // Auto-fill branch if it's empty
         if (!branch.trim()) {
           setBranch(defaultBranch);
         }
       } catch (error) {
-        console.warn('Could not detect branches:', error);
+        console.warn('Could not detect repository info:', error);
         setBranchDetectionError('Could not auto-detect branches');
         setSuggestedBranch('main'); // fallback
         setAvailableBranches(['main', 'master', 'develop']); // common fallbacks
+        setRepoSize(null);
+        setIsLargeRepo(false);
+        setShowBranchSection(true);
         if (!branch.trim()) {
           setBranch('main');
         }
       } finally {
         setIsDetectingBranch(false);
+        setIsDetectingRepo(false);
       }
     },
     [branch],
   );
 
-  // Detect default branch when URL or access token changes
+  // Detect repository info when URL or access token changes
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (repoUrl.trim() && repoUrl.includes('github.com')) {
-        detectDefaultBranch(repoUrl.trim(), accessToken);
+        detectRepositoryInfo(repoUrl.trim(), accessToken);
       } else {
         setSuggestedBranch('');
         setAvailableBranches([]);
         setBranchDetectionError('');
+        setRepoSize(null);
+        setIsLargeRepo(false);
+        setShowBranchSection(false);
       }
     }, 1000); // Debounce for 1 second
 
     return () => clearTimeout(timeoutId);
-  }, [repoUrl, accessToken, detectDefaultBranch]);
+  }, [repoUrl, accessToken, detectRepositoryInfo]);
+
+  // Button text rotation effect during loading only
+  useEffect(() => {
+    // Only rotate text during loading states
+    if (!loading || activeMainTab !== 'github') return;
+
+    const interval = setInterval(() => {
+      setButtonTextIndex((prev) => (prev + 1) % loadingButtonTexts.length);
+    }, 2000); // Change every 2 seconds during loading
+
+    return () => clearInterval(interval);
+  }, [loading, activeMainTab, loadingButtonTexts.length]);
 
   // Handle URL auto-fill detection and animation
   useEffect(() => {
@@ -483,7 +545,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl,
         access_token: session?.accessToken || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token || undefined,
+        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -544,7 +606,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token || undefined,
+        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -633,6 +695,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
       <div className="space-y-6 sm:space-y-8">
+        {/* Recently Indexed Repositories - Only show for authenticated users */}
+
         <Tabs
           defaultValue="github"
           className="space-y-6 sm:space-y-8"
@@ -743,8 +807,25 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                         )}
                       </div>
 
+                      {/* Repository Size Warning */}
+                      {isLargeRepo && repoSize && (
+                        <div className="animate-in slide-in-from-top-1 duration-300">
+                          <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg">
+                            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                                Large repository detected ({(repoSize / 1024).toFixed(1)}MB)
+                              </span>
+                              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                                This might affect website performance during analysis
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Branch Selection - Appears below URL when GitHub repo is detected */}
-                      {repoUrl.includes('github.com') && (
+                      {showBranchSection && (
                         <div className="animate-in slide-in-from-top-1 duration-300">
                           <div className="flex items-center gap-3 p-3 bg-muted/30 border border-border/30 rounded-lg">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -823,6 +904,13 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                   <span className="text-xs text-amber-600">Manual</span>
                                 </div>
                               ) : null}
+
+                              {/* Repository size indicator */}
+                              {repoSize && !isDetectingRepo && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <span>{(repoSize / 1024).toFixed(1)}MB</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -878,34 +966,50 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                     disabled={
                       loading ||
                       !repoUrl.trim() ||
-                      (repoUrl.includes('github.com') && isDetectingBranch)
+                      isDetectingBranch ||
+                      isDetectingRepo ||
+                      (repoUrl.includes('github.com') &&
+                        !showBranchSection &&
+                        !branchDetectionError)
                     }
                     className={cn(
-                      'w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl transition-all duration-200',
+                      'w-full h-10 sm:h-12 text-sm sm:text-base rounded-xl transition-all duration-300',
                       loading ||
                         !repoUrl.trim() ||
-                        (repoUrl.includes('github.com') && isDetectingBranch)
+                        isDetectingBranch ||
+                        isDetectingRepo ||
+                        (repoUrl.includes('github.com') &&
+                          !showBranchSection &&
+                          !branchDetectionError)
                         ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                        : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-[1.02]',
+                        : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-[1.02] shadow-lg hover:shadow-xl',
                     )}
                     size="lg"
                   >
                     {loading && activeMainTab === 'github' ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Processing...
+                        <span className="hidden sm:inline transition-all duration-500">
+                          {loadingButtonTexts[buttonTextIndex]}
+                        </span>
+                        <span className="sm:hidden">Processing</span>
                       </>
-                    ) : isDetectingBranch && repoUrl.includes('github.com') ? (
+                    ) : isDetectingBranch || isDetectingRepo ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Loading branches...
+                        {isDetectingRepo ? 'Detecting repository...' : 'Loading branches...'}
                       </>
                     ) : (
                       <>
                         <Zap className="h-4 w-4 mr-2" />
-                        <span className="hidden sm:inline">Analyze Repository</span>
-                        <span className="sm:hidden">Analyze</span>
+                        <span className="hidden sm:inline">Vizzify</span>
+                        <span className="sm:hidden">Vizzify</span>
                         <ArrowRight className="h-4 w-4 ml-2" />
+                        {repoSize && (
+                          <span className="hidden md:inline ml-2 text-xs opacity-75">
+                            ({(repoSize / 1024).toFixed(1)}MB)
+                          </span>
+                        )}
                       </>
                     )}
                   </Button>
@@ -1357,6 +1461,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
             </div>
           </TabsContent>
         </Tabs>
+        {status === 'authenticated' && <IndexedRepositories />}
       </div>
     </div>
   );

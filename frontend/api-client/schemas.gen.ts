@@ -590,6 +590,31 @@ export const Body_get_conversation_history_api_backend_chat_conversations__conve
     title: 'Body_get_conversation_history_api_backend_chat_conversations__conversation_id__post',
   } as const;
 
+export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+    limit: {
+      type: 'integer',
+      title: 'Limit',
+      description: 'Maximum number of repositories to return',
+      default: 50,
+    },
+    offset: {
+      type: 'integer',
+      title: 'Offset',
+      description: 'Number of repositories to skip',
+      default: 0,
+    },
+  },
+  type: 'object',
+  required: ['token'],
+  title: 'Body_get_indexed_repositories_api_indexed_repos__post',
+} as const;
+
 export const Body_get_wiki_status_api_documentation_wiki_status_postSchema = {
   properties: {
     repo_id: {
@@ -1709,6 +1734,96 @@ export const HTTPValidationErrorSchema = {
   },
   type: 'object',
   title: 'HTTPValidationError',
+} as const;
+
+export const IndexedRepositoriesResponseSchema = {
+  properties: {
+    repositories: {
+      items: {
+        $ref: '#/components/schemas/IndexedRepository',
+      },
+      type: 'array',
+      title: 'Repositories',
+    },
+    total_count: {
+      type: 'integer',
+      title: 'Total Count',
+    },
+    user_tier: {
+      type: 'string',
+      title: 'User Tier',
+    },
+  },
+  type: 'object',
+  required: ['repositories', 'total_count', 'user_tier'],
+  title: 'IndexedRepositoriesResponse',
+} as const;
+
+export const IndexedRepositorySchema = {
+  properties: {
+    repo_id: {
+      type: 'string',
+      title: 'Repo Id',
+    },
+    repo_name: {
+      type: 'string',
+      title: 'Repo Name',
+    },
+    branch: {
+      type: 'string',
+      title: 'Branch',
+    },
+    source: {
+      type: 'string',
+      title: 'Source',
+    },
+    github_url: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Github Url',
+    },
+    commit_sha: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Commit Sha',
+    },
+    created_at: {
+      type: 'string',
+      format: 'date-time',
+      title: 'Created At',
+    },
+    updated_at: {
+      type: 'string',
+      format: 'date-time',
+      title: 'Updated At',
+    },
+    file_size_mb: {
+      anyOf: [
+        {
+          type: 'number',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'File Size Mb',
+    },
+  },
+  type: 'object',
+  required: ['repo_id', 'repo_name', 'branch', 'source', 'created_at', 'updated_at'],
+  title: 'IndexedRepository',
 } as const;
 
 export const IsWikiGeneratedResponseSchema = {

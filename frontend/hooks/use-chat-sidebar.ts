@@ -10,6 +10,7 @@ import {
   type ChatSessionListItem,
 } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
+import { extractJwtToken } from '@/utils/token-utils';
 import {
   createStreamingChatRequest,
   parseStreamingResponse,
@@ -118,7 +119,7 @@ export function useChatSidebar(
     if (!session?.jwt_token) return;
 
     try {
-      const models = await getAvailableModelsWithAuth(session.jwt_token);
+      const models = await getAvailableModelsWithAuth(extractJwtToken(session.jwt_token));
       setAvailableModels(models);
 
       // Set default model if current one is not available
@@ -151,7 +152,7 @@ export function useChatSidebar(
     isFetchingHistoryRef.current = true;
     setIsLoadingHistory(true);
     try {
-      const chatSessions = await getUserChatSessionsWithAuth(session.jwt_token, repositoryId);
+      const chatSessions = await getUserChatSessionsWithAuth(extractJwtToken(session.jwt_token), repositoryId);
       if (chatSessions.success) {
         setChatHistory(chatSessions.sessions);
       } else {
@@ -198,7 +199,7 @@ export function useChatSidebar(
       }
 
       const streamingRequest: StreamingChatRequest = {
-        token: session.jwt_token,
+        token: extractJwtToken(session.jwt_token),
         message: content,
         repository_id: repositoryId,
         use_user: modelState.provider ? (useUserKeys[modelState.provider] ?? false) : false,
@@ -377,7 +378,7 @@ export function useChatSidebar(
     setChatState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const conversation = await getConversationHistoryWithAuth(session.jwt_token, conversationId);
+      const conversation = await getConversationHistoryWithAuth(extractJwtToken(session.jwt_token), conversationId);
 
       const messages: Message[] = conversation.messages.map((msg) => ({
         role: msg.role,
