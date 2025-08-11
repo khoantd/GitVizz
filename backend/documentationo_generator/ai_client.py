@@ -1,7 +1,6 @@
 import time
 import json
-import requests
-import re
+import re  # kept for potential prompt sanitation (may be used by future prompt shaping)
 from typing import Callable, Optional
 from typing import List
 
@@ -19,53 +18,64 @@ try:
 except ImportError:
     LITELLM_AVAILABLE = False
 
-#need multiple clients as user wants, gemini, groq, or openai etc. etc. 
-class GeminiAIClient:
-    """AI client for dynamic content generation using Gemini models"""
+# Unified LiteLLM client supporting multiple providers and BYOK per call
+class LLMClient:
+    """AI client for documentation generation using LiteLLM (supports OpenAI, Anthropic, Gemini)."""
 
-    def __init__(self, api_key: str, base_url: str = "https://generativelanguage.googleapis.com/v1beta"):
+    def __init__(
+        self,
+        api_key: str,
+        provider: str = "gemini",
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        base_url: str = "https://generativelanguage.googleapis.com/v1beta",
+    ):
         self.api_key = api_key
+        self.provider = provider.lower()
         self.base_url = base_url
-        self.use_litellm = True  # Always use LiteLLM for Gemini
+        self.temperature = temperature
 
-        # Available Gemini models (for LiteLLM)
-        self.models = [
-            "gemini/gemini-2.0-flash"
-        ]
-        self.current_model_index = 0
-        self.default_model = "gemini/gemini-2.0-flash"
+        # Default model per provider
+        self.default_models = {
+            "gemini": "gemini/gemini-2.0-flash",
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-3-5-sonnet-20241022",
+        }
+        self.default_model = model or self.default_models.get(self.provider, "gpt-4o-mini")
 
         if LITELLM_AVAILABLE:
             litellm.set_verbose = False
-            litellm.api_key = api_key
 
-        # Session for fallback (not used for Gemini anymore)
-        self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        })
-
-    def generate_content(self, prompt: str, model: str = None,
-                        temperature: float = 0.7, max_tokens: int = 4000,
-                        progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using Gemini models via LiteLLM"""
+    def generate_content(
+        self,
+        prompt: str,
+        model: str = None,
+        temperature: float = None,
+        max_tokens: int = 4000,
+        progress_callback: Callable[[str], None] = None,
+    ) -> str:
+        """Generate content using LiteLLM for the configured provider (BYOK via per-call api_key)."""
         if not LITELLM_AVAILABLE:
-            raise ImportError("LiteLLM is required for Gemini model usage.")
+            raise ImportError("LiteLLM is required for LLM usage.")
         return self._generate_with_litellm(
             prompt,
             model=model,
-            temperature=temperature,
+            temperature=self.temperature if temperature is None else temperature,
             max_tokens=max_tokens,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
         )
 
-    def _generate_with_litellm(self, prompt: str, model: str = None,
-                            temperature: float = 0.7, max_tokens: int = 4000,
-                            progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using LiteLLM for Gemini models with robust error handling"""
+    def _generate_with_litellm(
+        self,
+        prompt: str,
+        model: str = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4000,
+        progress_callback: Callable[[str], None] = None,
+    ) -> str:
+        """Generate content using LiteLLM with robust error handling (per-call api_key)."""
         max_retries = 3
-        retry_delays = [15, 30, 45]
+        retry_delays = [10, 20, 40]
         
         for attempt in range(max_retries):
             try:
@@ -73,6 +83,9 @@ class GeminiAIClient:
                     progress_callback(f"  AI request (attempt {attempt + 1}/{max_retries})")
 
                 model_name = model or self.default_model
+                # Provider-specific model normalization
+                if self.provider == "gemini" and not model_name.startswith("gemini/"):
+                    model_name = f"gemini/{model_name}"
                 timeout_seconds = 120
                 start_time = time.time()
 
@@ -84,7 +97,7 @@ class GeminiAIClient:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         stream=False,
-                        api_key=self.api_key,
+                        api_key=self.api_key,  # BYOK per call
                         timeout=timeout_seconds
                     )
                     
@@ -104,7 +117,7 @@ class GeminiAIClient:
                     #             content += chunk.choices[0].message.content
 
                     if progress_callback:
-                        progress_callback(f"  Generated ({len(content)} chars)")
+                        progress_callback("  Generated content")
 
                     return content
 
@@ -126,7 +139,7 @@ class GeminiAIClient:
                         
                         content = response.choices[0].message.content
                         if progress_callback:
-                            progress_callback(f"  Generated ({len(content)} chars)")
+                            progress_callback("  Generated content")
                         
                         return content
                     else:
@@ -136,11 +149,11 @@ class GeminiAIClient:
                 elapsed = time.time() - start_time
                 error_msg = str(e).lower()
                 
-                if ("rate_limit" in error_msg or "429" in error_msg or elapsed >= timeout_seconds):
+                if ("rate limit" in error_msg or "429" in error_msg or elapsed >= timeout_seconds):
                     if attempt < max_retries - 1:
                         wait_time = retry_delays[attempt]
                         if progress_callback:
-                            progress_callback(f"  Rate limited. Waiting {wait_time}s...")
+                            progress_callback("  Rate limited. Retrying soon...")
                         time.sleep(wait_time)
                         continue
                     else:
@@ -395,10 +408,18 @@ class GeminiAIClient:
         )
 
 
-    def generate_page_content(self, page: 'WikiPage', relevant_docs: List[Document], language: str) -> str:
-        """Generate comprehensive page content using AI with prompts similar to page.tsx"""
+    def generate_page_content(
+        self,
+        page: 'WikiPage',
+        repo_analysis: 'RepositoryAnalysis',
+        documents: List[Document],
+        language: str = "en",
+        progress_callback: Callable[[str], None] = None,
+    ) -> 'WikiPage':
+        """Generate comprehensive page content using AI and return updated WikiPage (MultiProvider-compatible)."""
         
         # Get file paths from relevant documents
+        relevant_docs = documents or []
         file_paths = [doc.meta_data.get('file_path', 'unknown') for doc in relevant_docs[:10]]
 
         # Create comprehensive prompt exactly like page.tsx (lines 353-556)
@@ -479,11 +500,14 @@ class GeminiAIClient:
     - Structure the document logically for easy understanding by other developers.
     """
 
-        return self.generate_content(
+        content = self.generate_content(
             prompt,
-            temperature=0.3,
-            max_tokens=4000
+            temperature=self.temperature,
+            max_tokens=6000,
+            progress_callback=progress_callback,
         )
+        page.content = content
+        return page
     
     def _validate_wiki_structure(self, structure: WikiStructure) -> WikiStructure:
         """Validate and fix common issues in parsed wiki structure"""

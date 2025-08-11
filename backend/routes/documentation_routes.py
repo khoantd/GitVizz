@@ -540,15 +540,17 @@ async def is_wiki_generated(
     try:
         # Authenticate user
         user = await get_current_user(jwt_token)
+        
+        print(f"User: {user}")
 
         if not user:
             raise HTTPException(
                 status_code=401, detail="Unauthorized: Invalid jwt_token"
             )
 
-        # Find the repository
+        github_url = f"https://github.com/{repo_id}"
         repo = await Repository.find_one(
-            Repository.id == PydanticObjectId(repo_id),
+            Repository.github_url == github_url,
             Repository.user.id == PydanticObjectId(user.id),
         )
 
@@ -626,11 +628,22 @@ async def list_repository_docs(
                 status_code=401, detail="Unauthorized: Invalid jwt_token"
             )
 
-        # Find the repository
-        repo = await Repository.find_one(
-            Repository.id == PydanticObjectId(repo_id),
-            Repository.user.id == PydanticObjectId(user.id),
-        )
+        # Find the repository - handle both ObjectId and owner/repo format
+        repo = None
+        try:
+            # Try to treat repo_id as MongoDB ObjectId first
+            repo = await Repository.find_one(
+                Repository.id == PydanticObjectId(repo_id),
+                Repository.user.id == PydanticObjectId(user.id),
+            )
+        except:
+            # If that fails, treat repo_id as owner/repo format and find by GitHub URL
+            if "/" in repo_id:
+                github_url = f"https://github.com/{repo_id}"
+                repo = await Repository.find_one(
+                    Repository.github_url == github_url,
+                    Repository.user.id == PydanticObjectId(user.id),
+                )
 
         if not repo:
             raise HTTPException(status_code=404, detail="Repository not found")
