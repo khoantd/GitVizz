@@ -188,30 +188,30 @@ export function IndexedRepositories({ className }: IndexedRepositoriesProps) {
             ) : (
               <>
                 {/* Repository Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
                   {currentRepositories.map((repo) => {
                     const { owner, name } = getRepoOwnerAndName(repo);
 
                     return (
                       <Card
                         key={repo.repo_id}
-                        className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] border-border/30 bg-background/20 hover:bg-background/40"
+                        className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] border-border/30 bg-background/20 hover:bg-background/40 h-32 flex flex-col py-2 gap-2"
                         onClick={() => handleRepoClick(repo)}
                       >
-                        <CardHeader className="pb-3">
+                        <CardHeader className="px-4 pt-2 m-0 gap-0 flex-shrink-0">
                           <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded-md bg-primary/10">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="p-1 rounded-md bg-primary/10 flex-shrink-0">
                                 {repo.source === 'github' ? (
-                                  <Github className="h-4 w-4 text-primary" />
+                                  <Github className="h-3 w-3 text-primary" />
                                 ) : (
-                                  <Upload className="h-4 w-4 text-primary" />
+                                  <Upload className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                               <div className="flex flex-col min-w-0">
-                                <div className="font-semibold text-sm truncate">{name}</div>
+                                <div className="font-semibold text-xs truncate">{name}</div>
                                 {owner && (
-                                  <div className="text-xs text-muted-foreground truncate">
+                                  <div className="text-[10px] text-muted-foreground truncate">
                                     {owner}
                                   </div>
                                 )}
@@ -221,55 +221,53 @@ export function IndexedRepositories({ className }: IndexedRepositoriesProps) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   window.open(repo.github_url!, '_blank');
                                 }}
                               >
-                                <ExternalLink className="h-3 w-3" />
+                                <ExternalLink className="h-2.5 w-2.5" />
                               </Button>
                             )}
                           </div>
                         </CardHeader>
 
-                        <CardContent className="pt-0">
+                        <CardContent className="p-2 px-4 flex-1">
                           {/* Metadata */}
-                          <div className="space-y-3">
-                            {/* Branch and Size */}
+                          <div className="space-y-1">
+                            {/* Branch and Size on same line */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <GitBranch className="h-3 w-3 text-muted-foreground" />
-                                <Badge variant="outline" className="text-xs h-5 px-2">
+                              <div className="flex items-center gap-1">
+                                <GitBranch className="h-2.5 w-2.5 text-muted-foreground" />
+                                <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                                   {repo.branch}
                                 </Badge>
                               </div>
                               {repo.file_size_mb && (
-                                <div className="flex items-center gap-1.5">
-                                  <HardDrive className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <HardDrive className="h-2.5 w-2.5 text-muted-foreground" />
+                                  <span className="text-[10px] text-muted-foreground">
                                     {formatFileSize(repo.file_size_mb)}
                                   </span>
                                 </div>
                               )}
                             </div>
 
-                            {/* Date */}
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                Indexed {formatDate(repo.created_at)}
-                              </span>
-                            </div>
-
-                            {/* Commit SHA (if available) */}
-                            {repo.commit_sha && (
-                              <div className="pt-1 border-t border-border/20">
-                                <code className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                            {/* Date and commit in one line */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span className="text-[10px] text-muted-foreground">
+                                  {formatDate(repo.created_at)}
+                                </span>
+                              </div>
+                              {repo.commit_sha && (
+                                <code className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                   {repo.commit_sha.substring(0, 7)}
                                 </code>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
