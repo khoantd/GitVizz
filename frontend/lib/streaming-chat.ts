@@ -5,6 +5,7 @@ export interface StreamingChatRequest {
   token: string;
   message: string;
   repository_id: string;
+  repository_branch?: string;
   use_user: boolean;
   chat_id?: string;
   conversation_id?: string;
@@ -48,6 +49,7 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   formData.append('use_user', request.use_user.toString());
 
   // Add optional fields
+  if (request.repository_branch) formData.append('repository_branch', request.repository_branch);
   if (request.chat_id) formData.append('chat_id', request.chat_id);
   if (request.conversation_id) formData.append('conversation_id', request.conversation_id);
   if (request.provider) formData.append('provider', request.provider);

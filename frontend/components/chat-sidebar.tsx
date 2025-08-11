@@ -42,6 +42,7 @@ interface ChatSidebarProps {
   onClose: () => void;
   repositoryId: string;
   repositoryName: string;
+  repositoryBranch?: string;
   userKeyPreferences?: Record<string, boolean>; // New prop for user key preferences
 }
 
@@ -50,6 +51,7 @@ export function ChatSidebar({
   onClose,
   repositoryId,
   repositoryName,
+  repositoryBranch = 'main',
   userKeyPreferences = {},
 }: ChatSidebarProps) {
   const router = useRouter();
@@ -69,6 +71,7 @@ export function ChatSidebar({
     setContextSettings,
   } = useChatSidebar(repositoryId, userKeyPreferences, {
     autoLoad: isOpen && Boolean(repositoryId),
+    repositoryBranch,
   }); // Pass preferences to hook
 
   const apiKeyValidation = useApiKeyValidation();

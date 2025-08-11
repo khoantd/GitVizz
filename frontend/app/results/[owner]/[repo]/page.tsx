@@ -56,7 +56,12 @@ export default function ResultsPage() {
     setSourceData,
   } = useResultData();
   const { data: session } = useSession();
-  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences);
+  const repositoryBranch = (sourceData && typeof sourceData === 'object' && 'branch' in sourceData) 
+    ? (sourceData as { branch?: string }).branch 
+    : 'main';
+  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences, { 
+    repositoryBranch 
+  });
 
   // Use the repository data hook to auto-fetch data on page load/refresh
   const { refreshData } = useRepositoryData({
@@ -811,6 +816,7 @@ export default function ResultsPage() {
             onClose={() => setIsChatOpen(false)}
             repositoryId={currentRepoId || `${owner}/${repo}`}
             repositoryName={getRepoName()}
+            repositoryBranch={repositoryBranch}
             userKeyPreferences={userKeyPreferences}
           />
         </>

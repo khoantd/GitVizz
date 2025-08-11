@@ -23,13 +23,14 @@ Repository utilities for efficient lookup and management
 """
 
 
-async def find_user_repository(repo_id: str, user: User) -> Repository:
+async def find_user_repository(repo_id: str, user: User, branch: Optional[str] = None) -> Repository:
     """
     Find repository by ID using ObjectId or repo_name
     
     Args:
-        repo_id: Repository ObjectId or repo_name (format: owner_repo_branch)
+        repo_id: Repository ObjectId, repo_name (format: owner_repo_branch), or owner/repo format
         user: User object for access control
+        branch: Optional branch name for more precise matching when repo_id is in owner/repo format
         
     Returns:
         Repository object
@@ -65,6 +66,33 @@ async def find_user_repository(repo_id: str, user: User) -> Repository:
             Repository.github_url == search_url,
             Repository.user.id == user.id
         )
+        
+        # If still not found, try generating repo identifier with branch information
+        if not repository:
+            # Try to construct repo_name using the same logic as generate_repo_identifier
+            owner, repo_name = repo_id.split('/', 1)
+            
+            # If branch is provided, try that specific branch first
+            if branch:
+                generated_repo_name = f"{owner}_{repo_name}_{branch}"
+                repository = await Repository.find_one(
+                    Repository.repo_name == generated_repo_name,
+                    Repository.user.id == user.id
+                )
+            
+            # If no branch provided or branch-specific search failed, try common branches
+            if not repository:
+                for fallback_branch in ["main", "master", "develop"]:
+                    # Skip the branch we already tried
+                    if branch and fallback_branch == branch:
+                        continue
+                    generated_repo_name = f"{owner}_{repo_name}_{fallback_branch}"
+                    repository = await Repository.find_one(
+                        Repository.repo_name == generated_repo_name,
+                        Repository.user.id == user.id
+                    )
+                    if repository:
+                        break
     
     if not repository:
         raise HTTPException(

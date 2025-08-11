@@ -32,12 +32,13 @@ class ChatController:
         self, 
         user: User, 
         repository_id: str,
+        repository_branch: Optional[str] = None,
         chat_id: Optional[str] = None
     ) -> ChatSession:
         """Get existing chat session or create a new one"""
         
         # Find repository using utility function
-        repository = await find_user_repository(repository_id, user)
+        repository = await find_user_repository(repository_id, user, repository_branch)
         
         if chat_id:
             # Try to find existing chat session with fetch_links to get full repository
@@ -239,6 +240,7 @@ class ChatController:
         message: Annotated[str, Form(description="User's message/question")],
         repository_id: Annotated[str, Form(description="Repository ID to chat about")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
+        repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
         provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
@@ -262,6 +264,7 @@ class ChatController:
             chat_session = await self.get_or_create_chat_session(
                 user, 
                 repository_id,
+                repository_branch,
                 chat_id
             )
             
@@ -426,6 +429,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
         message: Annotated[str, Form(description="User's message/question")],
         repository_id: Annotated[str, Form(description="Repository ID to chat about")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
+        repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
         provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
@@ -451,6 +455,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
             chat_session = await self.get_or_create_chat_session(
                 user, 
                 repository_id,
+                repository_branch,
                 chat_id
             )
             

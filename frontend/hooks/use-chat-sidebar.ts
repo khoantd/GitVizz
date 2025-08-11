@@ -56,7 +56,7 @@ type ModelState = Partial<ModelApiState>;
 export function useChatSidebar(
   repositoryId: string,
   userKeyPreferences: Record<string, boolean>,
-  options?: { autoLoad?: boolean },
+  options?: { autoLoad?: boolean; repositoryBranch?: string },
 ) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -205,6 +205,7 @@ export function useChatSidebar(
         token: extractJwtToken(session.jwt_token),
         message: content,
         repository_id: repositoryId,
+        repository_branch: options?.repositoryBranch,
         use_user: modelState.provider ? (useUserKeys[modelState.provider] ?? false) : false,
         chat_id: chatState.currentChatId,
         conversation_id: chatState.currentConversationId,
