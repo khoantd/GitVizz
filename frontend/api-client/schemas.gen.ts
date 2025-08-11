@@ -105,6 +105,20 @@ export const AvailableModelsResponseSchema = {
   description: 'Response model for available models',
 } as const;
 
+export const Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__postSchema =
+  {
+    properties: {
+      jwt_token: {
+        type: 'string',
+        title: 'Jwt Token',
+        description: 'Authentication jwt_token for the request',
+      },
+    },
+    type: 'object',
+    required: ['jwt_token'],
+    title: 'Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post',
+  } as const;
+
 export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
   properties: {
     repo_url: {
@@ -502,8 +516,33 @@ export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {
         },
       ],
       title: 'Provider Name',
-      description: 'Provider name for the documentation generation',
-      default: '',
+      description: 'Provider name for the documentation generation (openai, anthropic, gemini)',
+      default: 'gemini',
+    },
+    model_name: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Model Name',
+      description: 'Specific model name to use for generation',
+    },
+    temperature: {
+      anyOf: [
+        {
+          type: 'number',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Temperature',
+      description: 'Temperature for AI generation (0.0-1.5)',
+      default: 0.7,
     },
   },
   type: 'object',
@@ -550,6 +589,31 @@ export const Body_get_conversation_history_api_backend_chat_conversations__conve
     required: ['token'],
     title: 'Body_get_conversation_history_api_backend_chat_conversations__conversation_id__post',
   } as const;
+
+export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+    limit: {
+      type: 'integer',
+      title: 'Limit',
+      description: 'Maximum number of repositories to return',
+      default: 50,
+    },
+    offset: {
+      type: 'integer',
+      title: 'Offset',
+      description: 'Number of repositories to skip',
+      default: 0,
+    },
+  },
+  type: 'object',
+  required: ['token'],
+  title: 'Body_get_indexed_repositories_api_indexed_repos__post',
+} as const;
 
 export const Body_get_wiki_status_api_documentation_wiki_status_postSchema = {
   properties: {
@@ -881,12 +945,6 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
       title: 'Max Tokens',
       description: 'Maximum tokens in response (1-4000)',
     },
-    include_full_context: {
-      type: 'boolean',
-      title: 'Include Full Context',
-      description: 'Include full repository content as context',
-      default: false,
-    },
     context_search_query: {
       anyOf: [
         {
@@ -898,6 +956,12 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
       ],
       title: 'Context Search Query',
       description: 'Specific search query for context retrieval',
+    },
+    scope_preference: {
+      type: 'string',
+      title: 'Scope Preference',
+      description: 'Context scope preference: focused, moderate, or comprehensive',
+      default: 'moderate',
     },
   },
   type: 'object',
@@ -1102,12 +1166,13 @@ export const ChatResponseSchema = {
     provider: {
       anyOf: [
         {
-          $ref: '#/components/schemas/ModelProvider',
+          type: 'string',
         },
         {
           type: 'null',
         },
       ],
+      title: 'Provider',
     },
     response_time: {
       anyOf: [
@@ -1120,6 +1185,16 @@ export const ChatResponseSchema = {
       ],
       title: 'Response Time',
       description: 'Response time in seconds',
+    },
+    daily_usage: {
+      anyOf: [
+        {
+          $ref: '#/components/schemas/DailyUsage',
+        },
+        {
+          type: 'null',
+        },
+      ],
     },
   },
   type: 'object',
@@ -1462,6 +1537,27 @@ export const ConversationHistoryResponseSchema = {
   description: 'Response model for conversation history',
 } as const;
 
+export const DailyUsageSchema = {
+  properties: {
+    requests_used: {
+      type: 'integer',
+      title: 'Requests Used',
+    },
+    requests_limit: {
+      type: 'integer',
+      title: 'Requests Limit',
+    },
+    reset_date: {
+      type: 'string',
+      title: 'Reset Date',
+    },
+  },
+  type: 'object',
+  required: ['requests_used', 'requests_limit', 'reset_date'],
+  title: 'DailyUsage',
+  description: 'Daily usage tracking',
+} as const;
+
 export const DocumentationFileSchema = {
   properties: {
     metadata: {
@@ -1672,6 +1768,96 @@ export const HTTPValidationErrorSchema = {
   title: 'HTTPValidationError',
 } as const;
 
+export const IndexedRepositoriesResponseSchema = {
+  properties: {
+    repositories: {
+      items: {
+        $ref: '#/components/schemas/IndexedRepository',
+      },
+      type: 'array',
+      title: 'Repositories',
+    },
+    total_count: {
+      type: 'integer',
+      title: 'Total Count',
+    },
+    user_tier: {
+      type: 'string',
+      title: 'User Tier',
+    },
+  },
+  type: 'object',
+  required: ['repositories', 'total_count', 'user_tier'],
+  title: 'IndexedRepositoriesResponse',
+} as const;
+
+export const IndexedRepositorySchema = {
+  properties: {
+    repo_id: {
+      type: 'string',
+      title: 'Repo Id',
+    },
+    repo_name: {
+      type: 'string',
+      title: 'Repo Name',
+    },
+    branch: {
+      type: 'string',
+      title: 'Branch',
+    },
+    source: {
+      type: 'string',
+      title: 'Source',
+    },
+    github_url: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Github Url',
+    },
+    commit_sha: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Commit Sha',
+    },
+    created_at: {
+      type: 'string',
+      format: 'date-time',
+      title: 'Created At',
+    },
+    updated_at: {
+      type: 'string',
+      format: 'date-time',
+      title: 'Updated At',
+    },
+    file_size_mb: {
+      anyOf: [
+        {
+          type: 'number',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'File Size Mb',
+    },
+  },
+  type: 'object',
+  required: ['repo_id', 'repo_name', 'branch', 'source', 'created_at', 'updated_at'],
+  title: 'IndexedRepository',
+} as const;
+
 export const IsWikiGeneratedResponseSchema = {
   properties: {
     is_generated: {
@@ -1735,6 +1921,28 @@ export const LoginResponseSchema = {
       title: 'Token Type',
       default: 'bearer',
     },
+    refresh_token: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Refresh Token',
+    },
+    refresh_expires_in: {
+      anyOf: [
+        {
+          type: 'integer',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Refresh Expires In',
+    },
   },
   type: 'object',
   required: ['jwt_token', 'expires_in', 'user_id'],
@@ -1789,7 +1997,7 @@ export const MessageResponseSchema = {
 
 export const ModelProviderSchema = {
   type: 'string',
-  enum: ['openai', 'anthropic', 'gemini'],
+  enum: ['openai', 'anthropic', 'gemini', 'groq'],
   title: 'ModelProvider',
   description: 'Supported LLM providers',
 } as const;
@@ -1811,6 +2019,39 @@ export const NavigationDataSchema = {
   type: 'object',
   required: ['sidebar', 'total_pages'],
   title: 'NavigationData',
+} as const;
+
+export const RefreshTokenRequestSchema = {
+  properties: {
+    refresh_token: {
+      type: 'string',
+      title: 'Refresh Token',
+    },
+  },
+  type: 'object',
+  required: ['refresh_token'],
+  title: 'RefreshTokenRequest',
+} as const;
+
+export const RefreshTokenResponseSchema = {
+  properties: {
+    access_token: {
+      type: 'string',
+      title: 'Access Token',
+    },
+    expires_in: {
+      type: 'integer',
+      title: 'Expires In',
+    },
+    token_type: {
+      type: 'string',
+      title: 'Token Type',
+      default: 'bearer',
+    },
+  },
+  type: 'object',
+  required: ['access_token', 'expires_in'],
+  title: 'RefreshTokenResponse',
 } as const;
 
 export const RepositoryAnalysisSchema = {

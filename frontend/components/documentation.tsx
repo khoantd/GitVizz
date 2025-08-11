@@ -22,15 +22,39 @@ import {
   Sparkles,
   GripVertical,
   List,
+  Settings,
+  RefreshCw,
+  Zap,
+  Brain,
+  RotateCcw,
+  Pause,
+  Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   isWikiGenerated,
   generateWikiDocumentation,
   getWikiGenerationStatus,
   getRepositoryDocumentation,
+  getAvailableModels,
+  cancelWikiGeneration,
 } from '@/utils/api';
+import { extractJwtToken } from '@/utils/token-utils';
+import type { AvailableModelsResponse } from '@/api-client/types.gen';
+import { useDocumentationProgress } from '@/lib/sse-client';
 
 // Markdown and Syntax Highlighting imports
 import ReactMarkdown from 'react-markdown';
@@ -95,7 +119,15 @@ interface DocumentationTabProps {
     repo_url?: string;
   };
   sourceType: string;
-  selectedModel?: string;
+  userKeyPreferences?: Record<string, boolean>;
+}
+
+interface GenerationSettings {
+  provider: string;
+  model: string;
+  temperature: number;
+  comprehensive: boolean;
+  language: string;
 }
 
 // Helper function moved outside the component
@@ -206,7 +238,11 @@ interface MarkdownRendererProps {
   onHeadersExtracted?: (headers: HeaderInfo[]) => void;
 }
 
-const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: MarkdownRendererProps) => {
+const MarkdownRenderer = ({
+  content,
+  onNavItemClick,
+  onHeadersExtracted,
+}: MarkdownRendererProps) => {
   const markdownRef = useRef<HTMLDivElement>(null);
 
   // Extract headers from content for navigation
@@ -282,9 +318,7 @@ const MarkdownRenderer = ({ content, onNavItemClick, onHeadersExtracted }: Markd
           </SyntaxHighlighter>
         </div>
       ) : (
-        <code
-          className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-1 rounded-md text-sm font-mono"
-        >
+        <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-1 rounded-md text-sm font-mono">
           {children}
         </code>
       );
@@ -466,9 +500,12 @@ export default function Documentation({
   currentRepoId,
   sourceData,
   sourceType,
-  selectedModel,
+  userKeyPreferences = {},
 }: DocumentationTabProps) {
   const { data: session } = useSession();
+
+  // Suppress unused variable warning
+  void userKeyPreferences;
   const [isDocGenerated, setIsDocGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -492,6 +529,31 @@ export default function Documentation({
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced generation states
+  const [availableModels, setAvailableModels] = useState<AvailableModelsResponse | null>(null);
+  const [generationSettings, setGenerationSettings] = useState<GenerationSettings>({
+    provider: 'gemini',
+    model: 'gemini-2.0-flash',
+    temperature: 0.7,
+    comprehensive: true,
+    language: 'en',
+  });
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [canCancel, setCanCancel] = useState(false);
+  const [showRegenerateOptions, setShowRegenerateOptions] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+
+  // SSE progress streaming
+  const {
+    progressUpdates: sseUpdates,
+    currentStatus: sseStatus,
+    currentMessage: sseMessage,
+    isStreaming,
+    error: sseError,
+    stopStreaming,
+    clearProgress,
+  } = useDocumentationProgress(currentTaskId);
 
   // Helper functions
   const getAncestorPaths = (path: string): Set<string> => {
@@ -532,14 +594,14 @@ export default function Documentation({
     const handleMouseMove = (e: MouseEvent) => {
       const containerRect = resizeRef.current?.getBoundingClientRect();
       if (!containerRect) return;
-      
+
       if (isResizingRight) {
         const newWidth = containerRect.right - e.clientX;
         const minWidth = 200;
         const maxWidth = containerRect.width * 0.3;
         setRightNavWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
       }
-      
+
       if (isResizingLeft) {
         const newWidth = e.clientX - containerRect.left;
         const minWidth = 160;
@@ -568,6 +630,28 @@ export default function Documentation({
     };
   }, [isResizingRight, isResizingLeft]);
 
+  // Load available models
+  const loadAvailableModels = useCallback(async () => {
+    if (!session?.jwt_token) return;
+    try {
+      const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
+      setAvailableModels(models);
+
+      // Set default model if available
+      const firstProvider = Object.keys(models.providers)[0];
+      const firstModel = firstProvider ? models.providers[firstProvider]?.[0] : undefined;
+      if (firstProvider && firstModel && !generationSettings.provider) {
+        setGenerationSettings((prev) => ({
+          ...prev,
+          provider: firstProvider,
+          model: firstModel,
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading models:', error);
+    }
+  }, [session?.jwt_token, generationSettings.provider]);
+
   // Check documentation status
   const checkDocumentationStatus = useCallback(async () => {
     try {
@@ -576,7 +660,10 @@ export default function Documentation({
         return;
       }
 
-      const wikiResponse = await isWikiGenerated(session.jwt_token, currentRepoId);
+      const wikiResponse = await isWikiGenerated(
+        extractJwtToken(session?.jwt_token) || '',
+        currentRepoId,
+      );
       setIsDocGenerated(wikiResponse.is_generated);
       setCurrentStatus(wikiResponse.status);
 
@@ -589,7 +676,7 @@ export default function Documentation({
       if (wikiResponse.status === 'running' || wikiResponse.status === 'pending') {
         setIsGenerating(true);
       }
-      
+
       setInitializing(false);
     } catch (err) {
       console.error('Error checking documentation status:', err);
@@ -652,18 +739,18 @@ export default function Documentation({
   useEffect(() => {
     const handleScroll = () => {
       if (headers.length === 0 || !contentRef.current) return;
-      
+
       const container = contentRef.current;
       const scrollPosition = container.scrollTop + 80;
       let activeId = headers[0].id;
-      
+
       for (const header of headers) {
         const element = document.getElementById(header.id);
         if (element && element.offsetTop - container.offsetTop <= scrollPosition) {
           activeId = header.id;
         }
       }
-      
+
       setActiveHeaderId(activeId);
     };
 
@@ -680,7 +767,10 @@ export default function Documentation({
 
     try {
       setLoading(true);
-      const docs = await getRepositoryDocumentation(session.jwt_token, currentRepoId);
+      const docs = await getRepositoryDocumentation(
+        extractJwtToken(session?.jwt_token) || '',
+        currentRepoId,
+      );
 
       if (!docs || !docs.success || !docs.data) {
         throw new Error(docs?.message || 'Invalid documentation format received.');
@@ -748,22 +838,84 @@ export default function Documentation({
         throw new Error('Repository URL not available');
       }
 
-      await generateWikiDocumentation(session.jwt_token, repositoryUrl, 'en', true, selectedModel || undefined);
+      const response = await generateWikiDocumentation(
+        extractJwtToken(session?.jwt_token) || '',
+        repositoryUrl,
+        generationSettings.language,
+        generationSettings.comprehensive,
+        generationSettings.provider,
+        generationSettings.model,
+        generationSettings.temperature,
+      );
+
+      // Start SSE streaming if we got a task ID
+      if (response.task_id) {
+        setCurrentTaskId(response.task_id);
+        setCanCancel(true);
+        clearProgress(); // Clear any existing progress
+      }
     } catch (err) {
       console.error('Error generating documentation:', err);
       setIsGenerating(false);
-      setError(err instanceof Error ? err.message : 'Failed to generate documentation');
+      setCanCancel(false);
+      setCurrentTaskId(null);
+
+      // Enhanced error handling with user guidance
+      let errorMessage = 'Failed to generate documentation';
+      let actionableAdvice = '';
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+
+        // Provider-specific error guidance
+        if (errorMessage.toLowerCase().includes('rate limit')) {
+          actionableAdvice =
+            ' Try switching to a different AI provider or wait a few minutes before retrying.';
+        } else if (
+          errorMessage.toLowerCase().includes('authentication') ||
+          errorMessage.toLowerCase().includes('api key')
+        ) {
+          actionableAdvice = ' Please check your API key configuration in Settings.';
+        } else if (
+          errorMessage.toLowerCase().includes('quota') ||
+          errorMessage.toLowerCase().includes('billing')
+        ) {
+          actionableAdvice = ' Check your API provider billing status and usage limits.';
+        } else if (errorMessage.toLowerCase().includes('model')) {
+          actionableAdvice = ' Try selecting a different model or provider.';
+        }
+      }
+
+      setError(errorMessage + actionableAdvice);
     }
   };
 
   // Effects
   useEffect(() => {
     if (session?.jwt_token && currentRepoId) {
+      loadAvailableModels();
       checkDocumentationStatus();
     } else {
       setInitializing(false);
     }
-  }, [session?.jwt_token, currentRepoId, checkDocumentationStatus]);
+  }, [session?.jwt_token, currentRepoId, checkDocumentationStatus, loadAvailableModels]);
+
+  // Handle SSE completion
+  useEffect(() => {
+    if (sseStatus === 'completed') {
+      setIsGenerating(false);
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      fetchDocumentation(); // Reload documentation data
+    } else if (sseStatus === 'failed') {
+      setIsGenerating(false);
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      if (sseError) {
+        setError(sseError);
+      }
+    }
+  }, [sseStatus, sseError, fetchDocumentation]);
 
   useEffect(() => {
     if (isDocGenerated && !documentation && !loading) {
@@ -779,7 +931,10 @@ export default function Documentation({
       interval = setInterval(async () => {
         try {
           setIsCheckingStatus(true);
-          const statusResponse = await getWikiGenerationStatus(session.jwt_token, currentRepoId);
+          const statusResponse = await getWikiGenerationStatus(
+            extractJwtToken(session?.jwt_token) || '',
+            currentRepoId,
+          );
           setCurrentStatus(statusResponse.status);
 
           if (statusResponse.status === 'completed') {
@@ -818,13 +973,16 @@ export default function Documentation({
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="h-3 w-3 bg-muted/30 rounded animate-pulse" />
-                  <div className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${60 + Math.random() * 40}%`}} />
+                  <div
+                    className="h-3 bg-muted/30 rounded animate-pulse"
+                    style={{ width: `${60 + Math.random() * 40}%` }}
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-        
+
         {/* Loading Main Content */}
         <div className="flex-1 flex items-center justify-center bg-background/20">
           <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
@@ -835,7 +993,7 @@ export default function Documentation({
             </div>
           </div>
         </div>
-        
+
         {/* Loading Right Nav */}
         <div className="hidden xl:block w-64 bg-background/50 backdrop-blur-sm p-6 flex-shrink-0">
           <div className="space-y-3">
@@ -845,7 +1003,11 @@ export default function Documentation({
             </div>
             <div className="space-y-2">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${50 + Math.random() * 30}%`}} />
+                <div
+                  key={i}
+                  className="h-3 bg-muted/30 rounded animate-pulse"
+                  style={{ width: `${50 + Math.random() * 30}%` }}
+                />
               ))}
             </div>
           </div>
@@ -878,9 +1040,12 @@ export default function Documentation({
     return (
       <div className="h-full flex overflow-hidden">
         {/* Loading Left Sidebar */}
-        <div className="border-r border-border/30 p-6 bg-background/50 backdrop-blur-sm flex-shrink-0 relative" style={{ width: `${leftNavWidth}px` }}>
+        <div
+          className="border-r border-border/30 p-6 bg-background/50 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${leftNavWidth}px` }}
+        >
           {/* Left Resize Handle for Loading State */}
-          <div 
+          <div
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
             onMouseDown={() => setIsResizingLeft(true)}
           >
@@ -897,13 +1062,16 @@ export default function Documentation({
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="h-3 w-3 bg-muted/30 rounded animate-pulse" />
-                  <div className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${60 + Math.random() * 40}%`}} />
+                  <div
+                    className="h-3 bg-muted/30 rounded animate-pulse"
+                    style={{ width: `${60 + Math.random() * 40}%` }}
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-        
+
         {/* Loading Main Content */}
         <div className="flex-1 flex items-center justify-center bg-background/20">
           <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
@@ -914,7 +1082,7 @@ export default function Documentation({
             </div>
           </div>
         </div>
-        
+
         {/* Loading Right Nav */}
         <div className="hidden xl:block w-64 bg-background/50 backdrop-blur-sm p-6 flex-shrink-0">
           <div className="space-y-3">
@@ -924,7 +1092,11 @@ export default function Documentation({
             </div>
             <div className="space-y-2">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-3 bg-muted/30 rounded animate-pulse" style={{width: `${50 + Math.random() * 30}%`}} />
+                <div
+                  key={i}
+                  className="h-3 bg-muted/30 rounded animate-pulse"
+                  style={{ width: `${50 + Math.random() * 30}%` }}
+                />
               ))}
             </div>
           </div>
@@ -938,9 +1110,12 @@ export default function Documentation({
     return (
       <div className="h-full flex overflow-hidden">
         {/* Empty Left Sidebar */}
-        <div className="border-r border-border/30 p-6 bg-background/30 backdrop-blur-sm flex-shrink-0 relative" style={{ width: `${leftNavWidth}px` }}>
+        <div
+          className="border-r border-border/30 p-6 bg-background/30 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${leftNavWidth}px` }}
+        >
           {/* Left Resize Handle for No Docs State */}
-          <div 
+          <div
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
             onMouseDown={() => setIsResizingLeft(true)}
           >
@@ -957,13 +1132,16 @@ export default function Documentation({
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2 opacity-30">
                   <div className="h-3 w-3 bg-muted/40 rounded animate-pulse" />
-                  <div className="h-3 bg-muted/40 rounded animate-pulse" style={{width: `${40 + Math.random() * 40}%`}} />
+                  <div
+                    className="h-3 bg-muted/40 rounded animate-pulse"
+                    style={{ width: `${40 + Math.random() * 40}%` }}
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-        
+
         {/* Main Generate Section */}
         <div className="flex-1 flex items-center justify-center bg-background/10">
           <div className="text-center space-y-8 p-8 rounded-3xl bg-background/90 backdrop-blur-2xl border border-border/50 shadow-xl max-w-lg mx-4">
@@ -998,19 +1176,23 @@ export default function Documentation({
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Progress</span>
-                    <span className="font-medium text-primary">{currentStatus === 'running' ? '60%' : '30%'}</span>
+                    <span className="font-medium text-primary">
+                      {currentStatus === 'running' ? '60%' : '30%'}
+                    </span>
                   </div>
                   <div className="w-full bg-muted/30 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-primary to-blue-500 h-2 rounded-full transition-all duration-1000 ease-out" 
-                      style={{width: currentStatus === 'running' ? '60%' : '30%'}} 
+                    <div
+                      className="bg-gradient-to-r from-primary to-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: currentStatus === 'running' ? '60%' : '30%' }}
                     />
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" />
                   <span className="capitalize font-medium text-primary">{currentStatus}</span>
-                  {isCheckingStatus && <span className="text-muted-foreground">• Checking status...</span>}
+                  {isCheckingStatus && (
+                    <span className="text-muted-foreground">• Checking status...</span>
+                  )}
                 </div>
               </div>
             )}
@@ -1019,33 +1201,328 @@ export default function Documentation({
               <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
                 <div className="flex items-center gap-2 mb-2">
                   <X className="h-4 w-4 text-red-500" />
-                  <span className="font-medium text-red-600 dark:text-red-400">Generation Failed</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">
+                    Generation Failed
+                  </span>
                 </div>
                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
 
-            <Button
-              onClick={handleGenerateDocumentation}
-              disabled={isGenerating}
-              size="lg"
-              className="rounded-xl px-8 py-3 text-base font-semibold"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                  {isCheckingStatus ? 'Checking Status...' : 'Generating...'}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-5 w-5 mr-3" />
-                  Generate Documentation
-                </>
+            {/* Model Selection and Settings */}
+            {!isGenerating && (
+              <div className="space-y-6 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-primary" />
+                    Generation Settings
+                  </h3>
+
+                  {/* Model Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">AI Provider</Label>
+                      <Select
+                        value={generationSettings.provider}
+                        onValueChange={(provider) => {
+                          const firstModel = availableModels?.providers[provider]?.[0];
+                          if (firstModel) {
+                            setGenerationSettings((prev) => ({
+                              ...prev,
+                              provider,
+                              model: firstModel,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            <div className="flex items-center gap-2">
+                              {generationSettings.provider === 'openai' && (
+                                <Zap className="h-4 w-4" />
+                              )}
+                              {generationSettings.provider === 'anthropic' && (
+                                <Brain className="h-4 w-4" />
+                              )}
+                              {generationSettings.provider === 'gemini' && (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                              {generationSettings.provider === 'groq' && (
+                                <Gauge className="h-4 w-4" />
+                              )}
+                              <span className="capitalize">{generationSettings.provider}</span>
+                            </div>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels &&
+                            Object.keys(availableModels.providers).map((provider) => (
+                              <SelectItem key={provider} value={provider}>
+                                <div className="flex items-center gap-2">
+                                  {provider === 'openai' && <Zap className="h-4 w-4" />}
+                                  {provider === 'anthropic' && <Brain className="h-4 w-4" />}
+                                  {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                                  {provider === 'groq' && <Gauge className="h-4 w-4" />}
+                                  <span className="capitalize">{provider}</span>
+                                  {availableModels.user_has_keys.includes(provider) && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Your Key
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Model</Label>
+                      <Select
+                        value={generationSettings.model}
+                        onValueChange={(model) =>
+                          setGenerationSettings((prev) => ({ ...prev, model }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            <Badge variant="outline" className="text-xs">
+                              {generationSettings.model}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels?.providers[generationSettings.provider]?.map((model) => (
+                            <SelectItem key={model} value={model}>
+                              <Badge variant="outline" className="text-xs">
+                                {model}
+                              </Badge>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Quick Settings */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="comprehensive"
+                        checked={generationSettings.comprehensive}
+                        onCheckedChange={(comprehensive) =>
+                          setGenerationSettings((prev) => ({ ...prev, comprehensive }))
+                        }
+                      />
+                      <Label htmlFor="comprehensive" className="text-sm">
+                        Comprehensive Documentation
+                      </Label>
+                    </div>
+
+                    <Popover open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Advanced
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Temperature</Label>
+                            <Slider
+                              value={[generationSettings.temperature]}
+                              onValueChange={(value) =>
+                                setGenerationSettings((prev) => ({
+                                  ...prev,
+                                  temperature: value[0],
+                                }))
+                              }
+                              max={1.5}
+                              min={0}
+                              step={0.1}
+                              className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Focused (0)</span>
+                              <span className="font-medium">{generationSettings.temperature}</span>
+                              <span>Creative (1.5)</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Language</Label>
+                            <Select
+                              value={generationSettings.language}
+                              onValueChange={(language) =>
+                                setGenerationSettings((prev) => ({ ...prev, language }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="en">English</SelectItem>
+                                <SelectItem value="es">Spanish</SelectItem>
+                                <SelectItem value="fr">French</SelectItem>
+                                <SelectItem value="de">German</SelectItem>
+                                <SelectItem value="zh">Chinese</SelectItem>
+                                <SelectItem value="ja">Japanese</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Progress Updates */}
+            {isGenerating && (isStreaming || sseUpdates.length > 0) && (
+              <div className="space-y-4 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  Generation Progress
+                  {isStreaming && (
+                    <Badge variant="secondary" className="text-xs">
+                      Live Updates
+                    </Badge>
+                  )}
+                </h3>
+
+                {/* Current Status */}
+                {(sseMessage || sseStatus) && (
+                  <div className="p-3 bg-primary/10 rounded-lg border-l-4 border-primary">
+                    <div className="font-medium text-sm text-foreground">
+                      Status: {sseStatus || 'running'}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">{sseMessage}</div>
+                  </div>
+                )}
+
+                {/* Progress History */}
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {sseUpdates.slice(-5).map((update, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-2 bg-background/40 rounded-lg"
+                    >
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse mt-2" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground truncate">
+                          {update.message}
+                        </div>
+                        <div className="text-xs text-muted-foreground/60">
+                          {new Date(update.timestamp * 1000).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Error Display */}
+                {sseError && (
+                  <div className="p-3 bg-destructive/10 rounded-lg border-l-4 border-destructive">
+                    <div className="text-sm text-destructive font-medium">Connection Error</div>
+                    <div className="text-xs text-destructive/80 mt-1">{sseError}</div>
+                  </div>
+                )}
+
+                {canCancel && currentTaskId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!session?.jwt_token || !currentTaskId) return;
+                      try {
+                        await cancelWikiGeneration(
+                          extractJwtToken(session?.jwt_token) || '',
+                          currentTaskId,
+                        );
+                        stopStreaming();
+                        setCanCancel(false);
+                        setCurrentTaskId(null);
+                        setIsGenerating(false);
+                      } catch (error) {
+                        console.error('Error cancelling generation:', error);
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Cancel Generation
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={handleGenerateDocumentation}
+                disabled={isGenerating || !availableModels}
+                size="lg"
+                className="flex-1 rounded-xl px-8 py-3 text-base font-semibold"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                    {isCheckingStatus ? 'Checking Status...' : 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5 mr-3" />
+                    Generate Documentation
+                  </>
+                )}
+              </Button>
+
+              {isDocGenerated && !isGenerating && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
+                  className="rounded-xl px-6 py-3"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Regenerate
+                </Button>
               )}
-            </Button>
+            </div>
+
+            {/* Regenerate Options */}
+            {showRegenerateOptions && isDocGenerated && !isGenerating && (
+              <div className="space-y-3 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-4">
+                <h4 className="text-sm font-medium text-foreground">Regeneration Options</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateDocumentation}
+                    className="rounded-lg"
+                  >
+                    <Sparkles className="h-3 w-3 mr-2" />
+                    Full Regeneration
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      /* TODO: Implement partial regeneration */
+                    }}
+                    className="rounded-lg"
+                    disabled
+                  >
+                    <RefreshCw className="h-3 w-3 mr-2" />
+                    Partial Update
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-        
+
         {/* Empty Right Nav */}
         <div className="hidden xl:block w-64 bg-background/30 backdrop-blur-sm p-6 flex-shrink-0">
           <div className="space-y-4">
@@ -1055,7 +1532,11 @@ export default function Documentation({
             </div>
             <div className="space-y-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-3 bg-muted/20 rounded animate-pulse opacity-30" style={{width: `${30 + Math.random() * 40}%`}} />
+                <div
+                  key={i}
+                  className="h-3 bg-muted/20 rounded animate-pulse opacity-30"
+                  style={{ width: `${30 + Math.random() * 40}%` }}
+                />
               ))}
             </div>
           </div>
@@ -1097,7 +1578,7 @@ export default function Documentation({
         style={{ width: `${leftNavWidth}px` }}
       >
         {/* Left Resize Handle */}
-        <div 
+        <div
           className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group hidden lg:block"
           onMouseDown={() => setIsResizingLeft(true)}
         >
@@ -1124,7 +1605,6 @@ export default function Documentation({
 
         {/* Sidebar Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-
           {/* File Tree */}
           {documentation?.data?.folder_structure && (
             <div>
@@ -1174,7 +1654,9 @@ export default function Documentation({
                         {activeContent.metadata?.size && (
                           <div className="flex items-center gap-1.5">
                             <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="font-medium">{formatFileSize(activeContent.metadata.size)}</span>
+                            <span className="font-medium">
+                              {formatFileSize(activeContent.metadata.size)}
+                            </span>
                           </div>
                         )}
                         {activeContent.read_time && (
@@ -1191,7 +1673,8 @@ export default function Documentation({
                         )}
                         {activeContent.metadata?.modified && (
                           <div className="text-sm text-muted-foreground">
-                            <span className="font-medium">Last modified:</span> {formatDate(activeContent.metadata.modified)}
+                            <span className="font-medium">Last modified:</span>{' '}
+                            {formatDate(activeContent.metadata.modified)}
                           </div>
                         )}
                       </div>
@@ -1234,12 +1717,12 @@ export default function Documentation({
 
       {/* Right Sidebar - Page Navigation (Resizable & Collapsible) */}
       {!isRightNavCollapsed ? (
-        <div 
+        <div
           className="hidden xl:flex xl:flex-col bg-background/40 backdrop-blur-sm flex-shrink-0 relative"
           style={{ width: `${rightNavWidth}px` }}
         >
           {/* Resize Handle */}
-          <div 
+          <div
             className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
             onMouseDown={() => setIsResizingRight(true)}
           >
@@ -1247,7 +1730,7 @@ export default function Documentation({
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
-          
+
           {/* Right Sidebar Header */}
           <div className="flex items-center justify-between p-4 lg:p-6 border-b border-border/20 shrink-0">
             <h3 className="font-medium flex items-center gap-2 text-foreground text-sm">
@@ -1263,7 +1746,7 @@ export default function Documentation({
               <ChevronRight className="h-3 w-3" />
             </Button>
           </div>
-          
+
           {/* Right Sidebar Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 lg:p-6">
             {headers.length > 0 ? (
@@ -1294,9 +1777,7 @@ export default function Documentation({
                 <div className="w-10 h-10 mx-auto rounded-xl bg-muted/20 flex items-center justify-center mb-3">
                   <Hash className="h-5 w-5 text-muted-foreground/50" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  No headers found in this document.
-                </p>
+                <p className="text-xs text-muted-foreground">No headers found in this document.</p>
               </div>
             ) : (
               <div className="text-center py-8">

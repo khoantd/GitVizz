@@ -56,6 +56,17 @@ export type AvailableModelsResponse = {
 };
 
 /**
+ * Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post
+ */
+export type BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = {
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
+};
+
+/**
  * Body_generate_graph_endpoint_api_repo_generate_graph_post
  */
 export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
@@ -235,9 +246,19 @@ export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
   comprehensive?: boolean | null;
   /**
    * Provider Name
-   * Provider name for the documentation generation
+   * Provider name for the documentation generation (openai, anthropic, gemini)
    */
   provider_name?: string | null;
+  /**
+   * Model Name
+   * Specific model name to use for generation
+   */
+  model_name?: string | null;
+  /**
+   * Temperature
+   * Temperature for AI generation (0.0-1.5)
+   */
+  temperature?: number | null;
 };
 
 /**
@@ -271,6 +292,27 @@ export type BodyGetConversationHistoryApiBackendChatConversationsConversationIdP
    * JWT authentication token
    */
   token: string;
+};
+
+/**
+ * Body_get_indexed_repositories_api_indexed_repos__post
+ */
+export type BodyGetIndexedRepositoriesApiIndexedReposPost = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Limit
+   * Maximum number of repositories to return
+   */
+  limit?: number;
+  /**
+   * Offset
+   * Number of repositories to skip
+   */
+  offset?: number;
 };
 
 /**
@@ -515,15 +557,15 @@ export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
    */
   max_tokens?: number | null;
   /**
-   * Include Full Context
-   * Include full repository content as context
-   */
-  include_full_context?: boolean;
-  /**
    * Context Search Query
    * Specific search query for context retrieval
    */
   context_search_query?: string | null;
+  /**
+   * Scope Preference
+   * Context scope preference: focused, moderate, or comprehensive
+   */
+  scope_preference?: string;
 };
 
 /**
@@ -632,12 +674,16 @@ export type ChatResponse = {
    * Model Used
    */
   model_used?: string | null;
-  provider?: ModelProvider | null;
+  /**
+   * Provider
+   */
+  provider?: string | null;
   /**
    * Response Time
    * Response time in seconds
    */
   response_time?: number | null;
+  daily_usage?: DailyUsage | null;
 };
 
 /**
@@ -858,6 +904,25 @@ export type ConversationHistoryResponse = {
 };
 
 /**
+ * DailyUsage
+ * Daily usage tracking
+ */
+export type DailyUsage = {
+  /**
+   * Requests Used
+   */
+  requests_used: number;
+  /**
+   * Requests Limit
+   */
+  requests_limit: number;
+  /**
+   * Reset Date
+   */
+  reset_date: string;
+};
+
+/**
  * DocumentationFile
  */
 export type DocumentationFile = {
@@ -1007,6 +1072,66 @@ export type HttpValidationError = {
 };
 
 /**
+ * IndexedRepositoriesResponse
+ */
+export type IndexedRepositoriesResponse = {
+  /**
+   * Repositories
+   */
+  repositories: Array<IndexedRepository>;
+  /**
+   * Total Count
+   */
+  total_count: number;
+  /**
+   * User Tier
+   */
+  user_tier: string;
+};
+
+/**
+ * IndexedRepository
+ */
+export type IndexedRepository = {
+  /**
+   * Repo Id
+   */
+  repo_id: string;
+  /**
+   * Repo Name
+   */
+  repo_name: string;
+  /**
+   * Branch
+   */
+  branch: string;
+  /**
+   * Source
+   */
+  source: string;
+  /**
+   * Github Url
+   */
+  github_url?: string | null;
+  /**
+   * Commit Sha
+   */
+  commit_sha?: string | null;
+  /**
+   * Created At
+   */
+  created_at: Date;
+  /**
+   * Updated At
+   */
+  updated_at: Date;
+  /**
+   * File Size Mb
+   */
+  file_size_mb?: number | null;
+};
+
+/**
  * IsWikiGeneratedResponse
  */
 export type IsWikiGeneratedResponse = {
@@ -1058,6 +1183,14 @@ export type LoginResponse = {
    * Token Type
    */
   token_type?: string;
+  /**
+   * Refresh Token
+   */
+  refresh_token?: string | null;
+  /**
+   * Refresh Expires In
+   */
+  refresh_expires_in?: number | null;
 };
 
 /**
@@ -1093,7 +1226,7 @@ export type MessageResponse = {
  * ModelProvider
  * Supported LLM providers
  */
-export type ModelProvider = 'openai' | 'anthropic' | 'gemini';
+export type ModelProvider = 'openai' | 'anthropic' | 'gemini' | 'groq';
 
 /**
  * ModelProvider
@@ -1103,6 +1236,7 @@ export const ModelProvider = {
   OPENAI: 'openai',
   ANTHROPIC: 'anthropic',
   GEMINI: 'gemini',
+  GROQ: 'groq',
 } as const;
 
 /**
@@ -1117,6 +1251,34 @@ export type NavigationData = {
    * Total Pages
    */
   total_pages: number;
+};
+
+/**
+ * RefreshTokenRequest
+ */
+export type RefreshTokenRequest = {
+  /**
+   * Refresh Token
+   */
+  refresh_token: string;
+};
+
+/**
+ * RefreshTokenResponse
+ */
+export type RefreshTokenResponse = {
+  /**
+   * Access Token
+   */
+  access_token: string;
+  /**
+   * Expires In
+   */
+  expires_in: number;
+  /**
+   * Token Type
+   */
+  token_type?: string;
 };
 
 /**
@@ -1553,6 +1715,45 @@ export type LoginUserApiBackendAuthLoginPostResponses = {
 export type LoginUserApiBackendAuthLoginPostResponse =
   LoginUserApiBackendAuthLoginPostResponses[keyof LoginUserApiBackendAuthLoginPostResponses];
 
+export type RefreshTokenApiBackendAuthRefreshPostData = {
+  body: RefreshTokenRequest;
+  path?: never;
+  query?: never;
+  url: '/api/backend-auth/refresh';
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostErrors = {
+  /**
+   * Unauthorized. Refresh token is invalid or expired.
+   */
+  401: ErrorResponse;
+  /**
+   * User not found.
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error.
+   */
+  500: ErrorResponse;
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostError =
+  RefreshTokenApiBackendAuthRefreshPostErrors[keyof RefreshTokenApiBackendAuthRefreshPostErrors];
+
+export type RefreshTokenApiBackendAuthRefreshPostResponses = {
+  /**
+   * Token refresh successful. Returns new access token.
+   */
+  200: RefreshTokenResponse;
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostResponse =
+  RefreshTokenApiBackendAuthRefreshPostResponses[keyof RefreshTokenApiBackendAuthRefreshPostResponses];
+
 export type ProcessChatMessageApiBackendChatChatPostData = {
   body: BodyProcessChatMessageApiBackendChatChatPost;
   path?: never;
@@ -1953,6 +2154,64 @@ export type SearchContextApiBackendChatContextSearchPostResponses = {
 export type SearchContextApiBackendChatContextSearchPostResponse =
   SearchContextApiBackendChatContextSearchPostResponses[keyof SearchContextApiBackendChatContextSearchPostResponses];
 
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData = {
+  body?: never;
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string;
+  };
+  query?: never;
+  url: '/api/documentation/progress-stream/{task_id}';
+};
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetError =
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors[keyof StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors];
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData = {
+  body: BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost;
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string;
+  };
+  query?: never;
+  url: '/api/documentation/cancel-generation/{task_id}';
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostError =
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors[keyof CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors];
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type GenerateWikiApiDocumentationGenerateWikiPostData = {
   body: BodyGenerateWikiApiDocumentationGenerateWikiPost;
   path?: never;
@@ -2080,6 +2339,41 @@ export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses = {
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponse =
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses];
+
+export type GetIndexedRepositoriesApiIndexedReposPostData = {
+  body: BodyGetIndexedRepositoriesApiIndexedReposPost;
+  path?: never;
+  query?: never;
+  url: '/api/indexed-repos/';
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostErrors = {
+  /**
+   * Authentication required - missing or invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Server error while fetching repositories
+   */
+  500: ErrorResponse;
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostError =
+  GetIndexedRepositoriesApiIndexedReposPostErrors[keyof GetIndexedRepositoriesApiIndexedReposPostErrors];
+
+export type GetIndexedRepositoriesApiIndexedReposPostResponses = {
+  /**
+   * Successfully retrieved indexed repositories
+   */
+  200: IndexedRepositoriesResponse;
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostResponse =
+  GetIndexedRepositoriesApiIndexedReposPostResponses[keyof GetIndexedRepositoriesApiIndexedReposPostResponses];
 
 export type ClientOptions = {
   baseUrl: 'http://localhost:8003' | (string & {});

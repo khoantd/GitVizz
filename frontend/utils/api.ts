@@ -66,8 +66,8 @@ export interface ChatRequest {
   model?: string;
   temperature?: number;
   max_tokens?: number;
-  include_full_context?: boolean;
   context_search_query?: string;
+  scope_preference?: string;
 }
 
 export interface ApiKeyRequest {
@@ -515,6 +515,44 @@ export async function getJwtToken(access_token: string): Promise<LoginResponse> 
   }
 }
 
+/**
+ * Refresh JWT token using refresh token
+ */
+export async function refreshJwtToken(refresh_token: string): Promise<{ access_token: string; expires_in: number }> {
+  try {
+    const authClient = getAuthClient();
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new TokenExpiredError();
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to refresh token');
+    }
+
+    const data = await response.json();
+    return {
+      access_token: data.access_token,
+      expires_in: data.expires_in,
+    };
+  } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      throw error;
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to refresh JWT token');
+  }
+}
+
 // =============================================================================
 // CHAT OPERATIONS
 // =============================================================================
@@ -536,8 +574,8 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
-        include_full_context: chatRequest.include_full_context || false,
         context_search_query: chatRequest.context_search_query || null,
+        scope_preference: chatRequest.scope_preference || 'moderate',
       },
     });
 
@@ -572,8 +610,8 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
-        include_full_context: chatRequest.include_full_context || false,
         context_search_query: chatRequest.context_search_query || null,
+        scope_preference: chatRequest.scope_preference || 'moderate',
       },
     });
 
@@ -885,19 +923,20 @@ export async function generateWikiDocumentation(
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
-  selectedModel: string | string[],
+  provider: string,
+  model?: string,
+  temperature?: number,
 ): Promise<any> {
   try {
-    // Convert array to string if needed
-    const providerName = Array.isArray(selectedModel) ? selectedModel[0] : selectedModel;
-
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
         jwt_token,
         repository_url,
         language,
         comprehensive,
-        provider_name: providerName,
+        provider_name: provider,
+        model_name: model,
+        temperature,
       },
     });
 
@@ -997,6 +1036,31 @@ export async function isWikiGenerated(
     return response.data;
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Cancel wiki documentation generation
+ */
+export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const formData = new FormData();
+    formData.append('jwt_token', jwt_token);
+    
+    const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to cancel generation: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    throw error;
   }
 }
 

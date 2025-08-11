@@ -1,41 +1,29 @@
-from typing import List, Dict, Any, Optional, Callable
-import os
+from typing import List, Dict, Any, Callable
 import time
 from datetime import datetime
-from dotenv import load_dotenv
 from pathlib import Path
 import shutil
-
-# Load environment variables
-load_dotenv()
-
 import re 
-try:
-    from ai_client import GeminiAIClient
-    from analyzers import RepositoryAnalyzer
-    from parsers import DocumentParser
-    from embedders import SemanticEmbedder
-    from structures import WikiStructure, WikiPage, Document, RepositoryAnalysis
-    from utils import save_wiki_files, generate_index_page
-except ImportError:
-    # Fallback for when running as part of a package
-    from .ai_client import GeminiAIClient
-    from .analyzers import RepositoryAnalyzer
-    from .parsers import DocumentParser
-    from .embedders import SemanticEmbedder
-    from .structures import WikiStructure, WikiPage, Document, RepositoryAnalysis
-    from .utils import save_wiki_files, generate_index_page
+from documentationo_generator.ai_client import LLMClient
+from documentationo_generator.analyzers import RepositoryAnalyzer
+from documentationo_generator.parsers import DocumentParser
+from documentationo_generator.embedders import SemanticEmbedder
+from documentationo_generator.structures import WikiStructure, WikiPage, Document
+from documentationo_generator.utils import save_wiki_files
 
 class DocumentationGenerator:
     """Main documentation generator - simplified like GraphGenerator"""
     
-    def __init__(self, api_key: str = None, progress_callback: Callable[[str], None] = None):
-        if not api_key:
-            raise ValueError("A Gemini API key is required. Please provide your API key to proceed.")
+    def __init__(self, api_key: str = None, provider: str = "gemini", model: str = None, 
+                 temperature: float = 0.7, progress_callback: Callable[[str], None] = None,
+                 user = None):
         self.api_key = api_key
-            
-        # Initialize components (like graph_generator's parsers)
-        self.ai_client = GeminiAIClient(self.api_key)
+        self.provider = provider.lower() 
+        self.model = model
+        self.temperature = temperature
+        self.user = user
+        self.ai_client = LLMClient(self.api_key, provider=self.provider, model=self.model, temperature=self.temperature)
+        
         self.analyzer = RepositoryAnalyzer()
         self.parser = DocumentParser()
         self.embedder = SemanticEmbedder()
@@ -54,17 +42,17 @@ class DocumentationGenerator:
     def generate_complete_wiki(self, repo_url_or_path: str, output_dir: str = "./wiki_output", 
                          language: str = "en", github_token: str = None) -> Dict[str, Any]:
         """Main generation method - COMPLETE VERSION"""
-        print(f"Starting comprehensive wiki generation for: {repo_url_or_path}")
+        self.progress_callback(f"🚀 Starting comprehensive wiki generation for: {repo_url_or_path}")
         
         output_dir = Path(output_dir).resolve()  # Make it absolute
-        repo_root = output_dir.parent            # Go one level up
-        repo_zip_path = repo_root / "repository.zip"
+        repo_root_parent = output_dir.parent     # Go one level up
+        
+        # Use a temp working directory for cloning/unzipping
+        repo_root = repo_root_parent / "temp_repo"
 
-        # modified the repo_root to temp_repo
-        repo_root = repo_root / "temp_repo"
-
-        # Step 1: Process repository
-        self.documents = self.parser.process_repository(repo_zip_path, repo_root)
+        # Step 1: Process repository (supports URL, local path, or .zip)
+        self.progress_callback("   📥 Processing repository (clone/read/zip setup)...")
+        self.documents = self.parser.process_repository(str(repo_url_or_path), str(repo_root))
         self.repo_info = self.parser.repo_info
 
         # Step 1.2: Clean up existing documents
@@ -75,30 +63,42 @@ class DocumentationGenerator:
             return {"status": "error", "message": "No documents found"}
         
         # Step 2: Analyze repository
+        self.progress_callback("   🔎 Analyzing repository structure and tech stack...")
         self.repo_analysis = self.analyzer.analyze(self.documents)
         
         # Step 3: Build semantic index
+        self.progress_callback("   🧠 Building semantic index for retrieval...")
         self._build_semantic_index()
         
         # Step 4: Generate structure
+        self.progress_callback("   🏗️ Generating documentation structure...")
         structure = self._generate_wiki_structure(language)
         
         # Step 5: Generate content for all pages with optimized rate limiting
-        print("   Starting content generation with optimized rate limiting...")
+        self.progress_callback("   ✍️ Starting content generation with optimized rate limiting...")
+        
+        # Use dynamic rate limiting based on provider
+        rate_delay = self.ai_client.get_rate_limit_delay() if hasattr(self.ai_client, 'get_rate_limit_delay') else 20
         
         generated_pages = []
         for i, page in enumerate(structure.pages):
+            # Check for cancellation (if progress_callback has access to task status)
+            if hasattr(self.progress_callback, '__self__') and hasattr(self.progress_callback.__self__, 'cancelled'):
+                if self.progress_callback.__self__.cancelled:
+                    self.progress_callback("🛑 Generation cancelled")
+                    break
+                    
             if i > 0:
-                # Reduced wait time - AI client handles internal rate limiting
                 self.progress_callback(f"      Brief pause before next page ({i+1}/{len(structure.pages)})...")
-                time.sleep(20)  # Reduced from 120s to 20s
+                time.sleep(rate_delay)  # Dynamic rate limiting based on provider
             
+            self.progress_callback(f"      📝 Generating page {i+1}/{len(structure.pages)}: {page.title}")
             generated_page = self.generate_page_content(page, language)
             generated_pages.append(generated_page)
         
         # Step 6: Save files
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+        self.progress_callback("   💾 Saving documentation files...")
         result = save_wiki_files(generated_pages, structure, output_dir, self.repo_analysis)
         
         # Add comprehensive summary
@@ -114,12 +114,12 @@ class DocumentationGenerator:
         })
         
         # Step 7: Cleanup temporary files
-        self.progress_callback(f"      Cleaning up temporary files...")
+        self.progress_callback("      🧹 Cleaning up temporary files...")
 
         if repo_root.exists():
             shutil.rmtree(repo_root)
 
-        self.progress_callback(f"      Cleanup complete. Wiki generated successfully!")
+        self.progress_callback("      Cleanup complete. Wiki generated successfully!")
         return result
         
     def _build_semantic_index(self):
@@ -154,12 +154,7 @@ class DocumentationGenerator:
         
         return generated_pages
     
-    def _get_file_tree_string(self) -> str:
-        """Generate file tree string"""
-        if not self.repo_analysis:
-            return "No file structure available"
-        # Implementation here
-        return "File tree..."
+    
     
     def _get_readme_content(self) -> str:
         """Get README content"""
@@ -297,11 +292,13 @@ class DocumentationGenerator:
                 self.progress_callback(f"✨ Generated AI title: {ai_title}")
                 page.title = ai_title
 
-        # Generate content using AI with sophisticated prompts
-        generated_content = self.ai_client.generate_page_content(page, relevant_docs, language)
-
-        page.content = generated_content
-        page.mermaid_diagrams = self._extract_mermaid_diagrams(generated_content)
+        # Generate content using multi-provider AI
+        # Unified client
+        generated_page = self.ai_client.generate_page_content(
+            page, self.repo_analysis, relevant_docs, language, self.progress_callback
+        )
+        page.content = generated_page.content
+        page.mermaid_diagrams = self._extract_mermaid_diagrams(page.content)
 
         return page
     

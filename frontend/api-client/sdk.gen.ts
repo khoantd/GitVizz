@@ -23,6 +23,9 @@ import type {
   LoginUserApiBackendAuthLoginPostData,
   LoginUserApiBackendAuthLoginPostResponses,
   LoginUserApiBackendAuthLoginPostErrors,
+  RefreshTokenApiBackendAuthRefreshPostData,
+  RefreshTokenApiBackendAuthRefreshPostResponses,
+  RefreshTokenApiBackendAuthRefreshPostErrors,
   ProcessChatMessageApiBackendChatChatPostData,
   ProcessChatMessageApiBackendChatChatPostResponses,
   ProcessChatMessageApiBackendChatChatPostErrors,
@@ -53,6 +56,12 @@ import type {
   SearchContextApiBackendChatContextSearchPostData,
   SearchContextApiBackendChatContextSearchPostResponses,
   SearchContextApiBackendChatContextSearchPostErrors,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
   GenerateWikiApiDocumentationGenerateWikiPostData,
   GenerateWikiApiDocumentationGenerateWikiPostResponses,
   GenerateWikiApiDocumentationGenerateWikiPostErrors,
@@ -65,12 +74,16 @@ import type {
   ListRepositoryDocsApiDocumentationRepositoryDocsPostData,
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses,
   ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors,
+  GetIndexedRepositoriesApiIndexedReposPostData,
+  GetIndexedRepositoriesApiIndexedReposPostResponses,
+  GetIndexedRepositoriesApiIndexedReposPostErrors,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
   getConversationHistoryApiBackendChatConversationsConversationIdPostResponseTransformer,
   getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer,
   saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
+  getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
 } from './transformers.gen';
 
 export type Options<
@@ -196,6 +209,27 @@ export const loginUserApiBackendAuthLoginPost = <ThrowOnError extends boolean = 
     ThrowOnError
   >({
     url: '/api/backend-auth/login',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Refresh access token
+ * Accepts a refresh token and returns a new access token.
+ */
+export const refreshTokenApiBackendAuthRefreshPost = <ThrowOnError extends boolean = false>(
+  options: Options<RefreshTokenApiBackendAuthRefreshPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RefreshTokenApiBackendAuthRefreshPostResponses,
+    RefreshTokenApiBackendAuthRefreshPostErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-auth/refresh',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -440,6 +474,52 @@ export const searchContextApiBackendChatContextSearchPost = <ThrowOnError extend
 };
 
 /**
+ * Stream wiki generation progress
+ * Server-Sent Events endpoint for real-time wiki generation progress updates.
+ */
+export const streamWikiProgressApiDocumentationProgressStreamTaskIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses,
+    StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors,
+    ThrowOnError
+  >({
+    url: '/api/documentation/progress-stream/{task_id}',
+    ...options,
+  });
+};
+
+/**
+ * Cancel wiki generation
+ * Cancel an ongoing wiki generation task.
+ */
+export const cancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData,
+    ThrowOnError
+  >,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses,
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/documentation/cancel-generation/{task_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Generate wiki documentation
  * Starts the process of generating wiki documentation for a given repository. The task runs in the background, and a task ID is returned to track its progress.
  */
@@ -523,6 +603,37 @@ export const listRepositoryDocsApiDocumentationRepositoryDocsPost = <
   >({
     ...urlSearchParamsBodySerializer,
     url: '/api/documentation/repository-docs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get user's indexed repositories
+ * Retrieve all repositories that have been previously indexed/analyzed by the authenticated user.
+ * Returns clean, minimal repository data for frontend display including:
+ * - Repository name and branch
+ * - Source (GitHub or ZIP)
+ * - Creation/update timestamps
+ * - File sizes
+ * - User tier information
+ *
+ * Requires authentication via JWT token in request body.
+ */
+export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends boolean = false>(
+  options: Options<GetIndexedRepositoriesApiIndexedReposPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetIndexedRepositoriesApiIndexedReposPostResponses,
+    GetIndexedRepositoriesApiIndexedReposPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    responseTransformer: getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
+    url: '/api/indexed-repos/',
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',

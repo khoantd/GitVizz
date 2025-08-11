@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo, useCallback, useRef, memo } from 'react';
 import dynamic from 'next/dynamic';
 import type { GraphCanvasRef } from 'reagraph';
 import { generateGraphFromGithub, generateGraphFromZip } from '@/utils/api';
+import { extractJwtToken } from '@/utils/token-utils';
 import type {
   GraphResponse,
   GraphNode as ApiGraphNode,
@@ -34,6 +35,8 @@ import {
   Search,
   ToggleLeft,
   ToggleRight,
+  Target,
+  Focus,
 } from 'lucide-react';
 import { CodeReferenceAnalyzer } from '@/components/code-reference-analyzer';
 import { HierarchyTab } from '@/components/hierarchy-tab';
@@ -109,6 +112,8 @@ interface ReagraphEdge {
   source: string;
   target: string;
   label?: string;
+  color?: string;
+  size?: number;
 }
 
 interface ReagraphData {
@@ -158,6 +163,25 @@ const COLOR_PALETTE = [
   '#4DB6AC',
   '#9575CD',
 ];
+
+// Utility function to create lighter colors for highlighting
+const getLighterColor = (color: string): string => {
+  // Remove the # if present
+  const hex = color.replace('#', '');
+
+  // Parse the hex color
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Make it lighter by blending with white
+  const lighterR = Math.round(r + (255 - r) * 0.4);
+  const lighterG = Math.round(g + (255 - g) * 0.4);
+  const lighterB = Math.round(b + (255 - b) * 0.4);
+
+  // Convert back to hex
+  return `#${lighterR.toString(16).padStart(2, '0')}${lighterG.toString(16).padStart(2, '0')}${lighterB.toString(16).padStart(2, '0')}`;
+};
 const ICON_LIST = [Layers, Function, Code, Variable, Package, FileText, Network];
 
 // Utility functions
@@ -852,11 +876,67 @@ export default function EnhancedReagraphVisualization({
   const [sidebarWidth, setSidebarWidth] = useState('40vw');
   const [isResizing, setIsResizing] = useState(false);
   const [visualizationType, setVisualizationType] = useState<'reagraph' | 'sigma'>('sigma');
-  const [hierarchyDepth, setHierarchyDepth] = useState<number>(3);
+  const [hierarchyDepth, setHierarchyDepth] = useState<number>(1);
+  const [viewMode, setViewMode] = useState<'highlight' | 'isolate'>('highlight');
+  const [isolatedSubgraph, setIsolatedSubgraph] = useState<{
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  } | null>(null);
   const { data: session } = useSession();
 
   const generateGraphFromGithubWithAuth = useApiWithAuth(generateGraphFromGithub);
   const generateGraphFromZipWithAuth = useApiWithAuth(generateGraphFromZip);
+
+  // Function to build isolated subgraph based on hierarchy depth
+  const buildIsolatedSubgraph = useCallback(
+    (nodeId: string, depth: number) => {
+      if (!graphData) return null;
+
+      const visited = new Set<string>();
+      const subgraphNodes: GraphNode[] = [];
+      const subgraphEdges: GraphEdge[] = [];
+
+      const queue: Array<{ id: string; currentDepth: number }> = [{ id: nodeId, currentDepth: 0 }];
+
+      while (queue.length > 0) {
+        const { id, currentDepth } = queue.shift()!;
+
+        if (visited.has(id) || currentDepth > depth) continue;
+        visited.add(id);
+
+        // Add node to subgraph
+        const node = graphData.nodes.find((n) => n.id === id);
+        if (node) {
+          subgraphNodes.push(node);
+        }
+
+        if (currentDepth < depth) {
+          // Find all connected nodes
+          const connectedEdges = graphData.edges.filter(
+            (edge) =>
+              (edge.source === id || edge.target === id) &&
+              !visited.has(edge.source === id ? edge.target : edge.source),
+          );
+
+          for (const edge of connectedEdges) {
+            const connectedNodeId = edge.source === id ? edge.target : edge.source;
+            queue.push({ id: connectedNodeId, currentDepth: currentDepth + 1 });
+          }
+        }
+      }
+
+      // Add edges that connect nodes within the subgraph
+      const nodeIds = new Set(subgraphNodes.map((n) => n.id));
+      for (const edge of graphData.edges) {
+        if (nodeIds.has(edge.source) && nodeIds.has(edge.target)) {
+          subgraphEdges.push(edge);
+        }
+      }
+
+      return { nodes: subgraphNodes, edges: subgraphEdges };
+    },
+    [graphData],
+  );
 
   const hasLoadedRef = useRef(false);
   const currentRequestKeyRef = useRef<string | null>(null);
@@ -904,10 +984,13 @@ export default function EnhancedReagraphVisualization({
         if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
           data = await generateGraphFromGithubWithAuth({
             ...sourceData,
-            jwt_token: session?.jwt_token || '',
+            jwt_token: extractJwtToken(session?.jwt_token) || '',
           });
         } else if (sourceType === 'zip' && sourceData instanceof File) {
-          data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
+          data = await generateGraphFromZipWithAuth(
+            sourceData,
+            extractJwtToken(session?.jwt_token) || '',
+          );
         } else {
           throw new Error('Invalid source type or data');
         }
@@ -1019,30 +1102,60 @@ export default function EnhancedReagraphVisualization({
     } catch {}
   }, []);
 
+  // Track double-click timing
+  const lastClickTimeRef = useRef<number>(0);
+  const lastClickNodeRef = useRef<string | null>(null);
+
   const handleNodeClick = useCallback(
     (node: ReaGraphGraphNode) => {
       const graphNode = graphData?.nodes.find((n) => n.id === node.id);
-      if (graphNode) {
-        setSelectedNode(graphNode);
-        setActiveNodeId(graphNode.id);
-        // Set hierarchy as default for better UX
-        setActiveTab('hierarchy');
-        setIsMobileSidebarOpen(true);
-        onNodeClick?.(graphNode);
+      if (!graphNode) return;
 
-        // Scroll to top of analysis content after a brief delay
-        setTimeout(() => {
-          if (analysisScrollRef.current) {
-            analysisScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }, 100);
+      const currentTime = Date.now();
+      const isDoubleClick =
+        currentTime - lastClickTimeRef.current < 300 && lastClickNodeRef.current === node.id;
 
-        // Center and highlight in graph
-        centerAndHighlightNode(node.id);
+      if (isDoubleClick) {
+        // Double-click: Enter isolate mode
+        setViewMode('isolate');
+        const subgraph = buildIsolatedSubgraph(node.id, hierarchyDepth);
+        setIsolatedSubgraph(subgraph);
       }
+
+      setSelectedNode(graphNode);
+      setActiveNodeId(graphNode.id);
+      // Set hierarchy as default for better UX
+      setActiveTab('hierarchy');
+      setIsMobileSidebarOpen(true);
+      onNodeClick?.(graphNode);
+
+      // Scroll to top of analysis content after a brief delay
+      setTimeout(() => {
+        if (analysisScrollRef.current) {
+          analysisScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
+
+      // Center and highlight in graph
+      centerAndHighlightNode(node.id);
+
+      lastClickTimeRef.current = currentTime;
+      lastClickNodeRef.current = node.id;
     },
-    [graphData?.nodes, onNodeClick, centerAndHighlightNode],
+    [graphData?.nodes, onNodeClick, centerAndHighlightNode, buildIsolatedSubgraph, hierarchyDepth],
   );
+
+  // Handle canvas click to exit isolate mode or clear highlights
+  const handleCanvasClick = useCallback(() => {
+    if (viewMode === 'isolate') {
+      setViewMode('highlight');
+      setIsolatedSubgraph(null);
+    } else {
+      // Clear highlights in highlight mode
+      setActiveNodeId(null);
+      setSelectedNode(null);
+    }
+  }, [viewMode]);
 
   const handleOpenFile = useCallback(
     (filePath: string, line?: number) => {
@@ -1073,49 +1186,139 @@ export default function EnhancedReagraphVisualization({
   }, [graphData, selectedFilePath, selectedFileLine, centerAndHighlightNode]);
 
   const reagraphData = useMemo((): ReagraphData | null => {
-    if (!graphData?.nodes?.length) return null;
+    // Use isolated subgraph if in isolate mode, otherwise use full graph
+    const dataToUse = viewMode === 'isolate' && isolatedSubgraph ? isolatedSubgraph : graphData;
+    if (!dataToUse?.nodes?.length) return null;
 
-    const nodeCount = graphData.nodes.length;
+    const nodeCount = dataToUse.nodes.length;
     const isLargeGraph = nodeCount >= 500;
 
+    // Calculate node depths for highlighting (same logic as Sigma.js)
+    const nodeDepths = new Map<string, number>();
+    if (selectedNode && hierarchyDepth && viewMode === 'highlight') {
+      const visited = new Set<string>();
+      const queue: Array<{ id: string; depth: number }> = [{ id: selectedNode.id, depth: 0 }];
+
+      while (queue.length > 0) {
+        const { id, depth } = queue.shift()!;
+        if (visited.has(id) || depth > hierarchyDepth) continue;
+        visited.add(id);
+        nodeDepths.set(id, depth);
+
+        if (depth < hierarchyDepth) {
+          const connectedEdges = dataToUse.edges.filter(
+            (edge) =>
+              (edge.source === id || edge.target === id) &&
+              !visited.has(edge.source === id ? edge.target : edge.source),
+          );
+
+          for (const edge of connectedEdges) {
+            const connectedNodeId = edge.source === id ? edge.target : edge.source;
+            queue.push({ id: connectedNodeId, depth: depth + 1 });
+          }
+        }
+      }
+    }
+
     return {
-      nodes: graphData.nodes.map((node) => ({
-        id: node.id,
-        label: node.name,
-        fill:
+      nodes: dataToUse.nodes.map((node) => {
+        const baseColor =
           nodeCategories[node.category?.toLowerCase() || 'other']?.color ||
           nodeCategories['other']?.color ||
-          '#90A4AE',
-        // Smaller fixed sizes for large graphs to reduce rendering work
-        size: isLargeGraph ? 6 : Math.max(8, Math.min(16, node.name.length * 0.6 + 6)),
-      })),
+          '#90A4AE';
+
+        let nodeColor = baseColor;
+        let nodeSize = isLargeGraph ? 6 : Math.max(8, Math.min(16, node.name.length * 0.6 + 6));
+
+        // Apply depth-based highlighting in highlight mode (match Sigma.js exactly)
+        if (viewMode === 'highlight' && selectedNode && hierarchyDepth) {
+          const nodeDepth = nodeDepths.get(node.id);
+
+          if (node.id === selectedNode.id) {
+            // Root node - special highlighting (match Sigma.js)
+            nodeSize = nodeSize * 1.6;
+            nodeColor = getLighterColor(baseColor);
+          } else if (nodeDepth !== undefined && nodeDepth <= hierarchyDepth) {
+            // Within hierarchy depth - highlight based on depth level (match Sigma.js)
+            const depthIntensity = 1 - (nodeDepth / hierarchyDepth) * 0.4;
+            nodeSize = nodeSize * (1 + depthIntensity * 0.3);
+            nodeColor = getLighterColor(baseColor);
+          } else {
+            // Outside hierarchy depth - dim significantly (match Sigma.js)
+            nodeColor = baseColor + '30';
+          }
+        }
+
+        return {
+          id: node.id,
+          label: node.name,
+          fill: nodeColor,
+          size: nodeSize,
+        };
+      }),
       edges:
-        graphData.edges?.map((edge, edgeIndex) => ({
-          id: `edge-${edgeIndex}`,
-          source: edge.source,
-          target: edge.target,
-          // Remove edge labels for large graphs to reduce text layout cost
-          label: isLargeGraph ? undefined : edge.relationship,
-        })) || [],
+        dataToUse.edges?.map((edge, edgeIndex) => {
+          let edgeColor = '#e5e7eb';
+          let edgeSize = 0.8;
+
+          // Apply edge highlighting in highlight mode (match Sigma.js exactly)
+          if (viewMode === 'highlight' && selectedNode && hierarchyDepth) {
+            const sourceDepth = nodeDepths.get(edge.source);
+            const targetDepth = nodeDepths.get(edge.target);
+
+            if (
+              sourceDepth !== undefined &&
+              targetDepth !== undefined &&
+              sourceDepth <= hierarchyDepth &&
+              targetDepth <= hierarchyDepth
+            ) {
+              // Both nodes are within hierarchy depth - black edges (match Sigma.js)
+              edgeColor = '#000000';
+              edgeSize = 1.2;
+            } else if (
+              (sourceDepth !== undefined && sourceDepth <= hierarchyDepth) ||
+              (targetDepth !== undefined && targetDepth <= hierarchyDepth)
+            ) {
+              // One node is within hierarchy depth - dark gray (match Sigma.js)
+              edgeColor = '#374151';
+              edgeSize = 1.0;
+            } else {
+              // Outside hierarchy - very dim (match Sigma.js)
+              edgeColor = '#e5e7eb30';
+              edgeSize = 0.6;
+            }
+          }
+
+          return {
+            id: `edge-${edgeIndex}`,
+            source: edge.source,
+            target: edge.target,
+            label: isLargeGraph ? undefined : edge.relationship,
+            color: edgeColor,
+            size: edgeSize,
+          };
+        }) || [],
     };
-  }, [graphData?.nodes, graphData?.edges, nodeCategories]);
+  }, [nodeCategories, viewMode, isolatedSubgraph, graphData, selectedNode, hierarchyDepth]);
 
   const sigmaData = useMemo((): SigmaGraphInnerData | null => {
-    if (!graphData?.nodes?.length) return null;
+    // Use isolated subgraph if in isolate mode, otherwise use full graph
+    const dataToUse = viewMode === 'isolate' && isolatedSubgraph ? isolatedSubgraph : graphData;
+    if (!dataToUse?.nodes?.length) return null;
 
     return {
-      nodes: graphData.nodes.map((node) => ({
+      nodes: dataToUse.nodes.map((node) => ({
         id: node.id,
         name: node.name,
         category: node.category,
       })),
-      edges: graphData.edges.map((edge, idx) => ({
+      edges: dataToUse.edges.map((edge, idx) => ({
         id: `e-${idx}-${edge.source}-${edge.target}`,
         source: edge.source,
         target: edge.target,
       })),
     };
-  }, [graphData?.nodes, graphData?.edges]);
+  }, [viewMode, isolatedSubgraph, graphData]);
 
   const categoryData = useMemo(() => {
     if (!graphData?.nodes) return [];
@@ -1401,7 +1604,7 @@ export default function EnhancedReagraphVisualization({
                         <HierarchyTab
                           selectedNode={selectedCodeReference}
                           graphData={analysisGraphData}
-                          maxDepth={3}
+                          maxDepth={1}
                           onDepthChange={setHierarchyDepth}
                           onOpenFile={handleOpenFile}
                           onSelectGraphNode={(id) => centerAndHighlightNode(id)}
@@ -1450,7 +1653,7 @@ export default function EnhancedReagraphVisualization({
         </div>
 
         {/* Stats Badge for mobile */}
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3 flex items-center gap-1">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-2 py-1 text-xs">
             {visualizationType === 'reagraph' && reagraphData
               ? `${reagraphData.nodes.length}N • ${reagraphData.edges.length}E`
@@ -1458,13 +1661,26 @@ export default function EnhancedReagraphVisualization({
                 ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E`
                 : '0N • 0E'}
           </Badge>
+          {/* Only show mode badge for Sigma.js */}
+          {visualizationType === 'sigma' && (
+            <Badge
+              variant={viewMode === 'isolate' ? 'default' : 'secondary'}
+              className={`backdrop-blur-sm border-border/60 rounded-xl px-1.5 py-1 text-xs ${
+                viewMode === 'isolate'
+                  ? 'bg-primary text-primary-foreground border-primary/50'
+                  : 'bg-background/90'
+              }`}
+            >
+              {viewMode === 'isolate' ? 'I' : 'H'}
+            </Badge>
+          )}
         </div>
       </div>
 
       {/* Desktop Graph Canvas - Only show on lg and above */}
       <div className="hidden lg:block lg:flex-1 relative min-w-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm">
-          {visualizationType === 'reagraph' ? (
+          {visualizationType === 'reagraph' && reagraphData ? (
             <GraphCanvas
               ref={graphRef}
               nodes={reagraphData.nodes}
@@ -1480,6 +1696,7 @@ export default function EnhancedReagraphVisualization({
               // Avoid centrality sizing on large graphs to reduce internal computation
               sizingType={isLargeGraph ? 'attribute' : 'centrality'}
               onNodeClick={handleNodeClick}
+              onCanvasClick={handleCanvasClick}
             />
           ) : (
             sigmaData && (
@@ -1487,7 +1704,8 @@ export default function EnhancedReagraphVisualization({
                 data={sigmaData}
                 onNodeClick={(nodeId: string) => {
                   if (nodeId === '') {
-                    // Canvas click - clear focus
+                    // Canvas click - clear focus and exit isolate mode if active
+                    handleCanvasClick();
                     setActiveNodeId(null);
                     setSelectedNode(null);
                     return;
@@ -1497,10 +1715,17 @@ export default function EnhancedReagraphVisualization({
                     handleNodeClick({ id: graphNode.id, label: graphNode.name });
                   }
                 }}
+                onDoubleClick={(nodeId: string) => {
+                  // Double-click: Enter isolate mode
+                  setViewMode('isolate');
+                  const subgraph = buildIsolatedSubgraph(nodeId, hierarchyDepth);
+                  setIsolatedSubgraph(subgraph);
+                }}
                 focusedNodeId={activeNodeId}
                 nodeCategories={nodeCategories}
                 hierarchyDepth={hierarchyDepth}
                 selectedRootNodeId={selectedCodeReference?.id}
+                viewMode={viewMode}
               />
             )
           )}
@@ -1547,10 +1772,48 @@ export default function EnhancedReagraphVisualization({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Only show isolate mode toggle for Sigma.js */}
+          {visualizationType === 'sigma' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewMode === 'isolate' ? 'secondary' : 'outline'}
+                    size="icon"
+                    className={`h-8 w-8 rounded-xl backdrop-blur-sm border-border/60 ${
+                      viewMode === 'isolate'
+                        ? 'bg-primary text-primary-foreground border-primary/50'
+                        : 'bg-background/90'
+                    }`}
+                    onClick={() => {
+                      if (viewMode === 'isolate') {
+                        setViewMode('highlight');
+                        setIsolatedSubgraph(null);
+                      } else {
+                        setViewMode('isolate');
+                      }
+                    }}
+                  >
+                    {viewMode === 'isolate' ? (
+                      <Focus className="h-4 w-4" />
+                    ) : (
+                      <Target className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {viewMode === 'isolate'
+                    ? 'Exit Isolate Mode'
+                    : 'Enter Isolate Mode (double-click node)'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         {/* Stats Badge for desktop */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
           <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-3 py-1 text-xs">
             {visualizationType === 'reagraph' && reagraphData
               ? `${reagraphData.nodes.length} nodes • ${reagraphData.edges.length} edges`
@@ -1558,6 +1821,19 @@ export default function EnhancedReagraphVisualization({
                 ? `${sigmaData.nodes.length}N • ${sigmaData.edges.length}E`
                 : '0N • 0E'}
           </Badge>
+          {/* Only show mode badge for Sigma.js */}
+          {visualizationType === 'sigma' && (
+            <Badge
+              variant={viewMode === 'isolate' ? 'default' : 'secondary'}
+              className={`backdrop-blur-sm border-border/60 rounded-xl px-2 py-1 text-xs ${
+                viewMode === 'isolate'
+                  ? 'bg-primary text-primary-foreground border-primary/50'
+                  : 'bg-background/90'
+              }`}
+            >
+              {viewMode === 'isolate' ? 'Isolate' : 'Highlight'}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -1647,7 +1923,7 @@ export default function EnhancedReagraphVisualization({
                     <HierarchyTab
                       selectedNode={selectedCodeReference}
                       graphData={analysisGraphData}
-                      maxDepth={3}
+                      maxDepth={1}
                       onDepthChange={setHierarchyDepth}
                       onOpenFile={handleOpenFile}
                       onSelectGraphNode={(id) => centerAndHighlightNode(id)}

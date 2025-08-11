@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   SigmaContainer,
   useLoadGraph,
@@ -19,7 +19,8 @@ import { animateNodes } from 'sigma/utils';
 import { EdgeArrowProgram, NodePointProgram, NodeCircleProgram } from 'sigma/rendering';
 import { NodeBorderProgram } from '@sigma/node-border';
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
-import { Badge } from '@/components/ui/badge';
+// Layout control imports commented out for now
+/* 
 import {
   Select,
   SelectContent,
@@ -27,19 +28,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+*/
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutGrid,
-  Shuffle,
+  // LayoutGrid,
+  // Shuffle,
   RotateCw,
-  Zap,
+  // Zap,
   AlertTriangle,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   Focus,
-  Pause,
+  // Pause,
 } from 'lucide-react';
 
 type InnerNode = { id: string; name: string; category?: string };
@@ -132,6 +134,40 @@ function calculateNodeDepths(
   return depths;
 }
 
+// Get nodes within hierarchical depth for isolate mode
+function getNodesWithinDepth(
+  graph: MultiDirectedGraph,
+  rootNodeId: string,
+  maxDepth: number,
+): Set<string> {
+  const nodesInDepth = new Set<string>();
+  if (!rootNodeId || !graph.hasNode(rootNodeId)) return nodesInDepth;
+
+  const queue: Array<{ nodeId: string; depth: number }> = [{ nodeId: rootNodeId, depth: 0 }];
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const { nodeId, depth } = queue.shift()!;
+
+    if (visited.has(nodeId) || depth > maxDepth) continue;
+    visited.add(nodeId);
+    nodesInDepth.add(nodeId);
+
+    // Add all neighbors to queue with increased depth
+    try {
+      graph.forEachNeighbor(nodeId, (neighborId) => {
+        if (!visited.has(neighborId)) {
+          queue.push({ nodeId: neighborId, depth: depth + 1 });
+        }
+      });
+    } catch {
+      // Node might not exist
+    }
+  }
+
+  return nodesInDepth;
+}
+
 const sigmaContainerStyle: React.CSSProperties = {
   height: '100%',
   width: '100%',
@@ -218,17 +254,19 @@ function LoadGraph({
   onNodeClick,
   focusedNodeId,
   nodeCategories,
-  currentLayout,
   hierarchyDepth,
   selectedRootNodeId,
+  viewMode = 'highlight',
+  onDoubleClick,
 }: {
   data: SigmaGraphInnerData;
   onNodeClick?: (nodeId: string) => void;
   focusedNodeId?: string | null;
   nodeCategories?: NodeCategories;
-  currentLayout?: string;
   hierarchyDepth?: number;
   selectedRootNodeId?: string;
+  viewMode?: 'highlight' | 'isolate';
+  onDoubleClick?: (nodeId: string) => void;
 }) {
   const loadGraph = useLoadGraph();
   const registerEvents = useRegisterEvents();
@@ -236,6 +274,9 @@ function LoadGraph({
   const [connectedNodes, setConnectedNodes] = useState<Set<string>>(new Set());
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [nodeDepths, setNodeDepths] = useState<Map<string, number>>(new Map());
+  const [isolateNodes, setIsolateNodes] = useState<Set<string>>(new Set());
+  const [lastClickTime, setLastClickTime] = useState<number>(0);
+  const [lastClickNode, setLastClickNode] = useState<string | null>(null);
 
   // Enhanced layout hooks
   const layoutForceAtlas2 = useLayoutForceAtlas2({ iterations: 300 });
@@ -324,7 +365,7 @@ function LoadGraph({
       }
     },
     [sigma],
-  ); // Only sigma as dependency - layouts are accessed directly
+  );
 
   // Update node appearance based on states (optimized to prevent constant refreshing)
   const updateNodeAppearance = useCallback(
@@ -339,63 +380,86 @@ function LoadGraph({
         let color = originalColor;
         let borderColor = 'transparent';
         let borderSize = 0;
+        let hidden = false;
 
-        // Hierarchy depth highlighting (takes precedence when enabled)
-        if (selectedRootNodeId && hierarchyDepth && nodeDepth !== undefined) {
-          if (nodeId === selectedRootNodeId) {
+        // Isolate mode: show only nodes within depth from selected root
+        if (viewMode === 'isolate' && selectedRootNodeId && hierarchyDepth !== undefined) {
+          if (!isolateNodes.has(nodeId)) {
+            hidden = true;
+          } else if (nodeId === selectedRootNodeId) {
             // Root node - special highlighting
             size = baseSize * 1.6;
-            borderColor = '#8b5cf6'; // Purple border for root
+            borderColor = '#8b5cf6';
             borderSize = 4;
             color = getLighterColor(originalColor);
-          } else if (nodeDepth <= hierarchyDepth) {
+          } else if (nodeDepth !== undefined && nodeDepth <= hierarchyDepth) {
             // Within hierarchy depth - highlight based on depth level
-            const depthIntensity = 1 - (nodeDepth / hierarchyDepth) * 0.4; // Fade based on depth
+            const depthIntensity = 1 - (nodeDepth / hierarchyDepth) * 0.4;
             size = baseSize * (1 + depthIntensity * 0.3);
             borderColor = '#8b5cf6';
             borderSize = Math.max(1, 3 - nodeDepth);
             color = getLighterColor(originalColor);
-          } else {
-            // Outside hierarchy depth - dim significantly
-            color = originalColor + '30';
           }
         }
-        // Focus state (only if hierarchy is not active)
-        else if (nodeId === focusedNodeId) {
-          size = baseSize * 1.8;
-          borderColor = '#6b7280';
-          borderSize = 3;
-          color = getLighterColor(originalColor);
-        }
-        // Connected to focused node
-        else if (focusedNodeId && connectedNodes.has(nodeId)) {
-          size = baseSize * 1.1;
-          color = getLighterColor(originalColor);
-        }
-        // Hover state (only if not focused and no hierarchy)
-        else if (!focusedNodeId && !selectedRootNodeId && nodeId === hoveredNode) {
-          size = baseSize * 1.2;
-          color = getLighterColor(originalColor);
-        }
-        // Connected to hovered node
-        else if (
-          !focusedNodeId &&
-          !selectedRootNodeId &&
-          hoveredNode &&
-          connectedNodes.has(nodeId)
-        ) {
-          color = getLighterColor(originalColor);
-        }
-        // Dimmed state
-        else if (
-          (focusedNodeId && !connectedNodes.has(nodeId) && nodeId !== focusedNodeId) ||
-          (!focusedNodeId &&
+        // Highlight mode (original behavior)
+        else if (viewMode === 'highlight') {
+          // Hierarchy depth highlighting (takes precedence when enabled)
+          if (selectedRootNodeId && hierarchyDepth && nodeDepth !== undefined) {
+            if (nodeId === selectedRootNodeId) {
+              // Root node - special highlighting
+              size = baseSize * 1.6;
+              borderColor = '#8b5cf6'; // Purple border for root
+              borderSize = 4;
+              color = getLighterColor(originalColor);
+            } else if (nodeDepth <= hierarchyDepth) {
+              // Within hierarchy depth - highlight based on depth level
+              const depthIntensity = 1 - (nodeDepth / hierarchyDepth) * 0.4; // Fade based on depth
+              size = baseSize * (1 + depthIntensity * 0.3);
+              borderColor = '#8b5cf6';
+              borderSize = Math.max(1, 3 - nodeDepth);
+              color = getLighterColor(originalColor);
+            } else {
+              // Outside hierarchy depth - dim significantly
+              color = originalColor + '30';
+            }
+          }
+          // Focus state (only if hierarchy is not active)
+          else if (nodeId === focusedNodeId) {
+            size = baseSize * 1.8;
+            borderColor = '#6b7280';
+            borderSize = 3;
+            color = getLighterColor(originalColor);
+          }
+          // Connected to focused node
+          else if (focusedNodeId && connectedNodes.has(nodeId)) {
+            size = baseSize * 1.1;
+            color = getLighterColor(originalColor);
+          }
+          // Hover state (only if not focused and no hierarchy)
+          else if (!focusedNodeId && !selectedRootNodeId && nodeId === hoveredNode) {
+            size = baseSize * 1.2;
+            color = getLighterColor(originalColor);
+          }
+          // Connected to hovered node
+          else if (
+            !focusedNodeId &&
             !selectedRootNodeId &&
             hoveredNode &&
-            !connectedNodes.has(nodeId) &&
-            nodeId !== hoveredNode)
-        ) {
-          color = originalColor + '60';
+            connectedNodes.has(nodeId)
+          ) {
+            color = getLighterColor(originalColor);
+          }
+          // Dimmed state
+          else if (
+            (focusedNodeId && !connectedNodes.has(nodeId) && nodeId !== focusedNodeId) ||
+            (!focusedNodeId &&
+              !selectedRootNodeId &&
+              hoveredNode &&
+              !connectedNodes.has(nodeId) &&
+              nodeId !== hoveredNode)
+          ) {
+            color = originalColor + '60';
+          }
         }
 
         graph.mergeNodeAttributes(nodeId, {
@@ -403,53 +467,94 @@ function LoadGraph({
           color,
           borderColor,
           borderSize,
+          hidden,
         });
+
+        // For isolated nodes, ensure they have proper positions (only on first switch)
+        if (
+          viewMode === 'isolate' &&
+          !hidden &&
+          isolateNodes.has(nodeId) &&
+          !layoutAppliedRef.current
+        ) {
+          const currentX = graph.getNodeAttribute(nodeId, 'x');
+          const currentY = graph.getNodeAttribute(nodeId, 'y');
+
+          // If node is at origin or has invalid position, give it a random position
+          if (!currentX || !currentY || (Math.abs(currentX) < 0.1 && Math.abs(currentY) < 0.1)) {
+            graph.setNodeAttribute(nodeId, 'x', (Math.random() - 0.5) * 100);
+            graph.setNodeAttribute(nodeId, 'y', (Math.random() - 0.5) * 100);
+          }
+        }
       });
 
       // Update edges
-      graph.forEachEdge((edgeId, attributes, source, target) => {
+      graph.forEachEdge((edgeId, _attributes, source, target) => {
         let color = '#e5e7eb';
         let size = 0.8;
+        let hidden = false;
 
-        // Hierarchy depth edge highlighting (takes precedence)
-        if (selectedRootNodeId && hierarchyDepth) {
-          const sourceDepth = nodeDepths.get(source);
-          const targetDepth = nodeDepths.get(target);
-
-          if (
-            sourceDepth !== undefined &&
-            targetDepth !== undefined &&
-            sourceDepth <= hierarchyDepth &&
-            targetDepth <= hierarchyDepth
-          ) {
-            // Both nodes are within hierarchy depth
-            color = '#000000'; // Black edges for hierarchy
-            size = 1.2;
-          } else if (
-            (sourceDepth !== undefined && sourceDepth <= hierarchyDepth) ||
-            (targetDepth !== undefined && targetDepth <= hierarchyDepth)
-          ) {
-            // One node is within hierarchy depth
-            color = '#374151'; // Dark gray
-            size = 1.0;
+        // Isolate mode: hide edges not connecting nodes within depth
+        if (viewMode === 'isolate' && selectedRootNodeId && hierarchyDepth !== undefined) {
+          if (!isolateNodes.has(source) || !isolateNodes.has(target)) {
+            hidden = true;
           } else {
-            // Outside hierarchy
-            color = '#e5e7eb30';
-            size = 0.6;
+            const sourceDepth = nodeDepths.get(source);
+            const targetDepth = nodeDepths.get(target);
+
+            if (
+              sourceDepth !== undefined &&
+              targetDepth !== undefined &&
+              sourceDepth <= hierarchyDepth &&
+              targetDepth <= hierarchyDepth
+            ) {
+              color = '#000000';
+              size = 1.2;
+            }
           }
         }
-        // Regular focus/hover highlighting (only if no hierarchy)
-        else {
-          const activeNode = focusedNodeId || hoveredNode;
-          if (activeNode && (source === activeNode || target === activeNode)) {
-            color = '#9ca3af';
-            size = 1.5;
-          } else if (activeNode && !connectedNodes.has(source) && !connectedNodes.has(target)) {
-            color = '#e5e7eb50';
+        // Highlight mode (original behavior)
+        else if (viewMode === 'highlight') {
+          // Hierarchy depth edge highlighting (takes precedence)
+          if (selectedRootNodeId && hierarchyDepth) {
+            const sourceDepth = nodeDepths.get(source);
+            const targetDepth = nodeDepths.get(target);
+
+            if (
+              sourceDepth !== undefined &&
+              targetDepth !== undefined &&
+              sourceDepth <= hierarchyDepth &&
+              targetDepth <= hierarchyDepth
+            ) {
+              // Both nodes are within hierarchy depth
+              color = '#000000'; // Black edges for hierarchy
+              size = 1.2;
+            } else if (
+              (sourceDepth !== undefined && sourceDepth <= hierarchyDepth) ||
+              (targetDepth !== undefined && targetDepth <= hierarchyDepth)
+            ) {
+              // One node is within hierarchy depth
+              color = '#374151'; // Dark gray
+              size = 1.0;
+            } else {
+              // Outside hierarchy
+              color = '#e5e7eb30';
+              size = 0.6;
+            }
+          }
+          // Regular focus/hover highlighting (only if no hierarchy)
+          else {
+            const activeNode = focusedNodeId || hoveredNode;
+            if (activeNode && (source === activeNode || target === activeNode)) {
+              color = '#9ca3af';
+              size = 1.5;
+            } else if (activeNode && !connectedNodes.has(source) && !connectedNodes.has(target)) {
+              color = '#e5e7eb50';
+            }
           }
         }
 
-        graph.mergeEdgeAttributes(edgeId, { color, size });
+        graph.mergeEdgeAttributes(edgeId, { color, size, hidden });
       });
     },
     [
@@ -461,6 +566,8 @@ function LoadGraph({
       nodeDepths,
       selectedRootNodeId,
       hierarchyDepth,
+      viewMode,
+      isolateNodes,
     ],
   );
 
@@ -532,18 +639,14 @@ function LoadGraph({
     }
 
     // Apply initial layout without animation for faster startup
-    applyLayoutStable(currentLayout || 'forceatlas2', false);
+    // Always use ForceAtlas2 as it's most stable
+    applyLayoutStable('forceatlas2', false);
 
     loadGraph(graph);
-  }, [data, loadGraph, nodeCategories, currentLayout]); // Removed applyLayout dependency
+  }, [data, loadGraph, nodeCategories, applyLayoutStable]); // Include applyLayoutStable dependency
 
-  // Apply layout when currentLayout changes with animation
-  useEffect(() => {
-    const graph = sigma.getGraph();
-    if (graph && graph.order > 0 && currentLayout) {
-      applyLayoutStable(currentLayout, true);
-    }
-  }, [currentLayout, sigma, applyLayoutStable]);
+  // Skip layout recalculation when currentLayout changes since we always use ForceAtlas2
+  // This prevents unnecessary layout refreshes when user clicks layout buttons
 
   // Calculate node depths when hierarchy parameters change
   useEffect(() => {
@@ -558,6 +661,86 @@ function LoadGraph({
     const depths = calculateNodeDepths(graph, selectedRootNodeId, hierarchyDepth);
     setNodeDepths(depths);
   }, [selectedRootNodeId, hierarchyDepth, sigma, data]);
+
+  // Calculate isolate nodes when isolate mode parameters change
+  useEffect(() => {
+    if (viewMode !== 'isolate' || !selectedRootNodeId || hierarchyDepth === undefined) {
+      setIsolateNodes(new Set());
+      return;
+    }
+
+    const graph = sigma.getGraph();
+    if (!graph || graph.order === 0) return;
+
+    const isolateNodeSet = getNodesWithinDepth(graph, selectedRootNodeId, hierarchyDepth);
+    setIsolateNodes(isolateNodeSet);
+  }, [viewMode, selectedRootNodeId, hierarchyDepth, sigma, data, applyLayoutStable]);
+
+  // Track previous view mode to detect actual changes
+  const prevViewModeRef = useRef<string>(viewMode);
+  const layoutAppliedRef = useRef<boolean>(false);
+  const layoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle layout recalculation when view mode changes
+  useEffect(() => {
+    const graph = sigma.getGraph();
+    if (!graph || graph.order === 0) return;
+
+    // Only apply layout if view mode actually changed
+    if (prevViewModeRef.current === viewMode && layoutAppliedRef.current) {
+      return;
+    }
+
+    prevViewModeRef.current = viewMode;
+    layoutAppliedRef.current = false;
+
+    // Clear any existing layout timeout
+    if (layoutTimeoutRef.current) {
+      clearTimeout(layoutTimeoutRef.current);
+    }
+
+    // Add delay to ensure visibility changes are applied first
+    layoutTimeoutRef.current = setTimeout(() => {
+      // Only recalculate layout when switching modes, not on every update
+      if (!layoutAppliedRef.current) {
+        applyLayoutStable('forceatlas2', true);
+        layoutAppliedRef.current = true;
+
+        // For isolate mode, also ensure proper camera positioning
+        if (viewMode === 'isolate' && selectedRootNodeId) {
+          setTimeout(() => {
+            try {
+              const display = sigma.getNodeDisplayData(selectedRootNodeId);
+              if (display) {
+                sigma.getCamera().animate(
+                  {
+                    x: display.x,
+                    y: display.y,
+                    ratio: 0.8, // Zoom in a bit for isolate mode
+                  },
+                  { duration: 500 },
+                );
+              }
+            } catch {
+              // Fallback: center the camera
+              sigma.getCamera().animate({ x: 0.5, y: 0.5, ratio: 0.8 }, { duration: 500 });
+            }
+          }, 400);
+        } else if (viewMode === 'highlight') {
+          // Reset camera when exiting isolate mode
+          setTimeout(() => {
+            sigma.getCamera().animate({ x: 0.5, y: 0.5, ratio: 1.1 }, { duration: 500 });
+          }, 400);
+        }
+      }
+    }, 200);
+
+    return () => {
+      if (layoutTimeoutRef.current) {
+        clearTimeout(layoutTimeoutRef.current);
+      }
+    };
+  }, [viewMode, selectedRootNodeId, sigma, applyLayoutStable]);
 
   // Update connected nodes when focus changes (for hierarchy tab integration) - debounced
   useEffect(() => {
@@ -599,7 +782,21 @@ function LoadGraph({
 
     registerEvents({
       clickNode: ({ node }) => {
-        if (onNodeClick) onNodeClick(String(node));
+        const currentTime = Date.now();
+        const nodeId = String(node);
+        const isDoubleClick = currentTime - lastClickTime < 300 && lastClickNode === nodeId;
+
+        if (isDoubleClick) {
+          // Double-click: trigger isolate mode
+          if (onDoubleClick) {
+            onDoubleClick(nodeId);
+          }
+        }
+
+        setLastClickTime(currentTime);
+        setLastClickNode(nodeId);
+
+        if (onNodeClick) onNodeClick(nodeId);
       },
       clickStage: () => {
         if (onNodeClick) {
@@ -617,7 +814,7 @@ function LoadGraph({
         }
       },
     });
-  }, [registerEvents, onNodeClick]);
+  }, [registerEvents, onNodeClick, onDoubleClick, lastClickTime, lastClickNode]);
 
   // Camera animation when focusing on nodes (debounced)
   useEffect(() => {
@@ -711,7 +908,8 @@ function ZoomControls() {
   );
 }
 
-// Layout control with animation
+// Layout control with animation - COMMENTED OUT FOR NOW
+/* 
 function LayoutControl({
   currentLayout,
   onLayoutChange,
@@ -786,6 +984,7 @@ function LayoutControl({
     </div>
   );
 }
+*/
 
 export default function SigmaGraphInner({
   data,
@@ -794,6 +993,8 @@ export default function SigmaGraphInner({
   nodeCategories,
   hierarchyDepth,
   selectedRootNodeId,
+  viewMode = 'highlight',
+  onDoubleClick,
 }: {
   data: SigmaGraphInnerData;
   onNodeClick?: (nodeId: string) => void;
@@ -801,10 +1002,13 @@ export default function SigmaGraphInner({
   nodeCategories?: NodeCategories;
   hierarchyDepth?: number;
   selectedRootNodeId?: string;
+  viewMode?: 'highlight' | 'isolate';
+  onDoubleClick?: (nodeId: string) => void;
 }) {
-  const [currentLayout, setCurrentLayout] = useState<
-    'forceatlas2' | 'circular' | 'grid' | 'random' | 'force' | 'noverlap'
-  >('forceatlas2');
+  // Layout state commented out for now
+  // const [currentLayout, setCurrentLayout] = useState<
+  //   'forceatlas2' | 'circular' | 'grid' | 'random' | 'force' | 'noverlap'
+  // >('forceatlas2');
 
   const nodeCount = data.nodes.length;
   const showPerformanceWarning = nodeCount > 3000;
@@ -844,11 +1048,11 @@ export default function SigmaGraphInner({
       )}
 
       {/* Stats Badge - top right corner */}
-      <div className="absolute top-3 right-3 z-10">
+      {/* <div className="absolute top-3 right-3 z-10">
         <Badge className="bg-background/90 backdrop-blur-sm border-border/60 text-foreground rounded-xl px-2 py-1 text-xs">
           {data.nodes.length}N • {data.edges.length}E
         </Badge>
-      </div>
+      </div> */}
 
       <SigmaContainer
         style={sigmaContainerStyle}
@@ -861,21 +1065,22 @@ export default function SigmaGraphInner({
           onNodeClick={onNodeClick}
           focusedNodeId={focusedNodeId}
           nodeCategories={nodeCategories}
-          currentLayout={currentLayout}
           hierarchyDepth={hierarchyDepth}
           selectedRootNodeId={selectedRootNodeId}
+          viewMode={viewMode}
+          onDoubleClick={onDoubleClick}
         />
 
         {/* Enhanced Zoom Controls - bottom left corner */}
         <ZoomControls />
 
         {/* Enhanced Layout Controls - bottom right corner */}
-        <div className="absolute bottom-3 right-3 z-10">
+        {/* <div className="absolute bottom-3 right-3 z-10">
           <LayoutControl
             currentLayout={currentLayout}
             onLayoutChange={(layout) => setCurrentLayout(layout as typeof currentLayout)}
           />
-        </div>
+        </div> */}
       </SigmaContainer>
     </div>
   );

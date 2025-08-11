@@ -1,8 +1,11 @@
 // streaming-chat.ts
+import type { DailyUsage } from '@/api-client/types.gen';
+
 export interface StreamingChatRequest {
   token: string;
   message: string;
   repository_id: string;
+  repository_branch?: string;
   use_user: boolean;
   chat_id?: string;
   conversation_id?: string;
@@ -10,9 +13,7 @@ export interface StreamingChatRequest {
   model?: string;
   temperature?: number;
   max_tokens?: number;
-  include_full_context?: boolean;
-  context_search_query?: string;
-  scope_preference?: string;
+  context_mode?: string;
 }
 
 export interface StreamingChunk {
@@ -21,6 +22,7 @@ export interface StreamingChunk {
   chat_id?: string;
   conversation_id?: string;
   message?: string;
+  error_type?: string;
   delta?: {
     content?: string;
   };
@@ -32,6 +34,7 @@ export interface StreamingChunk {
   provider?: string;
   model?: string;
   context_metadata?: Record<string, unknown>;
+  daily_usage?: DailyUsage;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
@@ -45,6 +48,7 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   formData.append('use_user', request.use_user.toString());
 
   // Add optional fields
+  if (request.repository_branch) formData.append('repository_branch', request.repository_branch);
   if (request.chat_id) formData.append('chat_id', request.chat_id);
   if (request.conversation_id) formData.append('conversation_id', request.conversation_id);
   if (request.provider) formData.append('provider', request.provider);
@@ -52,17 +56,10 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   if (request.temperature !== undefined)
     formData.append('temperature', request.temperature.toString());
   if (request.max_tokens) formData.append('max_tokens', request.max_tokens.toString());
-  
-  // Handle boolean fields properly - only append if explicitly true to avoid FastAPI parsing "false" as truthy
-  if (request.include_full_context === true) {
-    formData.append('include_full_context', 'true');
+
+  if (request.context_mode) {
+    formData.append('context_mode', request.context_mode);
   }
-  // Don't append if false or undefined - let it default to False on backend
-  
-  if (request.context_search_query)
-    formData.append('context_search_query', request.context_search_query);
-  if (request.scope_preference)
-    formData.append('scope_preference', request.scope_preference);
 
   // Make the request to your backend
   const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {
@@ -142,6 +139,7 @@ export async function* parseStreamingResponse(
                 usage: data.usage,
                 provider: data.provider,
                 model: data.model,
+                daily_usage: data.daily_usage,
               };
               yield { type: 'done' }; // Signal end
               break;
@@ -150,6 +148,7 @@ export async function* parseStreamingResponse(
               yield {
                 type: 'error',
                 message: data.error || 'Unknown error',
+                error_type: data.error_type || 'unknown',
                 chat_id: data.chat_id,
                 conversation_id: data.conversation_id,
               };
@@ -184,6 +183,7 @@ export async function* parseStreamingResponse(
             chat_id: data.chat_id,
             conversation_id: data.conversation_id,
             usage: data.usage,
+            daily_usage: data.daily_usage,
           };
         }
       } catch (parseError) {

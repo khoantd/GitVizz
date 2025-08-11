@@ -181,3 +181,4 @@ cython_debug/
 .pypirc
 backend/.env.prod
 CLAUDE.md
+archives/
