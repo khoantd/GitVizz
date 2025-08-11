@@ -644,7 +644,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     try {
       const { text_content: text, repo_id } = await uploadLocalZipWithAuth(
         zipFile,
-        session?.jwt_token || '',
+        extractJwtToken(session?.jwt_token) || '',
       );
       setCurrentRepoId(repo_id);
       setOutput(text);
