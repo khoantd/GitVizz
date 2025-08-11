@@ -36,7 +36,7 @@ export function IndexedRepositories({ className }: IndexedRepositoriesProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { repositories, loading, error, isPremium, totalCount, loadMore } = useIndexedRepositories({
+  const { repositories, loading, error, isPremium, totalCount } = useIndexedRepositories({
     limit: 100, // Load more items for pagination
     autoLoad: true,
   });
