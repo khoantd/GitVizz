@@ -3,54 +3,26 @@ import time
 from datetime import datetime
 from pathlib import Path
 import shutil
-
-# NOTE: env loading should happen in app entrypoint; avoided here to prevent import-time side effects.
-
 import re 
-try:
-    from ai_client import LLMClient
-    from multi_provider_client import MultiProviderAIClient
-    from analyzers import RepositoryAnalyzer
-    from parsers import DocumentParser
-    from embedders import SemanticEmbedder
-    from structures import WikiStructure, WikiPage, Document
-    from utils import save_wiki_files
-except ImportError:
-    # Fallback for when running as part of a package
-    from .ai_client import LLMClient
-    from .multi_provider_client import MultiProviderAIClient
-    from .analyzers import RepositoryAnalyzer
-    from .parsers import DocumentParser
-    from .embedders import SemanticEmbedder
-    from .structures import WikiStructure, WikiPage, Document
-    from .utils import save_wiki_files
+from documentationo_generator.ai_client import LLMClient
+from documentationo_generator.analyzers import RepositoryAnalyzer
+from documentationo_generator.parsers import DocumentParser
+from documentationo_generator.embedders import SemanticEmbedder
+from documentationo_generator.structures import WikiStructure, WikiPage, Document
+from documentationo_generator.utils import save_wiki_files
 
 class DocumentationGenerator:
     """Main documentation generator - simplified like GraphGenerator"""
     
     def __init__(self, api_key: str = None, provider: str = "gemini", model: str = None, 
-                 temperature: float = 0.7, progress_callback: Callable[[str], None] = None):
-        if not api_key:
-            raise ValueError("An API key is required. Please provide your API key to proceed.")
-        
+                 temperature: float = 0.7, progress_callback: Callable[[str], None] = None,
+                 user = None):
         self.api_key = api_key
-        self.provider = provider.lower()
+        self.provider = provider.lower() 
         self.model = model
         self.temperature = temperature
-            
-        # Initialize components with multi-provider support
-        try:
-            self.ai_client = MultiProviderAIClient(
-                provider=self.provider,
-                api_key=self.api_key,
-                model=self.model,
-                temperature=self.temperature
-            )
-        except ImportError:
-            # Fallback to Gemini-only client for backward compatibility
-            if self.provider != "gemini":
-                raise ValueError(f"Provider '{self.provider}' not supported. Please use 'gemini' or install litellm.")
-            self.ai_client = LLMClient(self.api_key, provider=self.provider, model=self.model, temperature=self.temperature)
+        self.user = user
+        self.ai_client = LLMClient(self.api_key, provider=self.provider, model=self.model, temperature=self.temperature)
         
         self.analyzer = RepositoryAnalyzer()
         self.parser = DocumentParser()

@@ -2,13 +2,7 @@ from typing import List, Dict, Any
 import os
 import json
 from collections import Counter, defaultdict
-
-# Use absolute imports to avoid relative import issues
-try:
-    from structures import Document, RepositoryAnalysis
-except ImportError:
-    # Fallback for when running as part of a package
-    from .structures import Document, RepositoryAnalysis
+from documentationo_generator.structures import Document, RepositoryAnalysis
 
 
 class RepositoryAnalyzer:

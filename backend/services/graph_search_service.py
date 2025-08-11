@@ -4,11 +4,6 @@ import time
 import uuid
 import logging
 from typing import Dict, List, Optional
-
-# Set up logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
 from models.repository import Repository
 from utils.file_utils import file_manager
 from utils.llm_utils import llm_service
@@ -20,6 +15,11 @@ from schemas.graph_schemas import (
     GetFileRelatedNodesParams, TraverseDependenciesParams
 )
 
+
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 class GraphSearchService:
     """Service for intelligent graph-based context search using LLM analysis"""

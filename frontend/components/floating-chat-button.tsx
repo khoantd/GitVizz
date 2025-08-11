@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, X } from 'lucide-react';
+import { MessageCircle, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FloatingChatButtonProps {
   onClick: () => void;
   isOpen: boolean;
   unreadCount?: number;
+  isLoading?: boolean;
 }
 
-export function FloatingChatButton({ onClick, isOpen, unreadCount = 0 }: FloatingChatButtonProps) {
+export function FloatingChatButton({ onClick, isOpen, unreadCount = 0, isLoading = false }: FloatingChatButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -31,6 +32,8 @@ export function FloatingChatButton({ onClick, isOpen, unreadCount = 0 }: Floatin
       >
         {isOpen ? (
           <X className="h-6 w-6" />
+        ) : isLoading ? (
+          <Loader2 className="h-6 w-6 animate-spin" />
         ) : (
           <>
             <MessageCircle className="h-6 w-6" />

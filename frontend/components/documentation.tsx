@@ -28,6 +28,7 @@ import {
   Brain,
   RotateCcw,
   Pause,
+  Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
@@ -1246,6 +1247,9 @@ export default function Documentation({
                               {generationSettings.provider === 'gemini' && (
                                 <Sparkles className="h-4 w-4" />
                               )}
+                              {generationSettings.provider === 'groq' && (
+                                <Gauge className="h-4 w-4" />
+                              )}
                               <span className="capitalize">{generationSettings.provider}</span>
                             </div>
                           </SelectValue>
@@ -1258,6 +1262,7 @@ export default function Documentation({
                                   {provider === 'openai' && <Zap className="h-4 w-4" />}
                                   {provider === 'anthropic' && <Brain className="h-4 w-4" />}
                                   {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                                  {provider === 'groq' && <Gauge className="h-4 w-4" />}
                                   <span className="capitalize">{provider}</span>
                                   {availableModels.user_has_keys.includes(provider) && (
                                     <Badge variant="secondary" className="text-xs">

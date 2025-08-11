@@ -450,7 +450,7 @@ class LLMService:
         # Model mapping for LiteLLM
         self.model_mapping = {
             "openai": lambda model: model,
-            "anthropic": lambda model: model if model.startswith("claude") else f"claude-3-{model}",
+            "anthropic": lambda model: model,  # Anthropic models use exact names
             "gemini": lambda model: f"gemini/{model}" if not model.startswith("gemini/") else model,
             "groq": lambda model: f"groq/{model}" if not model.startswith("groq/") else model,
         }
@@ -624,12 +624,19 @@ class LLMService:
                 "model": model_name,
                 "messages": llm_messages,
                 "api_key": api_key,
-                "temperature": temperature,
                 "stream": stream
             }
             
+            # Only add temperature for non-reasoning models
+            if not self._is_openai_reasoning_model(provider, model):
+                kwargs["temperature"] = temperature
+            
             if max_tokens:
-                kwargs["max_tokens"] = max_tokens
+                # Use max_completion_tokens for OpenAI reasoning models (o1, o3, etc.)
+                if self._is_openai_reasoning_model(provider, model):
+                    kwargs["max_completion_tokens"] = max_tokens
+                else:
+                    kwargs["max_tokens"] = max_tokens
             if functions:
                 # Convert functions to tools format for LiteLLM
                 kwargs["tools"] = functions
@@ -823,6 +830,11 @@ class LLMService:
         """Check if model is a reasoning model (like o1)"""
         config = self.get_model_config(provider, model)
         return config.is_reasoning_model if config else False
+    
+    def _is_openai_reasoning_model(self, provider: str, model: str) -> bool:
+        """Check if model is an OpenAI reasoning model that requires special parameter handling"""
+        return (provider == "openai" and 
+                any(pattern in model.lower() for pattern in ["o1-", "o3-", "o4-", "gpt-5"]))
     
     def get_cost_per_million_tokens(self, provider: str, model: str) -> Dict[str, float]:
         """Get cost per million tokens for input and output"""

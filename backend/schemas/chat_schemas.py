@@ -17,6 +17,7 @@ class ModelProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+    GROQ = "groq"
 
 
 # Base Models
@@ -60,12 +61,12 @@ class MessageResponse(BaseModel):
 # Streaming Models
 class StreamChatResponse(BaseModel):
     """Response model for streaming chat events"""
-    event: StreamEventType = Field(..., description="Type of streaming event")
+    event: str = Field(..., description="Type of streaming event (token, complete, error)")
     token: Optional[str] = Field(None, description="Token content for 'token' events")
     error: Optional[str] = Field(None, description="Error message for 'error' events")
     error_type: Optional[str] = Field(None, description="Type of error for 'error' events")
-    usage: Optional[TokenUsage] = Field(None, description="Token usage for 'complete' events")
-    provider: Optional[ModelProvider] = Field(None, description="Provider name for all events")
+    usage: Optional[Dict[str, Any]] = Field(None, description="Token usage for 'complete' events")
+    provider: Optional[str] = Field(None, description="Provider name for all events")
     model: Optional[str] = Field(None, description="Model name for all events")
     chat_id: Optional[str] = Field(None, description="Chat session ID")
     conversation_id: Optional[str] = Field(None, description="Conversation thread ID")
@@ -78,12 +79,13 @@ class ChatRequest(BaseModel):
     token: str = Field(..., description="JWT authentication token")
     message: str = Field(..., description="User's message/question")
     repository_id: str = Field(..., description="Repository ID to chat about")
+    use_user: bool = Field(False, description="Whether to use the user's saved API key")
     chat_id: Optional[str] = Field(None, description="Chat session ID (auto-generated if not provided)")
     conversation_id: Optional[str] = Field(None, description="Conversation thread ID (auto-generated if not provided)")
     
     # Model settings
-    provider: ModelProvider = Field(ModelProvider.OPENAI, description="LLM provider")
-    model: str = Field("gpt-3.5-turbo", description="Model name")
+    provider: str = Field("openai", description="LLM provider (openai, anthropic, gemini, groq)")
+    model: str = Field("gpt-4o-mini", description="Model name")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Response randomness")
     max_tokens: Optional[int] = Field(None, ge=1, le=4000, description="Maximum tokens in response")
     
@@ -95,7 +97,7 @@ class ChatRequest(BaseModel):
     @validator('provider', pre=True)
     def validate_provider(cls, v):
         if isinstance(v, str):
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if v not in valid_providers:
                 raise ValueError(f"Invalid provider. Valid providers: {', '.join(valid_providers)}")
         return v
@@ -118,8 +120,9 @@ class ChatResponse(BaseResponse):
     # Metadata
     usage: Optional[TokenUsage] = None
     model_used: Optional[str] = None
-    provider: Optional[ModelProvider] = None
+    provider: Optional[str] = None
     response_time: Optional[float] = Field(None, description="Response time in seconds")
+    daily_usage: Optional[DailyUsage] = None
 
 
 # Conversation Models
@@ -278,12 +281,13 @@ class StreamingChatRequest(BaseModel):
     token: str = Field(..., description="JWT authentication token")
     message: str = Field(..., description="User's message/question")
     repository_id: str = Field(..., description="Repository ID to chat about")
+    use_user: bool = Field(False, description="Whether to use the user's saved API key")
     chat_id: Optional[str] = Field(None, description="Chat session ID (auto-generated if not provided)")
     conversation_id: Optional[str] = Field(None, description="Conversation thread ID (auto-generated if not provided)")
     
     # Model settings
-    provider: ModelProvider = Field(ModelProvider.OPENAI, description="LLM provider")
-    model: str = Field("gpt-3.5-turbo", description="Model name")
+    provider: str = Field("openai", description="LLM provider (openai, anthropic, gemini, groq)")
+    model: str = Field("gpt-4o-mini", description="Model name")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Response randomness")
     max_tokens: Optional[int] = Field(None, ge=1, le=4000, description="Maximum tokens in response")
     
@@ -295,7 +299,7 @@ class StreamingChatRequest(BaseModel):
     @validator('provider', pre=True)
     def validate_provider(cls, v):
         if isinstance(v, str):
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if v not in valid_providers:
                 raise ValueError(f"Invalid provider. Valid providers: {', '.join(valid_providers)}")
         return v
@@ -310,10 +314,11 @@ class ChatFormData(BaseModel):
     token: str
     message: str
     repository_id: str
+    use_user: bool = False
     chat_id: Optional[str] = None
     conversation_id: Optional[str] = None
     provider: str = "openai"
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-4o-mini"
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     include_full_context: bool = False
@@ -326,10 +331,11 @@ class StreamingChatFormData(BaseModel):
     token: str
     message: str
     repository_id: str
+    use_user: bool = False
     chat_id: Optional[str] = None
     conversation_id: Optional[str] = None
     provider: str = "openai"
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-4o-mini"
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     include_full_context: bool = False

@@ -77,24 +77,10 @@ export default function ResultsPage() {
         setSourceType('github');
         setSourceData({ repo_url: repoUrl });
       }
-      // Use user ID from session instead of query parameter
-      const userId = session?.user_id;
-      if (userId && userId !== currentRepoId) {
-        setCurrentRepoId(userId);
-      }
+      // Repository ID is set by the useRepositoryData hook after fetching data
+      // Don't override it with user ID - that's incorrect
     }
-  }, [
-    owner,
-    repo,
-    repoUrl,
-    sourceType,
-    sourceData,
-    setSourceType,
-    setSourceData,
-    session?.user_id,
-    setCurrentRepoId,
-    currentRepoId,
-  ]);
+  }, [owner, repo, repoUrl, sourceType, sourceData, setSourceType, setSourceData]);
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';
@@ -808,13 +794,18 @@ export default function ResultsPage() {
         </Tabs>
       </main>
 
-      {currentRepoId && (
+      {session?.accessToken && owner && repo && (
         <>
-          <FloatingChatButton onClick={toggleChat} isOpen={isChatOpen} unreadCount={0} />
+          <FloatingChatButton
+            onClick={toggleChat}
+            isOpen={isChatOpen}
+            unreadCount={0}
+            isLoading={!currentRepoId && loading}
+          />
           <ChatSidebar
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
-            repositoryId={currentRepoId}
+            repositoryId={currentRepoId || `${owner}/${repo}`}
             repositoryName={getRepoName()}
             userKeyPreferences={userKeyPreferences}
           />

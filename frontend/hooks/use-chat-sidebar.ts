@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   getConversationHistory,
   getAvailableModels,
@@ -57,6 +58,7 @@ export function useChatSidebar(
   options?: { autoLoad?: boolean },
 ) {
   const { data: session } = useSession();
+  const router = useRouter();
   const { autoLoad = true } = options ?? {};
   
   // Wrap API calls with auth handling
@@ -309,7 +311,17 @@ export function useChatSidebar(
             break;
           } else if (chunk.type === 'error') {
             const errorMessage = chunk.message || 'Streaming error occurred';
-            console.error('Streaming error:', errorMessage);
+            const errorType = chunk.error_type || 'unknown';
+            console.error('Streaming error:', errorMessage, 'Type:', errorType);
+
+            // Handle API key errors by redirecting to API keys page
+            if (errorType === 'no_api_key' || errorType === 'invalid_api_key') {
+              showToast.error('API key required. Redirecting to API keys page...');
+              setTimeout(() => {
+                router.push('/api-keys');
+              }, 2000);
+              throw new Error('API key required. Please add your API key to continue.');
+            }
 
             // Check for specific error types
             if (
@@ -359,6 +371,12 @@ export function useChatSidebar(
       let errorMessage = 'Failed to send message';
       if (error instanceof Error) {
         errorMessage = error.message;
+        
+        // Check if it's an API key error and redirect if needed
+        if (errorMessage.toLowerCase().includes('api key required')) {
+          // The redirect is already handled in the streaming error handler
+          // Just show the error message here
+        }
       }
 
       showToast.error(errorMessage);

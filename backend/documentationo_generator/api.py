@@ -6,7 +6,7 @@ import os
 import time
 import asyncio
 from typing import Optional, Dict, Any
-from .core import DocumentationGenerator
+from documentationo_generator.core import DocumentationGenerator
 
 
 app = FastAPI(title="Documentation Generator API")
