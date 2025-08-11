@@ -1,6 +1,5 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Form
+from fastapi import APIRouter, HTTPException, Form
 from fastapi.responses import StreamingResponse
-from huggingface_hub import User
 from typing import Dict, Any, Optional, AsyncGenerator
 import time
 import asyncio
@@ -22,11 +21,11 @@ from schemas.documentation_schemas import (
     WikiGenerationResponse,
     TaskStatus,
     RepositoryDocsResponse,
-    IsWikiGeneratedRequest,
     IsWikiGeneratedResponse,
 )
 
 from models.chat import UserApiKey
+from utils.repo_utils import find_user_repository
 
 router = APIRouter(prefix="/documentation")
 
@@ -135,7 +134,7 @@ async def stream_wiki_progress(task_id: str):
         while True:
             # Check if task exists
             if task_id not in task_results:
-                yield f"data: {{\"error\": \"Task not found\"}}\\n\\n"
+                yield 'data: {"error": "Task not found"}\n\n'
                 break
                 
             task = task_results[task_id]
@@ -411,7 +410,7 @@ async def _generate_wiki_background(
 
         # Run the CPU-bound task in a thread pool to avoid blocking
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
+        await loop.run_in_executor(
             executor,
             _run_wiki_generation,
             task_id,
@@ -508,8 +507,11 @@ async def get_wiki_status(
                 status_code=401, detail="Unauthorized: Invalid jwt_token"
             )
 
-        # Find task by repo_id
-        task = find_task_by_repo_id(PydanticObjectId(repo_id))
+        # Resolve repository using the same helper as chat
+        repo = await find_user_repository(repo_id, user)
+
+        # Find task by resolved repository id
+        task = find_task_by_repo_id(repo.id)
         if not task:
             raise HTTPException(
                 status_code=404, detail="No task found for the given repo_id"
@@ -548,14 +550,8 @@ async def is_wiki_generated(
                 status_code=401, detail="Unauthorized: Invalid jwt_token"
             )
 
-        github_url = f"https://github.com/{repo_id}"
-        repo = await Repository.find_one(
-            Repository.github_url == github_url,
-            Repository.user.id == PydanticObjectId(user.id),
-        )
-
-        if not repo:
-            raise HTTPException(status_code=404, detail="Repository not found")
+        # Resolve repository using the same helper as chat
+        repo = await find_user_repository(repo_id, user)
 
         doc_dir = repo.file_paths.documentation_base_path
 
@@ -628,25 +624,8 @@ async def list_repository_docs(
                 status_code=401, detail="Unauthorized: Invalid jwt_token"
             )
 
-        # Find the repository - handle both ObjectId and owner/repo format
-        repo = None
-        try:
-            # Try to treat repo_id as MongoDB ObjectId first
-            repo = await Repository.find_one(
-                Repository.id == PydanticObjectId(repo_id),
-                Repository.user.id == PydanticObjectId(user.id),
-            )
-        except:
-            # If that fails, treat repo_id as owner/repo format and find by GitHub URL
-            if "/" in repo_id:
-                github_url = f"https://github.com/{repo_id}"
-                repo = await Repository.find_one(
-                    Repository.github_url == github_url,
-                    Repository.user.id == PydanticObjectId(user.id),
-                )
-
-        if not repo:
-            raise HTTPException(status_code=404, detail="Repository not found")
+        # Resolve repository using the same helper as chat
+        repo = await find_user_repository(repo_id, user)
 
         # Get documentation directory
         doc_dir = repo.file_paths.documentation_base_path
