@@ -19,6 +19,8 @@ import { animateNodes } from 'sigma/utils';
 import { EdgeArrowProgram, NodePointProgram, NodeCircleProgram } from 'sigma/rendering';
 import { NodeBorderProgram } from '@sigma/node-border';
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
+// Layout control imports commented out for now
+/* 
 import {
   Select,
   SelectContent,
@@ -26,19 +28,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+*/
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutGrid,
-  Shuffle,
+  // LayoutGrid,
+  // Shuffle,
   RotateCw,
-  Zap,
+  // Zap,
   AlertTriangle,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   Focus,
-  Pause,
+  // Pause,
 } from 'lucide-react';
 
 type InnerNode = { id: string; name: string; category?: string };
@@ -486,7 +489,7 @@ function LoadGraph({
       });
 
       // Update edges
-      graph.forEachEdge((edgeId, attributes, source, target) => {
+      graph.forEachEdge((edgeId, _attributes, source, target) => {
         let color = '#e5e7eb';
         let size = 0.8;
         let hidden = false;
@@ -905,7 +908,8 @@ function ZoomControls() {
   );
 }
 
-// Layout control with animation
+// Layout control with animation - COMMENTED OUT FOR NOW
+/* 
 function LayoutControl({
   currentLayout,
   onLayoutChange,
@@ -980,6 +984,7 @@ function LayoutControl({
     </div>
   );
 }
+*/
 
 export default function SigmaGraphInner({
   data,
@@ -1000,9 +1005,10 @@ export default function SigmaGraphInner({
   viewMode?: 'highlight' | 'isolate';
   onDoubleClick?: (nodeId: string) => void;
 }) {
-  const [currentLayout, setCurrentLayout] = useState<
-    'forceatlas2' | 'circular' | 'grid' | 'random' | 'force' | 'noverlap'
-  >('forceatlas2');
+  // Layout state commented out for now
+  // const [currentLayout, setCurrentLayout] = useState<
+  //   'forceatlas2' | 'circular' | 'grid' | 'random' | 'force' | 'noverlap'
+  // >('forceatlas2');
 
   const nodeCount = data.nodes.length;
   const showPerformanceWarning = nodeCount > 3000;
@@ -1069,12 +1075,12 @@ export default function SigmaGraphInner({
         <ZoomControls />
 
         {/* Enhanced Layout Controls - bottom right corner */}
-        <div className="absolute bottom-3 right-3 z-10">
+        {/* <div className="absolute bottom-3 right-3 z-10">
           <LayoutControl
             currentLayout={currentLayout}
             onLayoutChange={(layout) => setCurrentLayout(layout as typeof currentLayout)}
           />
-        </div>
+        </div> */}
       </SigmaContainer>
     </div>
   );

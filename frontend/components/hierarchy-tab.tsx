@@ -393,7 +393,9 @@ export function HierarchyTab({
 
   const handleExpandToDepth = useCallback((depth: number) => {
     setTree((prevTree) => expandToDepth(prevTree, depth));
-  }, []);
+    setCurrentDepth(depth);
+    onDepthChange(depth);
+  }, [onDepthChange]);
 
   if (!selectedNode) {
     return (
@@ -493,7 +495,7 @@ export function HierarchyTab({
         {/* Quick Depth Buttons */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground flex-shrink-0">Quick expand:</span>
-          {[1, 2, 3].map((depth) => (
+          {[1, 2, 3, 4, 5].map((depth) => (
             <Button
               key={depth}
               variant={currentDepth >= depth ? 'default' : 'outline'}
