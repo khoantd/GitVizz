@@ -945,7 +945,13 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
       title: 'Max Tokens',
       description: 'Maximum tokens in response (1-4000)',
     },
-    context_search_query: {
+    context_mode: {
+      type: 'string',
+      title: 'Context Mode',
+      description: 'Context mode: full, smart, or agentic',
+      default: 'smart',
+    },
+    repository_branch: {
       anyOf: [
         {
           type: 'string',
@@ -954,14 +960,8 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
           type: 'null',
         },
       ],
-      title: 'Context Search Query',
-      description: 'Specific search query for context retrieval',
-    },
-    scope_preference: {
-      type: 'string',
-      title: 'Scope Preference',
-      description: 'Context scope preference: focused, moderate, or comprehensive',
-      default: 'moderate',
+      title: 'Repository Branch',
+      description: 'Repository branch for more precise matching',
     },
   },
   type: 'object',

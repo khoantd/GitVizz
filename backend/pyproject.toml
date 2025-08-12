@@ -40,6 +40,13 @@ dependencies = [
     # Observability
     "arize-phoenix-otel",
     "openinference-instrumentation-litellm",
+    "langgraph>=0.6.4",
+    "langchain>=0.3.27",
+    "openinference-instrumentation-langchain>=0.1.50",
+    "langchain-openai>=0.3.30",
+    "langchain-google-genai>=2.0.10",
+    "langchain-groq>=0.3.7",
+    "langchain-anthropic>=0.3.18",
 ]
 
 [tool.setuptools.packages.find]

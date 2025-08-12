@@ -38,6 +38,15 @@ async def find_user_repository(repo_id: str, user: User, branch: Optional[str] =
     Raises:
         HTTPException: If repository not found or access denied
     """
+    # Validate repository_id is not empty or None
+    if not repo_id or repo_id.strip() == "":
+        raise HTTPException(
+            status_code=400, 
+            detail="Repository ID cannot be empty"
+        )
+    
+    repo_id = repo_id.strip()  # Remove any leading/trailing whitespace
+    
     try:
         # Try ObjectId format first (most efficient for database lookups)
         if len(repo_id) == 24:

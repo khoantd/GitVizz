@@ -557,15 +557,15 @@ export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
    */
   max_tokens?: number | null;
   /**
-   * Context Search Query
-   * Specific search query for context retrieval
+   * Context Mode
+   * Context mode: full, smart, or agentic
    */
-  context_search_query?: string | null;
+  context_mode?: string;
   /**
-   * Scope Preference
-   * Context scope preference: focused, moderate, or comprehensive
+   * Repository Branch
+   * Repository branch for more precise matching
    */
-  scope_preference?: string;
+  repository_branch?: string | null;
 };
 
 /**

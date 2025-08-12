@@ -102,7 +102,7 @@ export function useChatSidebar(
   useEffect(() => {
     if (!autoLoad) return;
     if (!session?.jwt_token) return;
-    if (!repositoryId) return;
+    if (!repositoryId || repositoryId.trim() === '') return;
 
     // Skip if repositoryId looks like owner/repo format (not a valid ObjectId)
     if (repositoryId.includes('/')) {
@@ -158,7 +158,7 @@ export function useChatSidebar(
 
   const loadChatHistory = async () => {
     if (!session?.jwt_token) return;
-    if (!repositoryId) return;
+    if (!repositoryId || repositoryId.trim() === '') return;
     if (isFetchingHistoryRef.current) return;
 
     isFetchingHistoryRef.current = true;
@@ -188,14 +188,14 @@ export function useChatSidebar(
   ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
 
-    // Check if repository ID is valid (not in owner/repo format)
-    if (repositoryId.includes('/')) {
+    // Check if repository ID is valid - not empty, null, or in owner/repo format
+    if (!repositoryId || repositoryId.trim() === '' || repositoryId.includes('/')) {
       console.error(
-        'Cannot send message: Repository ID appears to be in owner/repo format:',
+        'Cannot send message: Repository ID is invalid:',
         repositoryId,
       );
       throw new Error(
-        'Repository not processed yet. Please wait for repository processing to complete.',
+        'Repository not processed yet. Please wait for repository processing to complete before starting a chat.',
       );
     }
 
