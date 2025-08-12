@@ -37,6 +37,13 @@ class ChatController:
     ) -> ChatSession:
         """Get existing chat session or create a new one"""
         
+        # Validate repository_id
+        if not repository_id or repository_id.strip() == "":
+            raise HTTPException(
+                status_code=400, 
+                detail="Repository ID is required for chat sessions"
+            )
+        
         # Find repository using utility function
         repository = await find_user_repository(repository_id, user, repository_branch)
         
@@ -440,6 +447,23 @@ Provide detailed, accurate responses based on the repository content. Reference 
     ) -> AsyncGenerator[str, None]:
         """Process a chat message with streaming response - yields JSON strings"""
         try:
+            # Validate required parameters early
+            if not repository_id or repository_id.strip() == "":
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error="Repository ID is required for chat",
+                    error_type="validation_error"
+                ).model_dump()) + "\n"
+                return
+            
+            if not message or message.strip() == "":
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error="Message cannot be empty",
+                    error_type="validation_error"
+                ).model_dump()) + "\n"
+                return
+            
             # Authenticate user
             user = await get_current_user(token)
             if not user:
@@ -461,32 +485,50 @@ Provide detailed, accurate responses based on the repository content. Reference 
             # Generate conversation ID if not provided
             conversation_id = conversation_id or str(uuid.uuid4())
             
-            # EARLY API KEY VALIDATION - Check if user has valid API key when use_user=True
-            if use_user:
-                try:
-                    api_key = await self.get_api_key_for_request(user, provider, use_user=True)
-                    if not api_key:
-                        yield json.dumps(StreamChatResponse(
-                            event="error",
-                            error=f"No valid API key found for {provider}. Please add your API key or disable 'use own key' option.",
-                            error_type="no_api_key",
-                            provider=provider,
-                            model=model,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
-                        ).model_dump()) + "\n"
-                        return
-                except Exception as e:
+            # EARLY API KEY VALIDATION - Using improved LangChain service
+            try:
+                from utils.langchain_llm_service import langchain_service
+                
+                # Check if provider is available and test API key access
+                available_providers = langchain_service.get_available_providers()
+                if provider not in available_providers:
                     yield json.dumps(StreamChatResponse(
                         event="error",
-                        error=str(e),
-                        error_type="invalid_api_key",
+                        error=f"Provider {provider} not available. Available: {', '.join(available_providers)}. Install required packages.",
+                        error_type="provider_unavailable",
                         provider=provider,
                         model=model,
                         chat_id=chat_session.chat_id,
                         conversation_id=conversation_id
                     ).model_dump()) + "\n"
                     return
+                
+                # Test API key access early
+                try:
+                    await langchain_service.get_api_key_with_fallback(provider, user, use_user)
+                except ValueError as e:
+                    yield json.dumps(StreamChatResponse(
+                        event="error",
+                        error=str(e),
+                        error_type="no_api_key",
+                        provider=provider,
+                        model=model,
+                        chat_id=chat_session.chat_id,
+                        conversation_id=conversation_id
+                    ).model_dump()) + "\n"
+                    return
+                    
+            except Exception as e:
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error=f"Service initialization error: {str(e)}",
+                    error_type="service_error",
+                    provider=provider,
+                    model=model,
+                    chat_id=chat_session.chat_id,
+                    conversation_id=conversation_id
+                ).model_dump()) + "\n"
+                return
             
             # Get or create conversation - fetch with links to ensure repository is loaded
             conversation = await Conversation.find_one(
@@ -538,41 +580,31 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 messages.insert(0, {"role": msg.role, "content": msg.content})
                 total_chars += len(msg_content)
             
-            # Generate streaming response using the new LLM service
+            # Generate streaming response using the new LangGraph service
             try:
-                # Prepare system prompt with repository context
-                system_prompt = f"""You are an AI assistant specialized in code analysis and repository exploration. You have access to the complete codebase and can help with:
-- Code explanation and documentation
-- Architecture understanding
-- Bug identification and debugging
-- Implementation suggestions
-- Best practices recommendations
-
-Repository: {chat_session.repository.repo_name}
-Branch: {chat_session.repository.branch}
-
-Repository Context:
-{context}
-
-Provide detailed, accurate responses based on the repository content. Reference specific files and line numbers when relevant."""
-
-                response_generator = await llm_service.generate(
-                    messages=messages,
+                from utils.langgraph_chat_service import langgraph_chat_service
+                
+                # Use LangGraph for advanced chat orchestration
+                response_generator = langgraph_chat_service.stream_chat_response(
+                    user_query=message,
+                    repository_id=repository_id,
+                    user=user,
                     model=model,
                     provider=provider,
-                    system_prompt=system_prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    stream=True,
-                    user=user,
-                    use_user_key=use_user
+                    thread_id=f"{chat_session.chat_id}_{conversation_id}",
+                    repository_context=context,
+                    context_metadata=context_metadata
                 )
             except Exception as e:
-                # Handle API key errors specifically
+                # Handle API key and quota errors specifically
                 error_type = "server_error"
                 error_message = str(e)
                 if "no user api key found" in error_message.lower() or "invalid api key" in error_message.lower():
                     error_type = "no_api_key"
+                elif "quota" in error_message.lower() or "rate limit" in error_message.lower():
+                    error_type = "quota_exceeded"
+                elif "invalid model" in error_message.lower():
+                    error_type = "invalid_model"
                 
                 yield json.dumps(StreamChatResponse(
                     event="error",
@@ -585,78 +617,97 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 ).model_dump()) + "\n"
                 return
             
-            # Handle response based on type
-            if hasattr(response_generator, '__aiter__'):
-                # It's an async generator
-                response_content = ""
-                final_usage = None
-                
-                async for chunk in response_generator:
-                    if chunk.type == "token":
-                        token_content = chunk.content or ""
-                        response_content += token_content
-                        
-                        # Yield token event with all required fields
+            # Handle LangGraph streaming response
+            response_content = ""
+            final_usage = {}
+            
+            async for json_chunk in response_generator:
+                try:
+                    # Parse the JSON chunk
+                    chunk_data = json.loads(json_chunk.strip())
+                    event_type = chunk_data.get("event")
+                    
+                    if event_type == "progress":
+                        # Yield progress events
                         yield json.dumps(StreamChatResponse(
-                            event="token",
-                            token=token_content,
-                            provider=chunk.provider or provider,
-                            model=chunk.model or model,
+                            event="progress",
+                            progress_step=chunk_data.get("step"),
+                            provider=provider,
+                            model=model,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id
                         ).model_dump()) + "\n"
                         
-                    elif chunk.type == "complete":
-                        final_usage = chunk.usage or {}
+                    elif event_type == "reasoning":
+                        # Yield reasoning traces for o1/o3 models
+                        yield json.dumps(StreamChatResponse(
+                            event="reasoning",
+                            reasoning=chunk_data.get("reasoning"),
+                            provider=provider,
+                            model=model,
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
+                        ).model_dump()) + "\n"
                         
-                        # Add AI response to conversation
+                    elif event_type == "token":
+                        token_content = chunk_data.get("token", "")
+                        response_content += token_content
+                        
+                        # Yield token event
+                        yield json.dumps(StreamChatResponse(
+                            event="token",
+                            token=token_content,
+                            provider=provider,
+                            model=model,
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
+                        ).model_dump()) + "\n"
+                        
+                    elif event_type == "complete":
+                        # Save conversation and yield completion
                         conversation.add_message(
-                            "assistant", 
+                            "assistant",
                             response_content,
                             context_used=context[:500] + "..." if len(context) > 500 else context,
                             metadata=final_usage
                         )
                         
-                        # Update conversation metadata
                         if final_usage:
                             conversation.total_tokens_used += final_usage.get("total_tokens", 0)
                         
                         await conversation.save()
                         
-                        # Yield complete event with all required fields
                         yield json.dumps(StreamChatResponse(
                             event="complete",
-                            provider=chunk.provider or provider,
-                            model=chunk.model or model,
+                            provider=provider,
+                            model=model,
                             usage=final_usage,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id,
                             context_metadata=context_metadata
                         ).model_dump()) + "\n"
                         
-                    elif chunk.type == "error":
+                    elif event_type == "error":
                         yield json.dumps(StreamChatResponse(
                             event="error",
-                            error=chunk.error or "Unknown error",
+                            error=chunk_data.get("error", "Unknown error"),
                             error_type="server_error",
-                            provider=chunk.provider or provider,
-                            model=chunk.model or model,
+                            provider=provider,
+                            model=model,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id
                         ).model_dump()) + "\n"
                         break
                         
-            else:
-                # It's a regular response (error case)
-                if hasattr(response_generator, 'success') and not response_generator.success:
-                    error_type = "server_error"
-                    if "api key" in response_generator.error.lower() or "no user api key found" in response_generator.error.lower():
-                        error_type = "no_api_key"
-                    
+                except json.JSONDecodeError:
+                    # Skip malformed JSON
+                    continue
+                except Exception as chunk_error:
+                    # Handle individual chunk errors
                     yield json.dumps(StreamChatResponse(
                         event="error",
-                        error=response_generator.error or "Unknown error",
-                        error_type=error_type,
+                        error=f"Chunk processing error: {str(chunk_error)}",
+                        error_type="processing_error",
                         provider=provider,
                         model=model,
                         chat_id=chat_session.chat_id,
@@ -973,15 +1024,36 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 provider=provider
             )
     
+    # Cache for model data to prevent repeated calls
+    _models_cache = None
+    _models_cache_time = None
+    _cache_duration = 300  # 5 minutes
+    
     async def get_available_models(
         self,
         token: Annotated[str, Form(description="JWT authentication token")]
     ) -> AvailableModelsResponse:
-        """Get available models with user's key status"""
+        """Get available models with user's key status (cached)"""
         try:
             user = await get_current_user(token)
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            # Check cache first
+            current_time = time.time()
+            if (self._models_cache is not None and 
+                self._models_cache_time is not None and 
+                current_time - self._models_cache_time < self._cache_duration):
+                
+                # Update user-specific data in cached response
+                user_keys = await UserApiKey.find(
+                    UserApiKey.user.id == BeanieObjectId(user.id),
+                    UserApiKey.is_active == True
+                ).to_list()
+                
+                cached_response = self._models_cache
+                cached_response.user_has_keys = [key.provider for key in user_keys]
+                return cached_response
             
             # Get user's keys
             user_keys = await UserApiKey.find(
@@ -991,22 +1063,25 @@ Provide detailed, accurate responses based on the repository content. Reference 
             
             user_has_keys = [key.provider for key in user_keys]
             
-            # Get available models
-            models = llm_service.get_available_models()
+            # Get available models from LangChain service
+            from utils.langchain_llm_service import langchain_service
+            models = langchain_service.get_available_models()
             
-            # Get current limits based on user's tier
-            # (In a real app, you'd get this from user profile)
-            current_limits = {
-                "free": 10,
-                "premium": 50,
-                "unlimited": -1
-            }
-            
-            return AvailableModelsResponse(
+            response = AvailableModelsResponse(
                 providers=models,
-                current_limits=current_limits,
+                current_limits={},  # Remove limits
                 user_has_keys=user_has_keys
             )
+            
+            # Cache the response (without user-specific data)
+            self._models_cache = AvailableModelsResponse(
+                providers=models,
+                current_limits={},  # Remove limits
+                user_has_keys=[]  # Will be updated per request
+            )
+            self._models_cache_time = current_time
+            
+            return response
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -1175,65 +1250,123 @@ Provide detailed, accurate responses based on the repository content. Reference 
         repository,
         max_context_tokens: int = 8000
     ) -> tuple[str, dict]:
-        """Get full repository context by including all files"""
+        """Get full repository context by extracting and including all files from ZIP"""
+        temp_dirs_to_cleanup = []
+        
         try:
-            # Get all file paths from the repository
-            all_files = repository.file_paths or []
+            # Check if we have a ZIP file to extract from
+            if not repository.file_paths or not repository.file_paths.zip:
+                return "No ZIP file available for full context extraction.", {"context_type": "full", "files_included": 0}
             
-            if not all_files:
-                return "No files found in repository.", {"context_type": "full", "files_included": 0}
+            zip_file_path = repository.file_paths.zip
             
-            context_parts = []
-            files_included = 0
-            current_tokens = 0
+            # Check if ZIP file exists
+            if not os.path.exists(zip_file_path):
+                return f"ZIP file not found at path: {zip_file_path}", {"context_type": "full", "files_included": 0}
+            
+            # Extract ZIP contents using repo_utils function
+            extracted_files, temp_extract_dir = extract_zip_contents(zip_file_path)
+            temp_dirs_to_cleanup.append(temp_extract_dir)
+            
+            if not extracted_files:
+                return "No files found in ZIP archive.", {"context_type": "full", "files_included": 0}
+            
+            # Filter files to include only relevant source code files
+            filtered_files = smart_filter_files(extracted_files, temp_extract_dir)
+            
+            if not filtered_files:
+                return "No relevant source files found after filtering.", {"context_type": "full", "files_included": 0}
             
             # Estimate tokens per character (rough approximation)
             char_to_token_ratio = 4
             max_chars = max_context_tokens * char_to_token_ratio
             
-            # Sort files by type and size to prioritize important files
-            important_extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.go', '.rs', '.rb']
+            context_parts = []
+            files_included = 0
+            current_chars = 0
             
-            sorted_files = sorted(all_files, key=lambda f: (
-                0 if any(f.endswith(ext) for ext in important_extensions) else 1,
-                len(f)  # Smaller files first
-            ))
+            # Sort files by importance (e.g., README files first, then main source files)
+            def get_file_priority(file_info):
+                file_path = file_info["path"].lower()
+                if "readme" in file_path:
+                    return 0
+                elif file_path.endswith(('.py', '.js', '.ts', '.java', '.cpp', '.c', '.go', '.rs')):
+                    return 1
+                elif file_path.endswith(('.json', '.yaml', '.yml', '.xml')):
+                    return 2
+                elif file_path.endswith(('.md', '.txt', '.rst')):
+                    return 3
+                else:
+                    return 4
             
-            for file_path in sorted_files:
+            sorted_files = sorted(filtered_files, key=get_file_priority)
+            
+            # Process files until we hit the token limit
+            for file_info in sorted_files:
                 try:
-                    # For full context mode, we include file structure information
-                    # In a real implementation, you'd want to read actual file contents
-                    # This is a simplified version that includes file paths and basic info
-                    file_section = f"\n=== File: {file_path} ===\n"
+                    file_path = file_info["path"]
+                    full_path = file_info["full_path"]
+                    
+                    # Read file content
+                    try:
+                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # Try with different encoding for binary files
+                        with open(full_path, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                    
+                    # Create file section
+                    file_section = f"\n=== File: {file_path} ===\n{content}\n"
                     
                     # Check if adding this file would exceed token limit
-                    if current_tokens + len(file_section) > max_chars:
+                    if current_chars + len(file_section) > max_chars and context_parts:
+                        # Truncate the current file if needed
+                        remaining_chars = max_chars - current_chars
+                        if remaining_chars > 200:  # Only include if we have reasonable space
+                            truncated_content = content[:remaining_chars-100] + "\n... (truncated due to length)"
+                            file_section = f"\n=== File: {file_path} ===\n{truncated_content}\n"
+                            context_parts.append(file_section)
+                            files_included += 1
                         break
-                        
+                    
                     context_parts.append(file_section)
                     files_included += 1
-                    current_tokens += len(file_section)
-                        
+                    current_chars += len(file_section)
+                    
                 except Exception as e:
-                    logger.warning(f"Could not process file {file_path}: {e}")
+                    logger.warning(f"Could not read file {file_path}: {e}")
+                    # Add a placeholder for files that couldn't be read
+                    file_section = f"\n=== File: {file_path} ===\n[Could not read file: {e}]\n"
+                    if current_chars + len(file_section) <= max_chars:
+                        context_parts.append(file_section)
+                        files_included += 1
+                        current_chars += len(file_section)
                     continue
             
-            context = "\n".join(context_parts)
+            context = "".join(context_parts)
             if not context:
-                context = "Repository structure loaded with full context mode."
-                
+                context = "No file content could be extracted from the repository."
+            
             metadata = {
                 "context_type": "full",
                 "files_included": files_included,
-                "total_files": len(all_files),
-                "estimated_tokens": current_tokens // char_to_token_ratio
+                "total_files_available": len(filtered_files),
+                "estimated_tokens": current_chars // char_to_token_ratio,
+                "zip_path": zip_file_path,
+                "extraction_successful": True
             }
             
+            logger.info(f"Full context extracted: {files_included} files, {current_chars} characters, ~{current_chars // char_to_token_ratio} tokens")
             return context, metadata
             
         except Exception as e:
             logger.error(f"Error getting full repository context: {e}")
             return f"Error loading repository context: {str(e)}", {"context_type": "full", "error": str(e)}
+        finally:
+            # Clean up temporary directories
+            if temp_dirs_to_cleanup:
+                cleanup_temp_files(temp_dirs_to_cleanup)
 
 
 # Global instance
