@@ -4,12 +4,12 @@ from datetime import datetime
 from pathlib import Path
 import shutil
 import re 
-from documentationo_generator.ai_client import LLMClient
-from documentationo_generator.analyzers import RepositoryAnalyzer
-from documentationo_generator.parsers import DocumentParser
-from documentationo_generator.embedders import SemanticEmbedder
-from documentationo_generator.structures import WikiStructure, WikiPage, Document
-from documentationo_generator.utils import save_wiki_files
+from documentation_generator.ai_client import LLMClient
+from documentation_generator.analyzers import RepositoryAnalyzer
+from documentation_generator.parsers import DocumentParser
+from documentation_generator.embedders import SemanticEmbedder
+from documentation_generator.structures import WikiStructure, WikiPage, Document
+from documentation_generator.utils import save_wiki_files
 
 class DocumentationGenerator:
     """Main documentation generator - simplified like GraphGenerator"""

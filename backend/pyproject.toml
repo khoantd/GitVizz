@@ -51,4 +51,4 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["models*", "routes*", "schemas*", "storage*", "graphing*", "controllers*", "documentationo_generator*"]
+include = ["models*", "routes*", "schemas*", "storage*", "graphing*", "controllers*", "documentation_generator*"]

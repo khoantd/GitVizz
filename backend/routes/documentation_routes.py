@@ -6,7 +6,7 @@ import asyncio
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor
-from documentationo_generator.core import DocumentationGenerator
+from documentation_generator.core import DocumentationGenerator
 from utils.jwt_utils import get_current_user
 from models.repository import Repository
 from beanie.operators import Or

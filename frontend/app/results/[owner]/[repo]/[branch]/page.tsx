@@ -641,7 +641,7 @@ export default function ResultsPage() {
                       {(currentRepoId || (owner && repo)) && (sourceData || (owner && repo)) ? (
                         <div className="h-full w-full overflow-auto">
                           <DocumentationTab
-                            currentRepoId={currentRepoId || `${owner}/${repo}`}
+                            currentRepoId={currentRepoId || `${owner}/${repo}/${branch}`}
                             sourceData={
                               sourceData &&
                               typeof sourceData === 'object' &&

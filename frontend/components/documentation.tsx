@@ -509,6 +509,7 @@ export default function Documentation({
 
   // Suppress unused variable warning
   void userKeyPreferences;
+  const hasValidApiKeys = apiKeyValidation.userHasKeys.length > 0;
   const [isDocGenerated, setIsDocGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -1224,6 +1225,24 @@ export default function Documentation({
             {/* Model Selection and Settings */}
             {!isGenerating && (
               <div className="space-y-6 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                {!apiKeyValidation.isLoading && !hasValidApiKeys && (
+                  <div className="p-3 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm text-orange-700 dark:text-orange-300">
+                        Add an API key to enable documentation generation
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => apiKeyValidation.setShowApiKeyModal(true)}
+                      className="ml-2"
+                    >
+                      Add API Keys
+                    </Button>
+                  </div>
+                )}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <Settings className="h-5 w-5 text-primary" />
@@ -1473,7 +1492,7 @@ export default function Documentation({
             <div className="flex gap-3">
               <Button
                 onClick={handleGenerateDocumentation}
-                disabled={isGenerating || !availableModels}
+                disabled={isGenerating || !availableModels || !hasValidApiKeys}
                 size="lg"
                 className="flex-1 rounded-xl px-8 py-3 text-base font-semibold"
               >
@@ -1496,6 +1515,7 @@ export default function Documentation({
                   size="lg"
                   onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
                   className="rounded-xl px-6 py-3"
+                  disabled={!hasValidApiKeys}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Regenerate
@@ -1513,6 +1533,7 @@ export default function Documentation({
                     size="sm"
                     onClick={handleGenerateDocumentation}
                     className="rounded-lg"
+                    disabled={!hasValidApiKeys}
                   >
                     <Sparkles className="h-3 w-3 mr-2" />
                     Full Regeneration
