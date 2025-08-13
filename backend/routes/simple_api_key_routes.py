@@ -120,6 +120,23 @@ async def get_available_models_get_enhanced(
         provider=provider
     )
 
+# Get model configuration endpoint
+@router.get(
+    "/models/{provider}/{model}/config",
+    summary="Get model configuration",
+    description="Get detailed configuration for a specific model including max tokens, capabilities, and pricing",
+    operation_id="get_model_config_backend_enhanced"
+)
+async def get_model_config_enhanced(
+    provider: str,
+    model: str
+):
+    """Get detailed configuration for a specific model"""
+    return await api_key_controller.get_model_config(
+        provider=provider,
+        model=model
+    )
+
 # Health check endpoint
 @router.get(
     "/health",

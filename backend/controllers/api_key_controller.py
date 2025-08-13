@@ -300,6 +300,61 @@ class ApiKeyController:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def get_model_config(
+        self,
+        provider: str,
+        model: str
+    ) -> dict:
+        """Get detailed configuration for a specific model"""
+        try:
+            # Validate provider
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
+            if provider not in valid_providers:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
+                )
+            
+            # Get model configuration from llm_service
+            config = llm_service.get_model_config(provider, model)
+            if not config:
+                # Check if model exists for this provider
+                all_models = llm_service.get_available_models()
+                provider_models = all_models.get(provider, [])
+                if model not in provider_models:
+                    raise HTTPException(
+                        status_code=404, 
+                        detail=f"Model '{model}' not found for provider '{provider}'. Available models: {provider_models[:10]}"
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=404, 
+                        detail=f"Configuration not found for model '{model}'"
+                    )
+            
+            # Return detailed configuration
+            return {
+                "success": True,
+                "provider": provider,
+                "model": model,
+                "config": {
+                    "max_tokens": config.max_tokens,
+                    "max_output_tokens": config.max_output_tokens,
+                    "cost_per_1M_input": config.cost_per_1M_input,
+                    "cost_per_1M_output": config.cost_per_1M_output,
+                    "cost_per_1M_cached_input": config.cost_per_1M_cached_input,
+                    "supports_function_calling": config.supports_function_calling,
+                    "supports_vision": config.supports_vision,
+                    "knowledge_cutoff": config.knowledge_cutoff,
+                    "is_reasoning_model": config.is_reasoning_model
+                }
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
 
 # Global instance
 api_key_controller = ApiKeyController() 

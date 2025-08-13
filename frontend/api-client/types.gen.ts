@@ -463,7 +463,7 @@ export type BodyProcessChatMessageApiBackendChatChatPost = {
   conversation_id?: string | null;
   /**
    * Provider
-   * LLM provider (openai, anthropic, gemini)
+   * LLM provider (openai, anthropic, gemini, groq)
    */
   provider?: string;
   /**
@@ -478,7 +478,7 @@ export type BodyProcessChatMessageApiBackendChatChatPost = {
   temperature?: number;
   /**
    * Max Tokens
-   * Maximum tokens in response (1-4000)
+   * Maximum tokens for context (1-1000000)
    */
   max_tokens?: number | null;
   /**
@@ -535,7 +535,7 @@ export type BodySaveUserApiKeyApiBackendChatKeysSavePost = {
   token: string;
   /**
    * Provider
-   * Provider name (openai, anthropic, gemini)
+   * Provider name (openai, anthropic, gemini, groq)
    */
   provider: string;
   /**
@@ -617,7 +617,7 @@ export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
   conversation_id?: string | null;
   /**
    * Provider
-   * LLM provider (openai, anthropic, gemini)
+   * LLM provider (openai, anthropic, gemini, groq)
    */
   provider?: string;
   /**
@@ -632,7 +632,7 @@ export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
   temperature?: number;
   /**
    * Max Tokens
-   * Maximum tokens in response (1-4000)
+   * Maximum tokens for context (1-1000000)
    */
   max_tokens?: number | null;
   /**
@@ -715,7 +715,7 @@ export type BodyVerifyUserApiKeyApiBackendChatKeysVerifyPost = {
   token: string;
   /**
    * Provider
-   * Provider name (openai, anthropic, gemini)
+   * Provider name (openai, anthropic, gemini, groq)
    */
   provider: string;
   /**
@@ -2541,6 +2541,39 @@ export type GetAvailableModelsBackendEnhancedError =
   GetAvailableModelsBackendEnhancedErrors[keyof GetAvailableModelsBackendEnhancedErrors];
 
 export type GetAvailableModelsBackendEnhancedResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetModelConfigBackendEnhancedData = {
+  body?: never;
+  path: {
+    /**
+     * Provider
+     */
+    provider: string;
+    /**
+     * Model
+     */
+    model: string;
+  };
+  query?: never;
+  url: '/api/backend-chat/models/{provider}/{model}/config';
+};
+
+export type GetModelConfigBackendEnhancedErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetModelConfigBackendEnhancedError =
+  GetModelConfigBackendEnhancedErrors[keyof GetModelConfigBackendEnhancedErrors];
+
+export type GetModelConfigBackendEnhancedResponses = {
   /**
    * Successful Response
    */
