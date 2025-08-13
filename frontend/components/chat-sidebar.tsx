@@ -157,9 +157,10 @@ export function ChatSidebar({
       // Set a single, stable loading state instead of cycling animations
       setLoadingState({
         stage: 'thinking',
-        message: contextMode === 'full' 
-          ? 'Processing repository context and generating response...' 
-          : 'Analyzing code and crafting response...'
+        message:
+          contextMode === 'full'
+            ? 'Processing repository context and generating response...'
+            : 'Analyzing code and crafting response...',
       });
     }
   }, [isLoading, contextMode]);
@@ -168,7 +169,11 @@ export function ChatSidebar({
     if (!input.trim() || isLoading) return;
 
     // Check if repository identifier is valid before proceeding
-    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || !repositoryIdentifier.includes('/')) {
+    if (
+      !repositoryIdentifier ||
+      repositoryIdentifier.trim() === '' ||
+      !repositoryIdentifier.includes('/')
+    ) {
       // Repository identifier should be in format: owner/repo/branch
       return;
     }
@@ -264,7 +269,10 @@ export function ChatSidebar({
   const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
 
   // Check if repository is ready for chat
-  const isRepositoryReady = repositoryIdentifier && repositoryIdentifier.trim() !== '' && repositoryIdentifier.includes('/');
+  const isRepositoryReady =
+    repositoryIdentifier &&
+    repositoryIdentifier.trim() !== '' &&
+    repositoryIdentifier.includes('/');
 
   return (
     <>
@@ -403,20 +411,36 @@ export function ChatSidebar({
                   </div>
                   <div className="space-y-4 max-w-[320px]">
                     <div>
-                      <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">Ready to help!</h3>
+                      <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
+                        Ready to help!
+                      </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
-                        Ask me anything about <span className="font-medium text-blue-600 dark:text-blue-400">{repositoryName}</span> - code structure, functionality, best practices, or specific implementations.
+                        Ask me anything about{' '}
+                        <span className="font-medium text-blue-600 dark:text-blue-400">
+                          {repositoryName}
+                        </span>{' '}
+                        - code structure, functionality, best practices, or specific
+                        implementations.
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    <Badge variant="secondary" className="text-xs px-3 py-1 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
+                    >
                       Code Analysis
                     </Badge>
-                    <Badge variant="secondary" className="text-xs px-3 py-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800"
+                    >
                       Architecture
                     </Badge>
-                    <Badge variant="secondary" className="text-xs px-3 py-1 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800"
+                    >
                       Documentation
                     </Badge>
                   </div>
@@ -440,8 +464,22 @@ export function ChatSidebar({
                       )}
                     </div>
                   ))}
+                  {loadingState.functionCall && (
+                    <div className="mt-2 p-2 rounded-md bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50">
+                      <div className="flex items-center gap-1.5">
+                        <Cpu className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                        <span className="text-xs font-medium text-orange-800 dark:text-orange-200">
+                          Calling: {loadingState.functionCall.name}
+                        </span>
+                      </div>
+                      <div className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+                        {Object.keys(loadingState.functionCall.args).length > 0 &&
+                          `Args: ${Object.keys(loadingState.functionCall.args).join(', ')}`}
+                      </div>
+                    </div>
+                  )}
 
-                  {isLoading && (
+                  {/* {isLoading && (
                     <div className="mx-1 p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200/50 dark:border-purple-800/50 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="relative">
@@ -477,7 +515,7 @@ export function ChatSidebar({
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </>
               )}
               <div ref={messagesEndRef} />
@@ -581,11 +619,13 @@ export function ChatSidebar({
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder={
-                    !isRepositoryReady 
-                      ? "Repository processing..." 
+                    !isRepositoryReady
+                      ? 'Repository processing...'
                       : `Ask about ${repositoryName}...`
                   }
-                  disabled={isLoading || !contextModeConfig[contextMode].available || !isRepositoryReady}
+                  disabled={
+                    isLoading || !contextModeConfig[contextMode].available || !isRepositoryReady
+                  }
                   className="h-9 text-sm rounded-lg border-border/50 focus:border-primary/50 focus:ring-primary/20 disabled:opacity-60"
                 />
                 {!contextModeConfig[contextMode].available && (
@@ -597,7 +637,10 @@ export function ChatSidebar({
                 )}
                 {!isRepositoryReady && (
                   <div className="absolute inset-y-0 right-2 flex items-center">
-                    <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-orange-50 text-orange-700 border-orange-200">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] h-4 px-1 bg-orange-50 text-orange-700 border-orange-200"
+                    >
                       Processing
                     </Badge>
                   </div>
@@ -605,7 +648,12 @@ export function ChatSidebar({
               </div>
               <Button
                 onClick={handleSendMessage}
-                disabled={!input.trim() || isLoading || !contextModeConfig[contextMode].available || !isRepositoryReady}
+                disabled={
+                  !input.trim() ||
+                  isLoading ||
+                  !contextModeConfig[contextMode].available ||
+                  !isRepositoryReady
+                }
                 size="icon"
                 className="h-9 w-9 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
               >
