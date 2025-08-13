@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Depends, Form
 from typing import Annotated
 from schemas.response_schemas import IndexedRepositoriesResponse, ErrorResponse
 from controllers.indexed_repos_controller import get_user_indexed_repositories
+from middleware.auth_middleware import require_auth
+from models.user import User
 
 router = APIRouter(prefix="/indexed-repos")
 
@@ -39,10 +41,10 @@ router = APIRouter(prefix="/indexed-repos")
     },
 )
 async def get_indexed_repositories(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     limit: Annotated[
         int, Form(description="Maximum number of repositories to return")
     ] = 50,
     offset: Annotated[int, Form(description="Number of repositories to skip")] = 0,
 ):
-    return await get_user_indexed_repositories(token=token, limit=limit, offset=offset)
+    return await get_user_indexed_repositories(user=current_user, limit=limit, offset=offset)

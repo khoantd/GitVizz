@@ -336,11 +336,6 @@ export type BodyGetConversationHistoryApiBackendChatConversationsConversationIdP
  */
 export type BodyGetIndexedRepositoriesApiIndexedReposPost = {
   /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
    * Limit
    * Maximum number of repositories to return
    */
@@ -431,11 +426,6 @@ export type BodyListUserChatSessionsApiBackendChatSessionsPost = {
  * Body_process_chat_message_api_backend_chat_chat_post
  */
 export type BodyProcessChatMessageApiBackendChatChatPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
   /**
    * Message
    * User's message/question
@@ -1856,6 +1846,12 @@ export type RefreshTokenApiBackendAuthRefreshPostResponse =
 
 export type ProcessChatMessageApiBackendChatChatPostData = {
   body: BodyProcessChatMessageApiBackendChatChatPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/chat';
@@ -2408,7 +2404,13 @@ export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponse =
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses];
 
 export type GetIndexedRepositoriesApiIndexedReposPostData = {
-  body: BodyGetIndexedRepositoriesApiIndexedReposPost;
+  body?: BodyGetIndexedRepositoriesApiIndexedReposPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/indexed-repos/';

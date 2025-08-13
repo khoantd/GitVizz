@@ -641,9 +641,9 @@ export const listRepositoryDocsApiDocumentationRepositoryDocsPost = <
  * Requires authentication via JWT token in request body.
  */
 export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends boolean = false>(
-  options: Options<GetIndexedRepositoriesApiIndexedReposPostData, ThrowOnError>,
+  options?: Options<GetIndexedRepositoriesApiIndexedReposPostData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options?.client ?? _heyApiClient).post<
     GetIndexedRepositoriesApiIndexedReposPostResponses,
     GetIndexedRepositoriesApiIndexedReposPostErrors,
     ThrowOnError
@@ -654,7 +654,7 @@ export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends b
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
+      ...options?.headers,
     },
   });
 };

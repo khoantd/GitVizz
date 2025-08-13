@@ -647,11 +647,6 @@ export const Body_get_conversation_history_api_backend_chat_conversations__conve
 
 export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     limit: {
       type: 'integer',
       title: 'Limit',
@@ -666,7 +661,6 @@ export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
     },
   },
   type: 'object',
-  required: ['token'],
   title: 'Body_get_indexed_repositories_api_indexed_repos__post',
 } as const;
 
@@ -757,11 +751,6 @@ export const Body_list_user_chat_sessions_api_backend_chat_sessions_postSchema =
 
 export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     message: {
       type: 'string',
       title: 'Message',
@@ -856,7 +845,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
     },
   },
   type: 'object',
-  required: ['token', 'message', 'repository_id'],
+  required: ['message', 'repository_id'],
   title: 'Body_process_chat_message_api_backend_chat_chat_post',
 } as const;
 
