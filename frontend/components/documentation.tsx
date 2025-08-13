@@ -55,6 +55,8 @@ import {
 import { extractJwtToken } from '@/utils/token-utils';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useDocumentationProgress } from '@/lib/sse-client';
+import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
+import { ApiKeyModal } from './api-key-modal';
 
 // Markdown and Syntax Highlighting imports
 import ReactMarkdown from 'react-markdown';
@@ -503,9 +505,11 @@ export default function Documentation({
   userKeyPreferences = {},
 }: DocumentationTabProps) {
   const { data: session } = useSession();
+  const apiKeyValidation = useApiKeyValidation();
 
   // Suppress unused variable warning
   void userKeyPreferences;
+  const hasValidApiKeys = apiKeyValidation.userHasKeys.length > 0;
   const [isDocGenerated, setIsDocGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -637,14 +641,38 @@ export default function Documentation({
       const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
       setAvailableModels(models);
 
-      // Set default model if available
-      const firstProvider = Object.keys(models.providers)[0];
+      // Choose provider preference: if user has keys, limit to those; otherwise show all
+      const preferredProviders =
+        models.user_has_keys && models.user_has_keys.length > 0
+          ? models.user_has_keys
+          : Object.keys(models.providers);
+      const firstProvider = preferredProviders.find((p) => (models.providers[p] || []).length > 0);
       const firstModel = firstProvider ? models.providers[firstProvider]?.[0] : undefined;
-      if (firstProvider && firstModel && !generationSettings.provider) {
+
+      // If current provider is not available or not in preferred list, switch to preferred
+      const currentProvider = generationSettings.provider;
+      const currentModel = generationSettings.model;
+      const providerIsAllowed = firstProvider
+        ? preferredProviders.includes(currentProvider) &&
+          (models.providers[currentProvider] || []).length > 0
+        : false;
+      const modelIsAllowed =
+        providerIsAllowed && (models.providers[currentProvider] || []).includes(currentModel);
+
+      if (!providerIsAllowed && firstProvider && firstModel) {
         setGenerationSettings((prev) => ({
           ...prev,
           provider: firstProvider,
           model: firstModel,
+        }));
+      } else if (
+        providerIsAllowed &&
+        !modelIsAllowed &&
+        (models.providers[currentProvider] || []).length > 0
+      ) {
+        setGenerationSettings((prev) => ({
+          ...prev,
+          model: models.providers[currentProvider][0],
         }));
       }
     } catch (error) {
@@ -826,6 +854,10 @@ export default function Documentation({
   const handleGenerateDocumentation = async () => {
     if (!session?.jwt_token || !currentRepoId || !sourceData) return;
 
+    // Check for API keys before generating documentation
+    const canProceed = await apiKeyValidation.checkApiKeysBeforeAction();
+    if (!canProceed) return;
+
     try {
       setIsGenerating(true);
       setError(null);
@@ -873,9 +905,12 @@ export default function Documentation({
             ' Try switching to a different AI provider or wait a few minutes before retrying.';
         } else if (
           errorMessage.toLowerCase().includes('authentication') ||
-          errorMessage.toLowerCase().includes('api key')
+          errorMessage.toLowerCase().includes('api key') ||
+          errorMessage.toLowerCase().includes('no api key')
         ) {
-          actionableAdvice = ' Please check your API key configuration in Settings.';
+          actionableAdvice = ' Please add a valid API key in Settings.';
+          // Show API key modal for immediate action
+          apiKeyValidation.setShowApiKeyModal(true);
         } else if (
           errorMessage.toLowerCase().includes('quota') ||
           errorMessage.toLowerCase().includes('billing')
@@ -944,6 +979,8 @@ export default function Documentation({
           } else if (statusResponse.status === 'failed') {
             setIsGenerating(false);
             setError('Please Provide Valid API Key for the selected model or try again later');
+            // Show API key modal for immediate action
+            apiKeyValidation.setShowApiKeyModal(true);
           }
         } catch (err) {
           console.error('Error checking status:', err);
@@ -1212,6 +1249,24 @@ export default function Documentation({
             {/* Model Selection and Settings */}
             {!isGenerating && (
               <div className="space-y-6 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                {!apiKeyValidation.isLoading && !hasValidApiKeys && (
+                  <div className="p-3 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm text-orange-700 dark:text-orange-300">
+                        Add an API key to enable documentation generation
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => apiKeyValidation.setShowApiKeyModal(true)}
+                      className="ml-2"
+                    >
+                      Add API Keys
+                    </Button>
+                  </div>
+                )}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <Settings className="h-5 w-5 text-primary" />
@@ -1256,22 +1311,30 @@ export default function Documentation({
                         </SelectTrigger>
                         <SelectContent>
                           {availableModels &&
-                            Object.keys(availableModels.providers).map((provider) => (
-                              <SelectItem key={provider} value={provider}>
-                                <div className="flex items-center gap-2">
-                                  {provider === 'openai' && <Zap className="h-4 w-4" />}
-                                  {provider === 'anthropic' && <Brain className="h-4 w-4" />}
-                                  {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
-                                  {provider === 'groq' && <Gauge className="h-4 w-4" />}
-                                  <span className="capitalize">{provider}</span>
-                                  {availableModels.user_has_keys.includes(provider) && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Your Key
-                                    </Badge>
-                                  )}
-                                </div>
-                              </SelectItem>
-                            ))}
+                            (() => {
+                              const userKeys = availableModels.user_has_keys || [];
+                              const providersToShow = (
+                                userKeys.length > 0
+                                  ? userKeys
+                                  : Object.keys(availableModels.providers)
+                              ).filter((p) => (availableModels.providers[p] || []).length > 0);
+                              return providersToShow.map((provider) => (
+                                <SelectItem key={provider} value={provider}>
+                                  <div className="flex items-center gap-2">
+                                    {provider === 'openai' && <Zap className="h-4 w-4" />}
+                                    {provider === 'anthropic' && <Brain className="h-4 w-4" />}
+                                    {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                                    {provider === 'groq' && <Gauge className="h-4 w-4" />}
+                                    <span className="capitalize">{provider}</span>
+                                    {availableModels.user_has_keys.includes(provider) && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Your Key
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ));
+                            })()}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1461,7 +1524,7 @@ export default function Documentation({
             <div className="flex gap-3">
               <Button
                 onClick={handleGenerateDocumentation}
-                disabled={isGenerating || !availableModels}
+                disabled={isGenerating || !availableModels || !hasValidApiKeys}
                 size="lg"
                 className="flex-1 rounded-xl px-8 py-3 text-base font-semibold"
               >
@@ -1484,6 +1547,7 @@ export default function Documentation({
                   size="lg"
                   onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
                   className="rounded-xl px-6 py-3"
+                  disabled={!hasValidApiKeys}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Regenerate
@@ -1501,6 +1565,7 @@ export default function Documentation({
                     size="sm"
                     onClick={handleGenerateDocumentation}
                     className="rounded-lg"
+                    disabled={!hasValidApiKeys}
                   >
                     <Sparkles className="h-3 w-3 mr-2" />
                     Full Regeneration
@@ -1814,6 +1879,14 @@ export default function Documentation({
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* API Key Modal */}
+      <ApiKeyModal
+        isOpen={apiKeyValidation.showApiKeyModal}
+        onClose={() => apiKeyValidation.setShowApiKeyModal(false)}
+        userHasKeys={apiKeyValidation.userHasKeys}
+        availableProviders={apiKeyValidation.availableProviders}
+      />
     </div>
   );
 }

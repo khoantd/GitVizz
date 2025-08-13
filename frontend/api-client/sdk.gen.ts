@@ -77,12 +77,27 @@ import type {
   GetIndexedRepositoriesApiIndexedReposPostData,
   GetIndexedRepositoriesApiIndexedReposPostResponses,
   GetIndexedRepositoriesApiIndexedReposPostErrors,
+  GetUserApiKeysApiBackendChatKeysListPostData,
+  GetUserApiKeysApiBackendChatKeysListPostResponses,
+  GetUserApiKeysApiBackendChatKeysListPostErrors,
+  DeleteUserApiKeyApiBackendChatKeysDeletePostData,
+  DeleteUserApiKeyApiBackendChatKeysDeletePostResponses,
+  DeleteUserApiKeyApiBackendChatKeysDeletePostErrors,
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetData,
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses,
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors,
+  GetAvailableModelsApiBackendChatModelsAvailablePostData,
+  GetAvailableModelsApiBackendChatModelsAvailablePostResponses,
+  GetAvailableModelsApiBackendChatModelsAvailablePostErrors,
+  HealthCheckApiBackendChatHealthGetData,
+  HealthCheckApiBackendChatHealthGetResponses,
+  ServiceInfoApiBackendChatInfoGetData,
+  ServiceInfoApiBackendChatInfoGetResponses,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
   getConversationHistoryApiBackendChatConversationsConversationIdPostResponseTransformer,
   getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer,
-  saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
   getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
 } from './transformers.gen';
 
@@ -386,7 +401,7 @@ export const verifyUserApiKeyApiBackendChatKeysVerifyPost = <ThrowOnError extend
 
 /**
  * Save user API key
- * Save or update an encrypted API key for a specific provider with verification
+ * Save an encrypted API key for the authenticated user
  */
 export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends boolean = false>(
   options: Options<SaveUserApiKeyApiBackendChatKeysSavePostData, ThrowOnError>,
@@ -397,7 +412,6 @@ export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends bo
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
-    responseTransformer: saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
     url: '/api/backend-chat/keys/save',
     ...options,
     headers: {
@@ -639,5 +653,126 @@ export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends b
       'Content-Type': 'application/x-www-form-urlencoded',
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Get user API keys
+ * Get list of user's saved API keys (without exposing actual keys)
+ */
+export const getUserApiKeysApiBackendChatKeysListPost = <ThrowOnError extends boolean = false>(
+  options: Options<GetUserApiKeysApiBackendChatKeysListPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetUserApiKeysApiBackendChatKeysListPostResponses,
+    GetUserApiKeysApiBackendChatKeysListPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/keys/list',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete user API key
+ * Delete user's API key for a specific provider
+ */
+export const deleteUserApiKeyApiBackendChatKeysDeletePost = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteUserApiKeyApiBackendChatKeysDeletePostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteUserApiKeyApiBackendChatKeysDeletePostResponses,
+    DeleteUserApiKeyApiBackendChatKeysDeletePostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/keys/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get available models (GET)
+ * Get available models for all providers (GET method for easier frontend integration)
+ */
+export const getAvailableModelsGetApiBackendChatModelsAvailableGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetAvailableModelsGetApiBackendChatModelsAvailableGetData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses,
+    GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/models/available',
+    ...options,
+  });
+};
+
+/**
+ * Get available models
+ * Get available models for all providers or a specific provider
+ */
+export const getAvailableModelsApiBackendChatModelsAvailablePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetAvailableModelsApiBackendChatModelsAvailablePostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAvailableModelsApiBackendChatModelsAvailablePostResponses,
+    GetAvailableModelsApiBackendChatModelsAvailablePostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/models/available',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Health check
+ * Simple health check for API key service
+ */
+export const healthCheckApiBackendChatHealthGet = <ThrowOnError extends boolean = false>(
+  options?: Options<HealthCheckApiBackendChatHealthGetData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    HealthCheckApiBackendChatHealthGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/health',
+    ...options,
+  });
+};
+
+/**
+ * Service information
+ * Get information about the API key service capabilities
+ */
+export const serviceInfoApiBackendChatInfoGet = <ThrowOnError extends boolean = false>(
+  options?: Options<ServiceInfoApiBackendChatInfoGetData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    ServiceInfoApiBackendChatInfoGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/info',
+    ...options,
   });
 };

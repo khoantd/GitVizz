@@ -1,7 +1,7 @@
 from typing import Callable, Optional, List
 import asyncio
 from utils.llm_utils import llm_service
-from documentationo_generator.structures import Document, WikiStructure, WikiPage, WikiSection, RepositoryAnalysis
+from documentation_generator.structures import Document, WikiStructure, WikiPage, WikiSection, RepositoryAnalysis
 
 # LLM client using llm_utils service
 class LLMClient:

@@ -25,10 +25,10 @@ Repository utilities for efficient lookup and management
 
 async def find_user_repository(repo_id: str, user: User, branch: Optional[str] = None) -> Repository:
     """
-    Find repository by ID using ObjectId or repo_name
+    Find repository by ID using ObjectId or repository identifier
     
     Args:
-        repo_id: Repository ObjectId, repo_name (format: owner_repo_branch), or owner/repo format
+        repo_id: Repository ObjectId, identifier (format: owner/repo/branch or owner_repo_branch), or owner/repo format
         user: User object for access control
         branch: Optional branch name for more precise matching when repo_id is in owner/repo format
         
@@ -38,6 +38,15 @@ async def find_user_repository(repo_id: str, user: User, branch: Optional[str] =
     Raises:
         HTTPException: If repository not found or access denied
     """
+    # Validate repository_id is not empty or None
+    if not repo_id or repo_id.strip() == "":
+        raise HTTPException(
+            status_code=400, 
+            detail="Repository ID cannot be empty"
+        )
+    
+    repo_id = repo_id.strip()  # Remove any leading/trailing whitespace
+    
     try:
         # Try ObjectId format first (most efficient for database lookups)
         if len(repo_id) == 24:
@@ -48,47 +57,71 @@ async def find_user_repository(repo_id: str, user: User, branch: Optional[str] =
             if repository:
                 return repository
     except (ValueError, TypeError):
-        # Invalid ObjectId format, continue with repo_name lookup
+        # Invalid ObjectId format, continue with identifier lookup
         pass
     
-    # Try exact repo_name match (for identifiers like "microsoft_vscode_main")
+    # Try exact repo_name match (for identifiers like "owner/repo/branch" or legacy "owner_repo_branch")
     repository = await Repository.find_one(
         Repository.repo_name == repo_id,
         Repository.user.id == user.id
     )
     
-    # If not found by repo_name, try to match by URL format (owner/repo)
-    if not repository and '/' in repo_id:
-        # Handle owner/repo format by searching for repositories with matching URL
-        owner_repo = repo_id
-        search_url = f"https://github.com/{owner_repo}"
-        repository = await Repository.find_one(
-            Repository.github_url == search_url,
-            Repository.user.id == user.id
-        )
+    # If not found by exact match, try parsing and reconstructing the identifier
+    if not repository:
+        from utils.file_utils import parse_repo_identifier
+        parsed = parse_repo_identifier(repo_id)
         
-        # If still not found, try generating repo identifier with branch information
-        if not repository:
-            # Try to construct repo_name using the same logic as generate_repo_identifier
-            owner, repo_name = repo_id.split('/', 1)
+        # If we successfully parsed it, try different formats
+        if parsed["owner"] != "unknown":
+            owner = parsed["owner"]
+            repo_name = parsed["repo"]
+            parsed_branch = parsed["branch"]
             
-            # If branch is provided, try that specific branch first
+            # Try the new forward slash format first
             if branch:
-                generated_repo_name = f"{owner}_{repo_name}_{branch}"
+                # Use provided branch parameter
+                new_format_id = f"{owner}/{repo_name}/{branch}"
+            else:
+                # Use parsed branch or default
+                new_format_id = f"{owner}/{repo_name}/{parsed_branch}"
+            
+            repository = await Repository.find_one(
+                Repository.repo_name == new_format_id,
+                Repository.user.id == user.id
+            )
+            
+            # If not found with new format, try legacy underscore format for backward compatibility
+            if not repository:
+                if branch:
+                    legacy_format_id = f"{owner}_{repo_name}_{branch}"
+                else:
+                    legacy_format_id = f"{owner}_{repo_name}_{parsed_branch}"
+                
                 repository = await Repository.find_one(
-                    Repository.repo_name == generated_repo_name,
+                    Repository.repo_name == legacy_format_id,
                     Repository.user.id == user.id
                 )
             
-            # If no branch provided or branch-specific search failed, try common branches
+            # If still not found, try common branches with both formats
             if not repository:
                 for fallback_branch in ["main", "master", "develop"]:
                     # Skip the branch we already tried
-                    if branch and fallback_branch == branch:
+                    if (branch and fallback_branch == branch) or fallback_branch == parsed_branch:
                         continue
-                    generated_repo_name = f"{owner}_{repo_name}_{fallback_branch}"
+                    
+                    # Try new format
+                    fallback_new_id = f"{owner}/{repo_name}/{fallback_branch}"
                     repository = await Repository.find_one(
-                        Repository.repo_name == generated_repo_name,
+                        Repository.repo_name == fallback_new_id,
+                        Repository.user.id == user.id
+                    )
+                    if repository:
+                        break
+                    
+                    # Try legacy format
+                    fallback_legacy_id = f"{owner}_{repo_name}_{fallback_branch}"
+                    repository = await Repository.find_one(
+                        Repository.repo_name == fallback_legacy_id,
                         Repository.user.id == user.id
                     )
                     if repository:

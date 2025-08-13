@@ -36,10 +36,24 @@ export function ModelSelector({
   onModelChange,
   onRefresh,
 }: ModelSelectorProps) {
-  const safeProvider =
-    currentModel.provider ?? Object.keys(availableModels.providers)[0] ?? 'openai';
+  // Show only providers for which the user has added keys; if none, show all
+  const providersToShow = (
+    availableModels.user_has_keys?.length
+      ? availableModels.user_has_keys
+      : Object.keys(availableModels.providers)
+  ).filter((p) => (availableModels.providers[p] || []).length > 0);
+
+  const initialProvider =
+    currentModel.provider && providersToShow.includes(currentModel.provider)
+      ? currentModel.provider
+      : providersToShow[0] || 'openai';
+
+  const safeProvider = initialProvider;
   const safeModel =
-    currentModel.model ?? availableModels.providers[safeProvider]?.[0] ?? 'gpt-3.5-turbo';
+    currentModel.model &&
+    (availableModels.providers[safeProvider] || []).includes(currentModel.model)
+      ? currentModel.model
+      : (availableModels.providers[safeProvider]?.[0] ?? 'gpt-3.5-turbo');
   const [temperature, setTemperature] = useState(currentModel.temperature ?? 0.7);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -137,7 +151,7 @@ export function ModelSelector({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {Object.keys(availableModels.providers).map((provider) => (
+            {providersToShow.map((provider) => (
               <SelectItem key={provider} value={provider}>
                 <div className="flex items-center gap-2">
                   {getProviderIcon(provider)}

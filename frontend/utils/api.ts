@@ -574,8 +574,6 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
-        context_search_query: chatRequest.context_search_query || null,
-        scope_preference: chatRequest.scope_preference || 'moderate',
       },
     });
 
@@ -610,8 +608,6 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
-        context_search_query: chatRequest.context_search_query || null,
-        scope_preference: chatRequest.scope_preference || 'moderate',
       },
     });
 
@@ -627,11 +623,11 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
  */
 export async function getUserChatSessions(
   jwt_token: string,
-  repo_id: string,
+  repository_identifier: string,
 ): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
-      body: { jwt_token, repo_id },
+      body: { jwt_token, repository_identifier },
     });
 
     if (response.error) {
@@ -804,6 +800,128 @@ export async function getAvailableModels(token: string): Promise<AvailableModels
     }
 
     return response.data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get user's saved API keys (without exposing actual keys)
+ */
+export async function getUserApiKeys(token: string): Promise<{
+  success: boolean;
+  keys: Array<{
+    id: string;
+    provider: string;
+    key_name: string | null;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
+  }>;
+  total_keys: number;
+}> {
+  try {
+    const formData = new FormData();
+    formData.append('token', token);
+
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/backend-chat/keys/list`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch API keys: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Delete user's API key for a specific provider
+ */
+export async function deleteUserApiKey(
+  token: string,
+  provider: string,
+  keyId?: string
+): Promise<{
+  success: boolean;
+  message: string;
+  provider: string;
+  deleted_at: string;
+}> {
+  try {
+    const formData = new FormData();
+    formData.append('token', token);
+    formData.append('provider', provider);
+    if (keyId) {
+      formData.append('key_id', keyId);
+    }
+
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/backend-chat/keys/delete`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to delete API key: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get detailed available models with configurations
+ */
+export async function getDetailedAvailableModels(token: string, provider?: string): Promise<{
+  success: boolean;
+  providers: string[];
+  models: Record<string, string[]>;
+  detailed_models: Record<string, Array<{
+    name: string;
+    max_tokens: number;
+    max_output_tokens: number;
+    supports_function_calling: boolean;
+    supports_vision: boolean;
+    is_reasoning_model: boolean;
+    knowledge_cutoff: string | null;
+    cost_per_1M_input: number;
+    cost_per_1M_output: number;
+  }>>;
+  user_has_keys: string[];
+  total_models: number;
+}> {
+  try {
+    const formData = new FormData();
+    formData.append('token', token);
+    if (provider) {
+      formData.append('provider', provider);
+    }
+
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/backend-chat/models/available`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch detailed models: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
   }

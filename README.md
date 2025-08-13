@@ -377,7 +377,7 @@ gitvizz/
 │   └── public/                  # Static assets
 ├── backend/                  # FastAPI backend application
 │   ├── controllers/             # API route handlers
-│   ├── documentationo_generator/ # AI-powered analysis
+│   ├── documentation_generator/ # AI-powered analysis
 │   ├── graphing/                # Code graph generation
 │   ├── models/                  # Data models
 │   ├── routes/                  # API routes

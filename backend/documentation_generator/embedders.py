@@ -3,7 +3,7 @@ import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 from typing import List
-from documentationo_generator.structures import Document
+from documentation_generator.structures import Document
 
 class SemanticEmbedder:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):

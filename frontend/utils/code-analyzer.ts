@@ -63,14 +63,13 @@ export function findFunctionUsages(code: string, functionName: string): Usage[] 
         };
 
         // Avoid duplicates on the same line
-        const isDuplicate = match
-          ? usages.some(
-              (existing) =>
-                existing.line === lineNumber &&
-                existing.type === type &&
-                existing.column === match.index,
-            )
-          : false;
+        const matchIndex = match.index; // Store match.index to avoid null check issues
+        const isDuplicate = usages.some(
+          (existing) =>
+            existing.line === lineNumber &&
+            existing.type === type &&
+            existing.column === matchIndex,
+        );
 
         if (!isDuplicate) {
           usages.push(usage);

@@ -62,11 +62,12 @@ export default function ZipResultsPage() {
     return 'main';
   }, [sourceType, sourceData]);
 
-  // Only initialize chat sidebar with valid repository ID
-  const validRepositoryId = currentRepoId && !currentRepoId.includes('/') ? currentRepoId : '';
-  // For ZIP-based results, repoId may or may not exist depending on auth; hook tolerates empty repo id
-  const { currentModel } = useChatSidebar(validRepositoryId, userKeyPreferences, {
+  // Only initialize chat sidebar with valid repository identifier for generic results
+  const validRepositoryIdentifier = currentRepoId && !currentRepoId.includes('/') ? currentRepoId : '';
+  // For ZIP-based results, disable chat if no valid repository ID
+  const { currentModel } = useChatSidebar(validRepositoryIdentifier, userKeyPreferences, {
     repositoryBranch,
+    autoLoad: false, // Disable auto-loading for generic results page
   });
   void currentModel;
 
@@ -719,7 +720,7 @@ export default function ZipResultsPage() {
           <ChatSidebar
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
-            repositoryId={validRepositoryId}
+            repositoryIdentifier={validRepositoryIdentifier}
             repositoryName={getDisplayName()}
             repositoryBranch={repositoryBranch}
             userKeyPreferences={userKeyPreferences}

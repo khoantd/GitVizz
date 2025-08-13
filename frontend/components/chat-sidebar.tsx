@@ -29,8 +29,6 @@ import {
   AlertTriangle,
   Database,
   Zap,
-  Code,
-  Activity,
   Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,7 +45,7 @@ type ContextMode = 'full' | 'smart' | 'agentic';
 interface ChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  repositoryId: string;
+  repositoryIdentifier: string; // Format: owner/repo/branch
   repositoryName: string;
   repositoryBranch?: string;
   userKeyPreferences?: Record<string, boolean>;
@@ -65,7 +63,7 @@ interface LoadingState {
 export function ChatSidebar({
   isOpen,
   onClose,
-  repositoryId,
+  repositoryIdentifier,
   repositoryName,
   repositoryBranch = 'main',
   userKeyPreferences = {},
@@ -85,8 +83,8 @@ export function ChatSidebar({
     isLoadingHistory,
     contextSettings,
     setContextSettings,
-  } = useChatSidebar(repositoryId, userKeyPreferences, {
-    autoLoad: isOpen && Boolean(repositoryId),
+  } = useChatSidebar(repositoryIdentifier, userKeyPreferences, {
+    autoLoad: isOpen && Boolean(repositoryIdentifier),
     repositoryBranch,
   });
 
@@ -100,7 +98,7 @@ export function ChatSidebar({
   // Remove unused lastDailyUsage state - daily usage is handled in the hook
 
   // Context Mode State
-  const [contextMode, setContextMode] = useState<ContextMode>('smart');
+  const [contextMode, setContextMode] = useState<ContextMode>('full');
   const [loadingState, setLoadingState] = useState<LoadingState>({
     stage: 'initializing',
     message: 'Starting conversation...',
@@ -156,31 +154,29 @@ export function ChatSidebar({
   // Update loading state based on isLoading and context mode
   useEffect(() => {
     if (isLoading) {
-      const stages: LoadingState[] = [
-        { stage: 'initializing', message: 'Preparing your request...' },
-        {
-          stage: 'processing',
-          message:
-            contextMode === 'full' ? 'Loading repository context...' : 'Analyzing code patterns...',
-        },
-        { stage: 'thinking', message: 'AI is reasoning about your question...' },
-        { stage: 'generating', message: 'Crafting the perfect response...' },
-      ];
-
-      let currentStage = 0;
-      setLoadingState(stages[0]);
-
-      const interval = setInterval(() => {
-        currentStage = (currentStage + 1) % stages.length;
-        setLoadingState(stages[currentStage]);
-      }, 1500);
-
-      return () => clearInterval(interval);
+      // Set a single, stable loading state instead of cycling animations
+      setLoadingState({
+        stage: 'thinking',
+        message:
+          contextMode === 'full'
+            ? 'Processing repository context and generating response...'
+            : 'Analyzing code and crafting response...',
+      });
     }
   }, [isLoading, contextMode]);
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Check if repository identifier is valid before proceeding
+    if (
+      !repositoryIdentifier ||
+      repositoryIdentifier.trim() === '' ||
+      !repositoryIdentifier.includes('/')
+    ) {
+      // Repository identifier should be in format: owner/repo/branch
+      return;
+    }
 
     // Check for API keys before sending message
     const canProceed = await apiKeyValidation.checkApiKeysBeforeAction();
@@ -188,7 +184,7 @@ export function ChatSidebar({
 
     // Show warning for unavailable context modes
     if (!contextModeConfig[contextMode].available) {
-      // For now, fallback to smart mode (which uses retrieval)
+      // For now, fallback to full mode (which is available)
       setContextMode('full');
     }
 
@@ -272,6 +268,12 @@ export function ChatSidebar({
   const userHasKeys = availableModels?.user_has_keys || [];
   const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
 
+  // Check if repository is ready for chat
+  const isRepositoryReady =
+    repositoryIdentifier &&
+    repositoryIdentifier.trim() !== '' &&
+    repositoryIdentifier.includes('/');
+
   return (
     <>
       {/* Backdrop */}
@@ -327,7 +329,7 @@ export function ChatSidebar({
                   <Bot className="h-3.5 w-3.5 text-primary" />
                 </div>
                 {isLoading && (
-                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
                 )}
               </div>
               <div>
@@ -398,30 +400,47 @@ export function ChatSidebar({
             className="flex-1"
             style={{ height: 'calc(100vh - 280px)' }}
           >
-            <div className="px-3 py-10 space-y-4 pb-4 w-full">
+            <div className="px-4 py-6 space-y-6 pb-4 w-full">
               {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center space-y-6 px-4">
+                <div className="flex flex-col items-center justify-center h-full min-h-[350px] text-center space-y-8 px-6">
                   <div className="relative">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
-                      <Sparkles className="h-8 w-8 text-primary" />
+                    <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 flex items-center justify-center border border-blue-200/50 dark:border-blue-800/50 shadow-lg">
+                      <Sparkles className="h-10 w-10 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full animate-pulse" />
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse shadow-sm" />
                   </div>
-                  <div className="space-y-3 max-w-[280px]">
-                    <h3 className="font-semibold text-lg text-foreground">Ready to help!</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Ask me anything about this repository - code structure, functionality, best
-                      practices, or specific implementations.
-                    </p>
+                  <div className="space-y-4 max-w-[320px]">
+                    <div>
+                      <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
+                        Ready to help!
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
+                        Ask me anything about{' '}
+                        <span className="font-medium text-blue-600 dark:text-blue-400">
+                          {repositoryName}
+                        </span>{' '}
+                        - code structure, functionality, best practices, or specific
+                        implementations.
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
+                    >
                       Code Analysis
                     </Badge>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800"
+                    >
                       Architecture
                     </Badge>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800"
+                    >
                       Documentation
                     </Badge>
                   </div>
@@ -445,45 +464,49 @@ export function ChatSidebar({
                       )}
                     </div>
                   ))}
+                  {loadingState.functionCall && (
+                    <div className="mt-2 p-2 rounded-md bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50">
+                      <div className="flex items-center gap-1.5">
+                        <Cpu className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                        <span className="text-xs font-medium text-orange-800 dark:text-orange-200">
+                          Calling: {loadingState.functionCall.name}
+                        </span>
+                      </div>
+                      <div className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+                        {Object.keys(loadingState.functionCall.args).length > 0 &&
+                          `Args: ${Object.keys(loadingState.functionCall.args).join(', ')}`}
+                      </div>
+                    </div>
+                  )}
 
-                  {isLoading && (
-                    <div className="mx-1 p-4 rounded-2xl bg-gradient-to-r from-primary/5 to-muted/30 border border-border/30">
+                  {/* {isLoading && (
+                    <div className="mx-1 p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200/50 dark:border-purple-800/50 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            {loadingState.stage === 'initializing' && (
-                              <Activity className="h-4 w-4 text-primary animate-pulse" />
-                            )}
-                            {loadingState.stage === 'processing' && (
-                              <Database className="h-4 w-4 text-blue-500 animate-bounce" />
-                            )}
-                            {loadingState.stage === 'thinking' && (
-                              <Brain className="h-4 w-4 text-purple-500 animate-pulse" />
-                            )}
-                            {loadingState.stage === 'generating' && (
-                              <Code className="h-4 w-4 text-green-500 animate-pulse" />
-                            )}
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 flex items-center justify-center border border-purple-200/50 dark:border-purple-700/50">
+                            <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                           </div>
-                          <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse" />
+                          <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
                         </div>
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground">
+                        <div className="space-y-2 min-w-0 flex-1">
+                          <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
                             {loadingState.message}
                           </p>
-                          <div className="flex items-center gap-1">
-                            <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                            <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                            <div className="w-1 h-1 bg-primary rounded-full animate-bounce" />
+                          <div className="flex items-center gap-2">
+                            <div className="h-1 bg-gradient-to-r from-purple-200 to-blue-200 dark:from-purple-800 dark:to-blue-800 rounded-full overflow-hidden flex-1">
+                              <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse w-3/4" />
+                            </div>
+                            <span className="text-xs text-purple-600 dark:text-purple-400">Thinking...</span>
                           </div>
                           {loadingState.functionCall && (
-                            <div className="mt-2 p-2 rounded-md bg-muted/50 border border-border/20">
+                            <div className="mt-2 p-2 rounded-md bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50">
                               <div className="flex items-center gap-1.5">
-                                <Cpu className="h-3 w-3 text-orange-500" />
-                                <span className="text-xs font-medium text-foreground">
+                                <Cpu className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                                <span className="text-xs font-medium text-orange-800 dark:text-orange-200">
                                   Calling: {loadingState.functionCall.name}
                                 </span>
                               </div>
-                              <div className="text-xs text-muted-foreground mt-0.5">
+                              <div className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
                                 {Object.keys(loadingState.functionCall.args).length > 0 &&
                                   `Args: ${Object.keys(loadingState.functionCall.args).join(', ')}`}
                               </div>
@@ -492,7 +515,7 @@ export function ChatSidebar({
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </>
               )}
               <div ref={messagesEndRef} />
@@ -547,8 +570,8 @@ export function ChatSidebar({
               </Select>
             </div>
 
-            {/* Model Selection Accordion */}
-            <Collapsible>
+            {/* Model Selection Accordion - Open by Default */}
+            <Collapsible defaultOpen>
               <CollapsibleTrigger asChild>
                 <Button
                   variant="outline"
@@ -595,8 +618,14 @@ export function ChatSidebar({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder={`Ask about ${repositoryName}...`}
-                  disabled={isLoading || !contextModeConfig[contextMode].available}
+                  placeholder={
+                    !isRepositoryReady
+                      ? 'Repository processing...'
+                      : `Ask about ${repositoryName}...`
+                  }
+                  disabled={
+                    isLoading || !contextModeConfig[contextMode].available || !isRepositoryReady
+                  }
                   className="h-9 text-sm rounded-lg border-border/50 focus:border-primary/50 focus:ring-primary/20 disabled:opacity-60"
                 />
                 {!contextModeConfig[contextMode].available && (
@@ -606,10 +635,25 @@ export function ChatSidebar({
                     </Badge>
                   </div>
                 )}
+                {!isRepositoryReady && (
+                  <div className="absolute inset-y-0 right-2 flex items-center">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] h-4 px-1 bg-orange-50 text-orange-700 border-orange-200"
+                    >
+                      Processing
+                    </Badge>
+                  </div>
+                )}
               </div>
               <Button
                 onClick={handleSendMessage}
-                disabled={!input.trim() || isLoading || !contextModeConfig[contextMode].available}
+                disabled={
+                  !input.trim() ||
+                  isLoading ||
+                  !contextModeConfig[contextMode].available ||
+                  !isRepositoryReady
+                }
                 size="icon"
                 className="h-9 w-9 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
               >

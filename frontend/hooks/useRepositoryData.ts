@@ -19,10 +19,11 @@ interface GitHubSourceData {
 interface UseRepositoryDataOptions {
   owner?: string;
   repo?: string;
+  branch?: string;
   repoId?: string;
 }
 
-export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOptions = {}) {
+export function useRepositoryData({ owner, repo, branch, repoId }: UseRepositoryDataOptions = {}) {
   const { data: session } = useSession();
   const router = useRouter();
   const {
@@ -129,7 +130,7 @@ export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOpti
       const repoUrl = constructGitHubUrl(owner, repo);
       const githubSourceData: GitHubSourceData = {
         repo_url: repoUrl,
-        branch: 'main',
+        branch: branch || 'main',
       };
       
       // Set the source data first, then fetch
@@ -147,6 +148,7 @@ export function useRepositoryData({ owner, repo, repoId }: UseRepositoryDataOpti
     hasAttemptedFetch,
     owner,
     repo,
+    branch,
     output,
     currentRepoId,
     sourceType,

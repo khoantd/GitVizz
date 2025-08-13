@@ -54,7 +54,7 @@ interface ModelApiState {
 type ModelState = Partial<ModelApiState>;
 
 export function useChatSidebar(
-  repositoryId: string,
+  repositoryIdentifier: string,
   userKeyPreferences: Record<string, boolean>,
   options?: { autoLoad?: boolean; repositoryBranch?: string },
 ) {
@@ -102,13 +102,16 @@ export function useChatSidebar(
   useEffect(() => {
     if (!autoLoad) return;
     if (!session?.jwt_token) return;
-    if (!repositoryId) return;
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '') {
+      console.log('Skipping chat initialization: No repository identifier provided');
+      return;
+    }
 
-    // Skip if repositoryId looks like owner/repo format (not a valid ObjectId)
-    if (repositoryId.includes('/')) {
+    // Validate repository identifier format (should be owner/repo/branch)
+    if (!repositoryIdentifier.includes('/')) {
       console.warn(
-        'Repository ID appears to be in owner/repo format, skipping chat history load:',
-        repositoryId,
+        'Repository identifier should be in owner/repo/branch format:',
+        repositoryIdentifier,
       );
       return;
     }
@@ -120,12 +123,12 @@ export function useChatSidebar(
     }
 
     // History: only load once per token+repository pair
-    const historyKey = `${session.jwt_token}:${repositoryId}`;
+    const historyKey = `${session.jwt_token}:${repositoryIdentifier}`;
     if (lastHistoryKeyRef.current !== historyKey) {
       lastHistoryKeyRef.current = historyKey;
       void loadChatHistory();
     }
-  }, [autoLoad, session?.jwt_token, repositoryId]);
+  }, [autoLoad, session?.jwt_token, repositoryIdentifier]);
 
   const loadAvailableModels = async () => {
     if (!session?.jwt_token) return;
@@ -158,7 +161,7 @@ export function useChatSidebar(
 
   const loadChatHistory = async () => {
     if (!session?.jwt_token) return;
-    if (!repositoryId) return;
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '') return;
     if (isFetchingHistoryRef.current) return;
 
     isFetchingHistoryRef.current = true;
@@ -166,7 +169,7 @@ export function useChatSidebar(
     try {
       const chatSessions = await getUserChatSessionsWithAuth(
         extractJwtToken(session.jwt_token),
-        repositoryId,
+        repositoryIdentifier,
       );
       if (chatSessions.success) {
         setChatHistory(chatSessions.sessions);
@@ -188,14 +191,14 @@ export function useChatSidebar(
   ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
 
-    // Check if repository ID is valid (not in owner/repo format)
-    if (repositoryId.includes('/')) {
+    // Check if repository identifier is valid - should be in owner/repo/branch format
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || !repositoryIdentifier.includes('/')) {
       console.error(
-        'Cannot send message: Repository ID appears to be in owner/repo format:',
-        repositoryId,
+        'Cannot send message: Repository identifier is invalid:',
+        repositoryIdentifier,
       );
       throw new Error(
-        'Repository not processed yet. Please wait for repository processing to complete.',
+        'Repository not processed yet. Please wait for repository processing to complete before starting a chat.',
       );
     }
 
@@ -229,7 +232,7 @@ export function useChatSidebar(
       const streamingRequest: StreamingChatRequest = {
         token: extractJwtToken(session.jwt_token),
         message: content,
-        repository_id: repositoryId,
+        repository_id: repositoryIdentifier,
         repository_branch: options?.repositoryBranch,
         use_user: modelState.provider ? (useUserKeys[modelState.provider] ?? false) : false,
         chat_id: chatState.currentChatId,

@@ -1,9 +1,9 @@
 from typing import List, Dict, Any
 import os
 from pathlib import Path
-from documentationo_generator.structures import Document, RepositoryAnalysis
-from documentationo_generator.embedders import SemanticEmbedder
-from documentationo_generator.utils import download_repo, read_documents, chunk_documents, setup_repository_from_zip
+from documentation_generator.structures import Document, RepositoryAnalysis
+from documentation_generator.embedders import SemanticEmbedder
+from documentation_generator.utils import download_repo, read_documents, chunk_documents, setup_repository_from_zip
 
 class DocumentParser:
     """Document parsing and processing"""

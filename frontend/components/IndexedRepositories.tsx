@@ -107,7 +107,9 @@ export function IndexedRepositories({ className }: IndexedRepositoriesProps) {
         try {
           const url = new URL(repo.github_url);
           const [owner, name] = url.pathname.substring(1).split('/');
-          router.push(`/results/${owner}/${name}`);
+          // Use the branch from the repository data or default to main
+          const branch = repo.branch || 'main';
+          router.push(`/results/${owner}/${name}/${branch}`);
         } catch {
           router.push('/results');
         }
