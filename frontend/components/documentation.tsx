@@ -52,7 +52,6 @@ import {
   getAvailableModels,
   cancelWikiGeneration,
 } from '@/utils/api';
-import { extractJwtToken } from '@/utils/token-utils';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useDocumentationProgress } from '@/lib/sse-client';
 import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
@@ -638,7 +637,7 @@ export default function Documentation({
   const loadAvailableModels = useCallback(async () => {
     if (!session?.jwt_token) return;
     try {
-      const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
+      const models = await getAvailableModels(session?.jwt_token || undefined);
       setAvailableModels(models);
 
       // Choose provider preference: if user has keys, limit to those; otherwise show all
@@ -688,10 +687,7 @@ export default function Documentation({
         return;
       }
 
-      const wikiResponse = await isWikiGenerated(
-        extractJwtToken(session?.jwt_token) || '',
-        currentRepoId,
-      );
+      const wikiResponse = await isWikiGenerated(session?.jwt_token || undefined, currentRepoId);
       setIsDocGenerated(wikiResponse.is_generated);
       setCurrentStatus(wikiResponse.status);
 
@@ -795,10 +791,7 @@ export default function Documentation({
 
     try {
       setLoading(true);
-      const docs = await getRepositoryDocumentation(
-        extractJwtToken(session?.jwt_token) || '',
-        currentRepoId,
-      );
+      const docs = await getRepositoryDocumentation(session?.jwt_token || undefined, currentRepoId);
 
       if (!docs || !docs.success || !docs.data) {
         throw new Error(docs?.message || 'Invalid documentation format received.');
@@ -871,7 +864,7 @@ export default function Documentation({
       }
 
       const response = await generateWikiDocumentation(
-        extractJwtToken(session?.jwt_token) || '',
+        session?.jwt_token || undefined,
         repositoryUrl,
         generationSettings.language,
         generationSettings.comprehensive,
@@ -967,7 +960,7 @@ export default function Documentation({
         try {
           setIsCheckingStatus(true);
           const statusResponse = await getWikiGenerationStatus(
-            extractJwtToken(session?.jwt_token) || '',
+            session?.jwt_token || undefined,
             currentRepoId,
           );
           setCurrentStatus(statusResponse.status);
@@ -1500,10 +1493,7 @@ export default function Documentation({
                     onClick={async () => {
                       if (!session?.jwt_token || !currentTaskId) return;
                       try {
-                        await cancelWikiGeneration(
-                          extractJwtToken(session?.jwt_token) || '',
-                          currentTaskId,
-                        );
+                        await cancelWikiGeneration(session?.jwt_token || undefined, currentTaskId);
                         stopStreaming();
                         setCanCancel(false);
                         setCurrentTaskId(null);

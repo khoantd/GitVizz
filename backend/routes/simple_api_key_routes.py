@@ -2,9 +2,11 @@
 Enhanced API key routes with full user API key management
 Integrated with LLM service for comprehensive functionality
 """
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, Depends
 from typing import Optional, Annotated
 from controllers.api_key_controller import api_key_controller
+from middleware.auth_middleware import require_auth
+from models.user import User
 
 router = APIRouter(prefix="/backend-chat")
 
@@ -90,12 +92,12 @@ async def delete_user_api_key_enhanced(
     operation_id="get_available_models_backend_enhanced"
 )
 async def get_available_models_enhanced(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     provider: Annotated[Optional[str], Form(description="Specific provider to get models for")] = None
 ):
     """Get available models with detailed configurations"""
     return await api_key_controller.get_available_models(
-        token=token,
+        user=current_user,
         provider=provider
     )
 

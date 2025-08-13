@@ -56,17 +56,6 @@ export type AvailableModelsResponse = {
 };
 
 /**
- * Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post
- */
-export type BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = {
-  /**
-   * Jwt Token
-   * Authentication jwt_token for the request
-   */
-  jwt_token: string;
-};
-
-/**
  * Body_delete_user_api_key_backend_enhanced
  */
 export type BodyDeleteUserApiKeyBackendEnhanced = {
@@ -226,11 +215,6 @@ export type BodyGenerateTextRouteApiRepoGenerateTextPost = {
  */
 export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
   /**
-   * Jwt Token
-   * Authentication jwt_token for the request
-   */
-  jwt_token: string;
-  /**
    * Repository Url
    * URL of the repository to generate documentation for
    */
@@ -263,52 +247,14 @@ export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
 };
 
 /**
- * Body_get_available_models_api_backend_chat_models_post
- */
-export type BodyGetAvailableModelsApiBackendChatModelsPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-};
-
-/**
  * Body_get_available_models_backend_enhanced
  */
 export type BodyGetAvailableModelsBackendEnhanced = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
   /**
    * Provider
    * Specific provider to get models for
    */
   provider?: string | null;
-};
-
-/**
- * Body_get_chat_session_api_backend_chat_sessions__chat_id__post
- */
-export type BodyGetChatSessionApiBackendChatSessionsChatIdPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-};
-
-/**
- * Body_get_conversation_history_api_backend_chat_conversations__conversation_id__post
- */
-export type BodyGetConversationHistoryApiBackendChatConversationsConversationIdPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
 };
 
 /**
@@ -347,11 +293,6 @@ export type BodyGetWikiStatusApiDocumentationWikiStatusPost = {
    * ID of the repository to check wiki generation status for
    */
   repo_id: string;
-  /**
-   * Jwt Token
-   * Authentication jwt_token for the request
-   */
-  jwt_token: string;
 };
 
 /**
@@ -363,11 +304,6 @@ export type BodyIsWikiGeneratedApiDocumentationIsWikiGeneratedPost = {
    * ID of the repository to check wiki generation status for
    */
   repo_id: string;
-  /**
-   * Jwt Token
-   * Authentication jwt_token for the request
-   */
-  jwt_token: string;
 };
 
 /**
@@ -379,22 +315,12 @@ export type BodyListRepositoryDocsApiDocumentationRepositoryDocsPost = {
    * ID of the repository to list documentation files for
    */
   repo_id: string;
-  /**
-   * Jwt Token
-   * Authentication jwt_token for the request
-   */
-  jwt_token: string;
 };
 
 /**
  * Body_list_user_chat_sessions_api_backend_chat_sessions_post
  */
 export type BodyListUserChatSessionsApiBackendChatSessionsPost = {
-  /**
-   * Jwt Token
-   * JWT authentication token
-   */
-  jwt_token: string;
   /**
    * Repository Identifier
    * Repository identifier in format owner/repo/branch
@@ -499,11 +425,6 @@ export type BodySaveApiKeyBackendEnhanced = {
  */
 export type BodySaveUserApiKeyApiBackendChatKeysSavePost = {
   /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
    * Provider
    * Provider name (openai, anthropic, gemini, groq)
    */
@@ -530,11 +451,6 @@ export type BodySaveUserApiKeyApiBackendChatKeysSavePost = {
  */
 export type BodySearchContextApiBackendChatContextSearchPost = {
   /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
    * Repository Id
    * Repository ID to search
    */
@@ -555,11 +471,6 @@ export type BodySearchContextApiBackendChatContextSearchPost = {
  * Body_stream_chat_response_api_backend_chat_chat_stream_post
  */
 export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
   /**
    * Message
    * User's message/question
@@ -622,11 +533,6 @@ export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
  */
 export type BodyUpdateChatSettingsApiBackendChatSettingsPost = {
   /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
    * Chat Id
    * Chat session ID to update
    */
@@ -678,11 +584,6 @@ export type BodyVerifyApiKeyBackendEnhanced = {
  * Body_verify_user_api_key_api_backend_chat_keys_verify_post
  */
 export type BodyVerifyUserApiKeyApiBackendChatKeysVerifyPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
   /**
    * Provider
    * Provider name (openai, anthropic, gemini, groq)
@@ -1899,6 +1800,12 @@ export type ProcessChatMessageApiBackendChatChatPostResponse =
 
 export type StreamChatResponseApiBackendChatChatStreamPostData = {
   body: BodyStreamChatResponseApiBackendChatChatStreamPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/chat/stream';
@@ -1938,7 +1845,13 @@ export type StreamChatResponseApiBackendChatChatStreamPostResponses = {
 };
 
 export type GetConversationHistoryApiBackendChatConversationsConversationIdPostData = {
-  body: BodyGetConversationHistoryApiBackendChatConversationsConversationIdPost;
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path: {
     /**
      * Conversation Id
@@ -1983,6 +1896,12 @@ export type GetConversationHistoryApiBackendChatConversationsConversationIdPostR
 
 export type ListUserChatSessionsApiBackendChatSessionsPostData = {
   body: BodyListUserChatSessionsApiBackendChatSessionsPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/sessions';
@@ -2017,7 +1936,13 @@ export type ListUserChatSessionsApiBackendChatSessionsPostResponse =
   ListUserChatSessionsApiBackendChatSessionsPostResponses[keyof ListUserChatSessionsApiBackendChatSessionsPostResponses];
 
 export type GetChatSessionApiBackendChatSessionsChatIdPostData = {
-  body: BodyGetChatSessionApiBackendChatSessionsChatIdPost;
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path: {
     /**
      * Chat Id
@@ -2109,7 +2034,13 @@ export type SaveApiKeyBackendEnhancedResponses = {
 };
 
 export type GetAvailableModelsApiBackendChatModelsPostData = {
-  body: BodyGetAvailableModelsApiBackendChatModelsPost;
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/models';
@@ -2145,6 +2076,12 @@ export type GetAvailableModelsApiBackendChatModelsPostResponse =
 
 export type UpdateChatSettingsApiBackendChatSettingsPostData = {
   body: BodyUpdateChatSettingsApiBackendChatSettingsPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/settings';
@@ -2184,6 +2121,12 @@ export type UpdateChatSettingsApiBackendChatSettingsPostResponse =
 
 export type SearchContextApiBackendChatContextSearchPostData = {
   body: BodySearchContextApiBackendChatContextSearchPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/context/search';
@@ -2251,7 +2194,13 @@ export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses =
 };
 
 export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData = {
-  body: BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost;
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path: {
     /**
      * Task Id
@@ -2281,6 +2230,12 @@ export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostRespon
 
 export type GenerateWikiApiDocumentationGenerateWikiPostData = {
   body: BodyGenerateWikiApiDocumentationGenerateWikiPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/documentation/generate-wiki';
@@ -2320,6 +2275,12 @@ export type GenerateWikiApiDocumentationGenerateWikiPostResponse =
 
 export type GetWikiStatusApiDocumentationWikiStatusPostData = {
   body: BodyGetWikiStatusApiDocumentationWikiStatusPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/documentation/wiki-status';
@@ -2355,6 +2316,12 @@ export type GetWikiStatusApiDocumentationWikiStatusPostResponse =
 
 export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostData = {
   body: BodyIsWikiGeneratedApiDocumentationIsWikiGeneratedPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/documentation/is-wiki-generated';
@@ -2382,6 +2349,12 @@ export type IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse =
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostData = {
   body: BodyListRepositoryDocsApiDocumentationRepositoryDocsPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/documentation/repository-docs';
@@ -2530,7 +2503,13 @@ export type GetAvailableModelsGetBackendEnhancedResponses = {
 };
 
 export type GetAvailableModelsBackendEnhancedData = {
-  body: BodyGetAvailableModelsBackendEnhanced;
+  body?: BodyGetAvailableModelsBackendEnhanced;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/models/available';

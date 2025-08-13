@@ -1,13 +1,14 @@
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, HTTPException, Form, Depends
 from fastapi.responses import StreamingResponse
-from typing import Dict, Any, Optional, AsyncGenerator
+from typing import Dict, Any, Optional, AsyncGenerator, Annotated
 import time
 import asyncio
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor
 from documentation_generator.core import DocumentationGenerator
-from utils.jwt_utils import get_current_user
+from middleware.auth_middleware import require_auth
+from models.user import User
 from models.repository import Repository
 from beanie.operators import Or
 from beanie import PydanticObjectId
@@ -194,14 +195,12 @@ async def stream_wiki_progress(task_id: str):
 )
 async def cancel_wiki_generation(
     task_id: str,
-    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
+    current_user: Annotated[User, Depends(require_auth)],
 ):
     """Cancel an ongoing wiki generation task"""
     try:
-        # Authenticate user
-        user = await get_current_user(jwt_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
+        # User is already authenticated via middleware
+        user = current_user
         
         # Check if task exists and belongs to user
         if task_id not in task_results:
@@ -260,7 +259,7 @@ async def cancel_wiki_generation(
     },
 )
 async def generate_wiki(
-    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
+    current_user: Annotated[User, Depends(require_auth)],
     repository_url: str = Form(
         ..., description="URL of the repository to generate documentation for"
     ),
@@ -280,11 +279,8 @@ async def generate_wiki(
 ):
     """Generate wiki documentation for a repository"""
 
-    # Authenticate user
-    user = await get_current_user(jwt_token)
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid jwt_token")
+    # User is already authenticated via middleware
+    user = current_user
 
     # Extract and validate repository information
     try:
@@ -496,20 +492,15 @@ def find_task_by_repo_id(repo_id: str):
     },
 )
 async def get_wiki_status(
+    current_user: Annotated[User, Depends(require_auth)],
     repo_id: str = Form(
         ..., description="ID of the repository to check wiki generation status for"
     ),
-    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
 ):
     """Get the status of a wiki generation task"""
     try:
-        # Authenticate user
-        user = await get_current_user(jwt_token)
-
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Unauthorized: Invalid jwt_token"
-            )
+        # User is already authenticated via middleware
+        user = current_user
 
         # Resolve repository using the same helper as chat
         repo = await find_user_repository(repo_id, user)
@@ -537,22 +528,17 @@ async def get_wiki_status(
     response_model=IsWikiGeneratedResponse,
 )
 async def is_wiki_generated(
+    current_user: Annotated[User, Depends(require_auth)],
     repo_id: str = Form(
         ..., description="ID of the repository to check wiki generation status for"
     ),
-    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
 ):
     """Check if wiki documentation has been generated for a repository"""
     try:
-        # Authenticate user
-        user = await get_current_user(jwt_token)
+        # User is already authenticated via middleware
+        user = current_user
         
         print(f"User: {user}")
-
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Unauthorized: Invalid jwt_token"
-            )
 
         # Resolve repository using the same helper as chat
         repo = await find_user_repository(repo_id, user)
@@ -614,19 +600,15 @@ async def is_wiki_generated(
     response_model=RepositoryDocsResponse,
 )
 async def list_repository_docs(
+    current_user: Annotated[User, Depends(require_auth)],
     repo_id: str = Form(
         ..., description="ID of the repository to list documentation files for"
     ),
-    jwt_token: str = Form(..., description="Authentication jwt_token for the request"),
 ):
     """List all documentation files for a repository with parsed README content"""
     try:
-        # Authenticate user
-        user = await get_current_user(jwt_token)
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Unauthorized: Invalid jwt_token"
-            )
+        # User is already authenticated via middleware
+        user = current_user
 
         # Resolve repository using the same helper as chat
         repo = await find_user_repository(repo_id, user)

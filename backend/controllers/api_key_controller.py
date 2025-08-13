@@ -5,7 +5,7 @@ Handles API key verification, saving, and management for users
 from fastapi import HTTPException, Form
 from typing import Annotated, Optional
 from utils.llm_utils import llm_service
-from utils.jwt_utils import get_current_user
+from models.user import User
 from models.chat import UserApiKey
 from beanie import BeanieObjectId
 from datetime import datetime, timezone
@@ -17,7 +17,7 @@ class ApiKeyController:
 
     async def verify_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key to verify")]
     ) -> dict:
@@ -80,7 +80,7 @@ class ApiKeyController:
 
     async def save_user_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key to save")],
         key_name: Annotated[Optional[str], Form(description="Optional friendly name for the key")] = None,
@@ -88,10 +88,6 @@ class ApiKeyController:
     ) -> dict:
         """Save encrypted user API key"""
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Validate provider
             valid_providers = ["openai", "anthropic", "gemini", "groq"]
@@ -133,14 +129,10 @@ class ApiKeyController:
 
     async def get_user_api_keys(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")]
+        user: User
     ) -> dict:
         """Get list of user's saved API keys (without exposing the actual keys)"""
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Get user's API keys
             user_keys = await UserApiKey.find(
@@ -172,16 +164,12 @@ class ApiKeyController:
 
     async def delete_user_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name to delete key for")],
         key_id: Annotated[Optional[str], Form(description="Specific key ID to delete")] = None
     ) -> dict:
         """Delete user's API key for a specific provider"""
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Find the key using proper Beanie query format
             if key_id:
@@ -238,16 +226,11 @@ class ApiKeyController:
 
     async def get_available_models(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: Optional[User] = None,
         provider: Annotated[Optional[str], Form(description="Specific provider to get models for")] = None
     ) -> dict:
         """Get available models for all providers or a specific provider"""
         try:
-            # Get user for authentication (optional for this endpoint)
-            try:
-                user = await get_current_user(token) if token and token != "anonymous" else None
-            except Exception:
-                user = None  # Allow anonymous access to model list
             
             # Get available models from llm_service
             all_models = llm_service.get_available_models()

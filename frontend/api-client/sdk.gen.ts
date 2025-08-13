@@ -319,15 +319,10 @@ export const getConversationHistoryApiBackendChatConversationsConversationIdPost
     GetConversationHistoryApiBackendChatConversationsConversationIdPostErrors,
     ThrowOnError
   >({
-    ...urlSearchParamsBodySerializer,
     responseTransformer:
       getConversationHistoryApiBackendChatConversationsConversationIdPostResponseTransformer,
     url: '/api/backend-chat/conversations/{conversation_id}',
     ...options,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
-    },
   });
 };
 
@@ -369,14 +364,9 @@ export const getChatSessionApiBackendChatSessionsChatIdPost = <
     GetChatSessionApiBackendChatSessionsChatIdPostErrors,
     ThrowOnError
   >({
-    ...urlSearchParamsBodySerializer,
     responseTransformer: getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer,
     url: '/api/backend-chat/sessions/{chat_id}',
     ...options,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
-    },
   });
 };
 
@@ -429,20 +419,15 @@ export const saveApiKeyBackendEnhanced = <ThrowOnError extends boolean = false>(
  * Retrieve list of available models per provider and user's API key status
  */
 export const getAvailableModelsApiBackendChatModelsPost = <ThrowOnError extends boolean = false>(
-  options: Options<GetAvailableModelsApiBackendChatModelsPostData, ThrowOnError>,
+  options?: Options<GetAvailableModelsApiBackendChatModelsPostData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options?.client ?? _heyApiClient).post<
     GetAvailableModelsApiBackendChatModelsPostResponses,
     GetAvailableModelsApiBackendChatModelsPostErrors,
     ThrowOnError
   >({
-    ...urlSearchParamsBodySerializer,
     url: '/api/backend-chat/models',
     ...options,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
-    },
   });
 };
 
@@ -526,13 +511,8 @@ export const cancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = <
     CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
     ThrowOnError
   >({
-    ...urlSearchParamsBodySerializer,
     url: '/api/documentation/cancel-generation/{task_id}',
     ...options,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
-    },
   });
 };
 
@@ -723,9 +703,9 @@ export const getAvailableModelsGetBackendEnhanced = <ThrowOnError extends boolea
  * Get available models for all providers or a specific provider
  */
 export const getAvailableModelsBackendEnhanced = <ThrowOnError extends boolean = false>(
-  options: Options<GetAvailableModelsBackendEnhancedData, ThrowOnError>,
+  options?: Options<GetAvailableModelsBackendEnhancedData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options?.client ?? _heyApiClient).post<
     GetAvailableModelsBackendEnhancedResponses,
     GetAvailableModelsBackendEnhancedErrors,
     ThrowOnError
@@ -735,7 +715,7 @@ export const getAvailableModelsBackendEnhanced = <ThrowOnError extends boolean =
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
+      ...options?.headers,
     },
   });
 };

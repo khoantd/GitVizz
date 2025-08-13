@@ -12,7 +12,6 @@ from models.repository import Repository
 from models.user import User
 from utils.llm_utils import llm_service
 from utils.file_utils import file_manager
-from utils.jwt_utils import get_current_user
 from utils.repo_utils import extract_zip_contents, smart_filter_files, format_repo_contents, cleanup_temp_files
 from utils.repo_utils import find_user_repository
 from schemas.chat_schemas import (
@@ -292,33 +291,30 @@ class ChatController:
     
     async def process_chat_message(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        message: Annotated[str, Form(description="User's message/question")],
-        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
-        use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
-        chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
-        conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
-        model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
-        temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
-        max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
-        scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
+        user: User,
+        message: str,
+        repository_id: str,
+        use_user: bool = False,
+        chat_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        provider: str = "openai",
+        model: str = "gpt-3.5-turbo",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        include_full_context: bool = False,
+        context_search_query: Optional[str] = None,
+        scope_preference: str = "moderate"
     ) -> ChatResponse:
         """Process a chat message and generate AI response"""
         
         start_time = time.time()
         
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
                 user, 
-                repository_identifier,
+                repository_id,
                 None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
@@ -482,7 +478,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def process_streaming_chat(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         message: Annotated[str, Form(description="User's message/question")],
         repository_id: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
@@ -513,15 +509,6 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 ).model_dump()) + "\n"
                 return
             
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                yield json.dumps(StreamChatResponse(
-                    event="error",
-                    error="Invalid JWT token",
-                    error_type="authentication_error"
-                ).model_dump()) + "\n"
-                return
             
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
@@ -786,13 +773,10 @@ Provide detailed, accurate responses based on the repository content. Reference 
             
     async def list_user_chat_sessions(
         self,
-        jwt_token: Annotated[str, Form(description="JWT authentication token")],
-        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
+        user: User,
+        repository_identifier: str
     ) -> ChatSessionListResponse:
         try:
-            user = await get_current_user(jwt_token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             user_object_id = BeanieObjectId(user.id)
             
@@ -854,14 +838,11 @@ Provide detailed, accurate responses based on the repository content. Reference 
         
     async def get_conversation_history(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        conversation_id: Annotated[str, Form(description="Conversation ID to retrieve")]
+        user: User,
+        conversation_id: str
     ) -> ConversationHistoryResponse:
         """Get full conversation history"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             conversation = await Conversation.find_one(
                 Conversation.conversation_id == conversation_id,
@@ -900,14 +881,11 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def get_chat_session(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        chat_id: Annotated[str, Form(description="Chat session ID to retrieve")]
+        user: User,
+        chat_id: str
     ) -> ChatSessionResponse:
         """Get chat session details with recent conversations"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Fetch with linked repository included
             chat_session = await ChatSession.find_one(
@@ -984,15 +962,12 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def verify_user_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
-        api_key: Annotated[str, Form(description="API key to verify")]
+        user: User,
+        provider: str,
+        api_key: str
     ) -> dict:
         """Verify API key without saving it"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Validate provider
             valid_providers = ["openai", "anthropic", "gemini", "groq"]
@@ -1028,7 +1003,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
 
     async def save_user_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key")],
         key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
@@ -1036,9 +1011,6 @@ Provide detailed, accurate responses based on the repository content. Reference 
     ) -> ApiKeyResponse:
         """Save or update user API key with optional verification"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Validate provider
             valid_providers = ["openai", "anthropic", "gemini", "groq"]
@@ -1082,13 +1054,10 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def get_available_models(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")]
+        user: User
     ) -> AvailableModelsResponse:
         """Get available models with user's key status (cached)"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Check cache first
             current_time = time.time()
@@ -1139,7 +1108,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def update_chat_settings(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         chat_id: Annotated[str, Form(description="Chat session ID to update")],
         title: Annotated[Optional[str], Form(description="New chat title")] = None,
         default_provider: Annotated[Optional[str], Form(description="Default LLM provider")] = None,
@@ -1148,9 +1117,6 @@ Provide detailed, accurate responses based on the repository content. Reference 
     ) -> ChatSettingsResponse:
         """Update chat session settings"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             chat_session = await ChatSession.find_one(
                 ChatSession.chat_id == chat_id,
@@ -1196,16 +1162,13 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def search_context(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         query: Annotated[str, Form(description="Search query")],
         max_results: Annotated[int, Form(description="Maximum number of results (1-20)", ge=1, le=20)] = 5
     ) -> ContextSearchResponse:
         """Search repository context"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             repository = await find_user_repository(repository_identifier, user)
             

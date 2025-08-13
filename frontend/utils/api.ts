@@ -587,6 +587,9 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
       },
+      headers: {
+        Authorization: chatRequest.token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -610,7 +613,6 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
   try {
     const response = await streamChatResponseApiBackendChatChatStreamPost({
       body: {
-        token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
         use_user: chatRequest.use_user || false,
@@ -620,6 +622,9 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
+      },
+      headers: {
+        Authorization: chatRequest.token, // Token already contains "Bearer "
       },
     });
 
@@ -639,7 +644,10 @@ export async function getUserChatSessions(
 ): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
-      body: { jwt_token, repository_identifier },
+      body: { repository_identifier },
+      headers: {
+        Authorization: jwt_token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -666,7 +674,9 @@ export async function getConversationHistory(
   try {
     const response = await getConversationHistoryApiBackendChatConversationsConversationIdPost({
       path: { conversation_id: conversationId },
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -690,7 +700,9 @@ export async function getChatSession(token: string, chatId: string): Promise<Cha
   try {
     const response = await getChatSessionApiBackendChatSessionsChatIdPost({
       path: { chat_id: chatId },
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -727,7 +739,6 @@ export async function verifyApiKey(verifyRequest: {
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', verifyRequest.token);
     formData.append('provider', verifyRequest.provider);
     formData.append('api_key', verifyRequest.api_key);
 
@@ -735,6 +746,9 @@ export async function verifyApiKey(verifyRequest: {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/verify`, {
       method: 'POST',
+      headers: {
+        Authorization: verifyRequest.token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -745,6 +759,7 @@ export async function verifyApiKey(verifyRequest: {
 
     const data = await response.json();
     return data;
+
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
   }
@@ -757,7 +772,6 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
   try {
     // Use manual form data to include verify_key parameter that might not be in generated types yet
     const formData = new FormData();
-    formData.append('token', apiKeyRequest.token);
     formData.append('provider', apiKeyRequest.provider);
     formData.append('api_key', apiKeyRequest.api_key);
     if (apiKeyRequest.key_name) {
@@ -769,6 +783,9 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/save`, {
       method: 'POST',
+      headers: {
+        Authorization: apiKeyRequest.token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -800,7 +817,9 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
 export async function getAvailableModels(token: string): Promise<AvailableModelsResponse> {
   try {
     const response = await getAvailableModelsApiBackendChatModelsPost({
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -833,13 +852,13 @@ export async function getUserApiKeys(token: string): Promise<{
   total_keys: number;
 }> {
   try {
-    const formData = new FormData();
-    formData.append('token', token);
-
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/list`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
 
     if (!response.ok) {
@@ -869,7 +888,6 @@ export async function deleteUserApiKey(
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', token);
     formData.append('provider', provider);
     if (keyId) {
       formData.append('key_id', keyId);
@@ -878,6 +896,9 @@ export async function deleteUserApiKey(
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/delete`, {
       method: 'POST',
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -965,12 +986,14 @@ export async function updateChatSettings(
   try {
     const response = await updateChatSettingsApiBackendChatSettingsPost({
       body: {
-        token,
         chat_id: chatId,
         title: settings.title || null,
         default_provider: settings.default_provider || null,
         default_model: settings.default_model || null,
         default_temperature: settings.default_temperature || null,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1004,10 +1027,12 @@ export async function searchContext(
   try {
     const response = await searchContextApiBackendChatContextSearchPost({
       body: {
-        token,
         repository_id: repositoryId,
         query,
         max_results: Math.min(Math.max(maxResults, 1), 20), // Ensure between 1-20
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1066,13 +1091,15 @@ export async function generateWikiDocumentation(
   try {
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
-        jwt_token,
         repository_url,
         language,
         comprehensive,
         provider_name: provider,
         model_name: model,
         temperature,
+      },
+      headers: {
+        Authorization: jwt_token, // Token already contains "Bearer "
       },
     });
 
@@ -1098,8 +1125,10 @@ export async function getWikiGenerationStatus(jwt_token: string, repo_id: string
   try {
     const response = await getWikiStatusApiDocumentationWikiStatusPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: jwt_token, // Token already contains "Bearer "
       },
     });
 
@@ -1125,8 +1154,10 @@ export async function getRepositoryDocumentation(jwt_token: string, repo_id: str
   try {
     const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: jwt_token, // Token already contains "Bearer "
       },
     });
 
@@ -1156,8 +1187,10 @@ export async function isWikiGenerated(
   try {
     const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: jwt_token, // Token already contains "Bearer "
       },
     });
 
@@ -1181,12 +1214,13 @@ export async function isWikiGenerated(
 export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
-    const formData = new FormData();
-    formData.append('jwt_token', jwt_token);
 
     const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        Authorization: jwt_token, // Token already contains "Bearer "
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
 
     if (!response.ok) {

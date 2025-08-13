@@ -11,7 +11,6 @@ import {
   type ChatSessionListItem,
 } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
-import { extractJwtToken } from '@/utils/token-utils';
 import {
   createStreamingChatRequest,
   parseStreamingResponse,
@@ -110,11 +109,11 @@ export function useChatSidebar(
       return;
     }
 
-    // Validate repository identifier format 
+    // Validate repository identifier format
     // For GitHub repos: should be owner/repo/branch format
     // For ZIP files: can be just the repository ID
     if (!repositoryIdentifier.includes('/') && repositoryIdentifier.length !== 24) {
-      // If it's not a GitHub format (owner/repo/branch) and not a 24-char ObjectId, 
+      // If it's not a GitHub format (owner/repo/branch) and not a 24-char ObjectId,
       // we might still want to allow it for ZIP files or other sources
       console.log(
         'Repository identifier format:',
@@ -140,17 +139,17 @@ export function useChatSidebar(
   const loadModelConfig = async (provider?: string, model?: string) => {
     const targetProvider = provider || modelState.provider;
     const targetModel = model || modelState.model;
-    
+
     if (!targetProvider || !targetModel) return;
-    
+
     setIsLoadingModelConfig(true);
     try {
       const config = await fetchModelConfig(targetProvider, targetModel);
       setCurrentModelConfig(config);
-      
+
       // Auto-adjust context settings based on model capabilities
       if (config) {
-        setContextSettings(prev => ({
+        setContextSettings((prev) => ({
           ...prev,
           maxTokens: Math.min(prev.maxTokens, Math.floor(config.max_tokens * 0.7)), // Use 70% of max context for repository content
         }));
@@ -167,7 +166,7 @@ export function useChatSidebar(
     if (!session?.jwt_token) return;
 
     try {
-      const models = await getAvailableModelsWithAuth(extractJwtToken(session.jwt_token));
+      const models = await getAvailableModelsWithAuth(session.jwt_token || undefined);
       setAvailableModels(models);
 
       // Set default model if current one is not available
@@ -206,7 +205,7 @@ export function useChatSidebar(
     setIsLoadingHistory(true);
     try {
       const chatSessions = await getUserChatSessionsWithAuth(
-        extractJwtToken(session.jwt_token),
+        session.jwt_token || undefined,
         repositoryIdentifier,
       );
       if (chatSessions.success) {
@@ -234,12 +233,13 @@ export function useChatSidebar(
     // For ZIP files: should be a 24-character ObjectId (no '/')
     const isGitHubFormat = repositoryIdentifier.includes('/');
     const isObjectIdFormat = !isGitHubFormat && repositoryIdentifier.length === 24;
-    
-    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || (!isGitHubFormat && !isObjectIdFormat)) {
-      console.error(
-        'Cannot send message: Repository identifier is invalid:',
-        repositoryIdentifier,
-      );
+
+    if (
+      !repositoryIdentifier ||
+      repositoryIdentifier.trim() === '' ||
+      (!isGitHubFormat && !isObjectIdFormat)
+    ) {
+      console.error('Cannot send message: Repository identifier is invalid:', repositoryIdentifier);
       throw new Error(
         'Repository not processed yet. Please wait for repository processing to complete before starting a chat.',
       );
@@ -273,7 +273,7 @@ export function useChatSidebar(
       }
 
       const streamingRequest: StreamingChatRequest = {
-        token: extractJwtToken(session.jwt_token),
+        token: session.jwt_token || undefined,
         message: content,
         repository_id: repositoryIdentifier,
         repository_branch: options?.repositoryBranch,
@@ -484,7 +484,7 @@ export function useChatSidebar(
 
     try {
       const conversation = await getConversationHistoryWithAuth(
-        extractJwtToken(session.jwt_token),
+        session.jwt_token || undefined,
         conversationId,
       );
 
@@ -586,12 +586,10 @@ export function useChatSidebar(
     setModel,
     refreshModels,
     refreshChatHistory, // New method to manually refresh chat history
-    // Expose current session info for debugging
     currentChatId: chatState.currentChatId,
     currentConversationId: chatState.currentConversationId,
     useUserKeys,
     setUseUserKeys,
-    // Context settings
     contextSettings,
     setContextSettings,
   };

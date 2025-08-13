@@ -7,7 +7,6 @@ import { FileText, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { isWikiGenerated, generateWikiDocumentation, getWikiGenerationStatus } from '@/utils/api';
-import { extractJwtToken } from '@/utils/token-utils';
 
 interface DocumentationButtonProps {
   currentRepoId: string;
@@ -36,10 +35,7 @@ export default function DocumentationButton({
     try {
       if (!session?.jwt_token || !currentRepoId) return;
 
-      const wikiResponse = await isWikiGenerated(
-        extractJwtToken(session?.jwt_token) || '',
-        currentRepoId,
-      );
+      const wikiResponse = await isWikiGenerated(session?.jwt_token || undefined, currentRepoId);
       setIsDocGenerated(wikiResponse.is_generated);
       setCurrentStatus(wikiResponse.status);
 
@@ -76,7 +72,7 @@ export default function DocumentationButton({
         try {
           setIsCheckingStatus(true);
           const statusResponse = await getWikiGenerationStatus(
-            extractJwtToken(session?.jwt_token) || '',
+            session?.jwt_token || undefined,
             currentRepoId,
           );
 
@@ -122,7 +118,7 @@ export default function DocumentationButton({
       }
 
       await generateWikiDocumentation(
-        extractJwtToken(session?.jwt_token) || '',
+        session?.jwt_token || undefined,
         repositoryUrl,
         'en', // language
         true, // comprehensive

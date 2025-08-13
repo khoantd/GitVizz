@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { getAvailableModels, type AvailableModelsResponse } from '@/utils/api';
-import { extractJwtToken } from '@/utils/token-utils';
 import { showToast } from '@/components/toaster';
 
 export interface ApiKeyValidationResult {
@@ -34,7 +33,7 @@ export function useApiKeyValidation(): ApiKeyValidationResult {
     setError(null);
 
     try {
-      const models = await getAvailableModels(extractJwtToken(session.jwt_token));
+      const models = await getAvailableModels(session.jwt_token || undefined);
       setAvailableModels(models);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load API keys';
@@ -66,7 +65,7 @@ export function useApiKeyValidation(): ApiKeyValidationResult {
     }
 
     const userHasKeys = availableModels?.user_has_keys || [];
-    
+
     if (userHasKeys.length === 0) {
       setShowApiKeyModal(true);
       return false;

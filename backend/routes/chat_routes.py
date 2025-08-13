@@ -103,7 +103,7 @@ async def process_chat_message(
     }
 )
 async def stream_chat_response(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     message: Annotated[str, Form(description="User's message/question")],
     repository_id: Annotated[str, Form(description="Repository ID to chat about")],
     use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
@@ -127,7 +127,7 @@ async def stream_chat_response(
     print(f"context mode: {context_mode}")
     return StreamingResponse(
         chat_controller.process_streaming_chat(
-            token=token,
+            user=current_user,
             message=message,
             repository_id=repository_id,
             use_user=use_user,
@@ -170,10 +170,10 @@ async def stream_chat_response(
 )
 async def get_conversation_history(
     conversation_id: str,
-    token: Annotated[str, Form(description="JWT authentication token")]
+    current_user: Annotated[User, Depends(require_auth)]
 ):
     return await chat_controller.get_conversation_history(
-        token=token,
+        user=current_user,
         conversation_id=conversation_id
     )
 
@@ -200,10 +200,10 @@ async def get_conversation_history(
     }
 )
 async def list_user_chat_sessions(
-    jwt_token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
 ):
-    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repository_identifier=repository_identifier)
+    return await chat_controller.list_user_chat_sessions(user=current_user, repository_identifier=repository_identifier)
 
 # Chat session endpoint
 @router.post(
@@ -233,10 +233,10 @@ async def list_user_chat_sessions(
 )
 async def get_chat_session(
     chat_id: str,
-    token: Annotated[str, Form(description="JWT authentication token")]
+    current_user: Annotated[User, Depends(require_auth)]
 ):
     return await chat_controller.get_chat_session(
-        token=token,
+        user=current_user,
         chat_id=chat_id
     )
 
@@ -266,12 +266,12 @@ async def get_chat_session(
     }
 )
 async def verify_user_api_key(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key to verify")]
 ):
     return await chat_controller.verify_user_api_key(
-        token=token,
+        user=current_user,
         provider=provider,
         api_key=api_key
     )
@@ -303,14 +303,14 @@ async def verify_user_api_key(
     }
 )
 async def save_user_api_key(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key")],
     key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
     verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
 ):
     return await chat_controller.save_user_api_key(
-        token=token,
+        user=current_user,
         provider=provider,
         api_key=api_key,
         key_name=key_name,
@@ -340,9 +340,9 @@ async def save_user_api_key(
     }
 )
 async def get_available_models(
-    token: Annotated[str, Form(description="JWT authentication token")]
+    current_user: Annotated[User, Depends(require_auth)]
 ):
-    return await chat_controller.get_available_models(token=token)
+    return await chat_controller.get_available_models(user=current_user)
 
 # Chat settings endpoint
 @router.post(
@@ -371,7 +371,7 @@ async def get_available_models(
     }
 )
 async def update_chat_settings(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     chat_id: Annotated[str, Form(description="Chat session ID to update")],
     title: Annotated[Optional[str], Form(description="New chat title")] = None,
     default_provider: Annotated[Optional[str], Form(description="Default LLM provider")] = None,
@@ -379,7 +379,7 @@ async def update_chat_settings(
     default_temperature: Annotated[Optional[float], Form(description="Default temperature (0.0-2.0)", ge=0.0, le=2.0)] = None
 ):
     return await chat_controller.update_chat_settings(
-        token=token,
+        user=current_user,
         chat_id=chat_id,
         title=title,
         default_provider=default_provider,
@@ -414,13 +414,13 @@ async def update_chat_settings(
     }
 )
 async def search_context(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     repository_id: Annotated[str, Form(description="Repository ID to search")],
     query: Annotated[str, Form(description="Search query")],
     max_results: Annotated[int, Form(description="Maximum number of results (1-20)", ge=1, le=20)] = 5
 ):
     return await chat_controller.search_context(
-        token=token,
+        user=current_user,
         repository_id=repository_id,
         query=query,
         max_results=max_results
