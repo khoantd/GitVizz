@@ -10,7 +10,6 @@ import {
   streamChatResponseApiBackendChatChatStreamPost,
   getConversationHistoryApiBackendChatConversationsConversationIdPost,
   getChatSessionApiBackendChatSessionsChatIdPost,
-  saveUserApiKeyApiBackendChatKeysSavePost,
   getAvailableModelsApiBackendChatModelsPost,
   updateChatSettingsApiBackendChatSettingsPost,
   searchContextApiBackendChatContextSearchPost,
@@ -107,7 +106,7 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
     if (!urlObj.hostname.includes('github.com')) {
       return null;
     }
-    
+
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
     if (pathParts.length >= 2) {
       return {
@@ -125,8 +124,8 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
  * Get all branches for a GitHub repository
  */
 export async function getRepositoryBranches(
-  repoUrl: string, 
-  accessToken?: string
+  repoUrl: string,
+  accessToken?: string,
 ): Promise<string[]> {
   const repoInfo = parseGitHubUrl(repoUrl);
   if (!repoInfo) {
@@ -136,7 +135,7 @@ export async function getRepositoryBranches(
   try {
     const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches`;
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'gitvizz-app',
     };
 
@@ -145,20 +144,22 @@ export async function getRepositoryBranches(
     }
 
     const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
-    
+
     if (response.ok) {
       const branches = await response.json();
-      return branches.map((branch: any) => branch.name).sort((a: string, b: string) => {
-        // Sort so that common default branches appear first
-        const commonBranches = ['main', 'master', 'develop', 'dev'];
-        const aIndex = commonBranches.indexOf(a);
-        const bIndex = commonBranches.indexOf(b);
-        
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
-        return a.localeCompare(b);
-      });
+      return branches
+        .map((branch: any) => branch.name)
+        .sort((a: string, b: string) => {
+          // Sort so that common default branches appear first
+          const commonBranches = ['main', 'master', 'develop', 'dev'];
+          const aIndex = commonBranches.indexOf(a);
+          const bIndex = commonBranches.indexOf(b);
+
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+          return a.localeCompare(b);
+        });
     } else {
       console.warn(`Could not fetch branches for ${repoUrl}`);
       return [];
@@ -173,8 +174,8 @@ export async function getRepositoryBranches(
  * Get the default branch for a GitHub repository
  */
 export async function getRepositoryDefaultBranch(
-  repoUrl: string, 
-  accessToken?: string
+  repoUrl: string,
+  accessToken?: string,
 ): Promise<string> {
   const repoInfo = parseGitHubUrl(repoUrl);
   if (!repoInfo) {
@@ -184,7 +185,7 @@ export async function getRepositoryDefaultBranch(
   try {
     const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`;
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'gitvizz-app',
     };
 
@@ -193,7 +194,7 @@ export async function getRepositoryDefaultBranch(
     }
 
     const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
-    
+
     if (response.ok) {
       const data = await response.json();
       return data.default_branch || 'main';
@@ -211,9 +212,9 @@ export async function getRepositoryDefaultBranch(
  * Validate if a specific branch exists in the repository
  */
 export async function validateBranchExists(
-  repoUrl: string, 
-  branch: string, 
-  accessToken?: string
+  repoUrl: string,
+  branch: string,
+  accessToken?: string,
 ): Promise<boolean> {
   const repoInfo = parseGitHubUrl(repoUrl);
   if (!repoInfo) {
@@ -223,7 +224,7 @@ export async function validateBranchExists(
   try {
     const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches/${branch}`;
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'gitvizz-app',
     };
 
@@ -247,9 +248,9 @@ export async function validateBranchExists(
  * 3. If no requested branch, use repository's default branch
  */
 export async function resolveBranch(
-  repoUrl: string, 
-  requestedBranch?: string, 
-  accessToken?: string
+  repoUrl: string,
+  requestedBranch?: string,
+  accessToken?: string,
 ): Promise<string> {
   if (!repoUrl || !repoUrl.includes('github.com')) {
     return requestedBranch || 'main';
@@ -263,7 +264,9 @@ export async function resolveBranch(
         console.log(`Using requested branch '${requestedBranch}' for ${repoUrl}`);
         return requestedBranch;
       } else {
-        console.warn(`Requested branch '${requestedBranch}' not found, falling back to default branch`);
+        console.warn(
+          `Requested branch '${requestedBranch}' not found, falling back to default branch`,
+        );
       }
     }
 
@@ -357,7 +360,7 @@ function extractErrorMessage(error: any, operationType: OperationType, isZipFile
   if (typeof error === 'string') {
     // Check for branch-related errors
     if (error.includes('Failed to download ZIP') && error.includes('Status: 404')) {
-      return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+      return "Repository branch not found. Please check if the branch exists or try using the repository's default branch.";
     }
     return error;
   }
@@ -366,17 +369,20 @@ function extractErrorMessage(error: any, operationType: OperationType, isZipFile
     if (typeof error.detail === 'string') {
       // Check for branch-related errors in detail
       if (error.detail.includes('Failed to download ZIP') && error.detail.includes('Status: 404')) {
-        return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+        return "Repository branch not found. Please check if the branch exists or try using the repository's default branch.";
       }
       return error.detail;
     }
     if (Array.isArray(error.detail)) {
       const errorMessages = error.detail.map((err: any) => err.msg || err.message || String(err));
       const joinedMessage = errorMessages.join(', ');
-      
+
       // Check for branch-related errors in joined messages
-      if (joinedMessage.includes('Failed to download ZIP') && joinedMessage.includes('Status: 404')) {
-        return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+      if (
+        joinedMessage.includes('Failed to download ZIP') &&
+        joinedMessage.includes('Status: 404')
+      ) {
+        return "Repository branch not found. Please check if the branch exists or try using the repository's default branch.";
       }
       return joinedMessage;
     }
@@ -518,16 +524,21 @@ export async function getJwtToken(access_token: string): Promise<LoginResponse> 
 /**
  * Refresh JWT token using refresh token
  */
-export async function refreshJwtToken(refresh_token: string): Promise<{ access_token: string; expires_in: number }> {
+export async function refreshJwtToken(
+  refresh_token: string,
+): Promise<{ access_token: string; expires_in: number }> {
   try {
     const authClient = getAuthClient();
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token }),
       },
-      body: JSON.stringify({ refresh_token }),
-    });
+    );
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -720,7 +731,7 @@ export async function verifyApiKey(verifyRequest: {
     formData.append('api_key', verifyRequest.api_key);
 
     // Use the proper backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/verify`, {
       method: 'POST',
       body: formData,
@@ -754,7 +765,7 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
     formData.append('verify_key', 'true'); // Always verify by default
 
     // Use the proper backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/save`, {
       method: 'POST',
       body: formData,
@@ -824,7 +835,7 @@ export async function getUserApiKeys(token: string): Promise<{
     const formData = new FormData();
     formData.append('token', token);
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/list`, {
       method: 'POST',
       body: formData,
@@ -848,7 +859,7 @@ export async function getUserApiKeys(token: string): Promise<{
 export async function deleteUserApiKey(
   token: string,
   provider: string,
-  keyId?: string
+  keyId?: string,
 ): Promise<{
   success: boolean;
   message: string;
@@ -863,7 +874,7 @@ export async function deleteUserApiKey(
       formData.append('key_id', keyId);
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/delete`, {
       method: 'POST',
       body: formData,
@@ -884,21 +895,27 @@ export async function deleteUserApiKey(
 /**
  * Get detailed available models with configurations
  */
-export async function getDetailedAvailableModels(token: string, provider?: string): Promise<{
+export async function getDetailedAvailableModels(
+  token: string,
+  provider?: string,
+): Promise<{
   success: boolean;
   providers: string[];
   models: Record<string, string[]>;
-  detailed_models: Record<string, Array<{
-    name: string;
-    max_tokens: number;
-    max_output_tokens: number;
-    supports_function_calling: boolean;
-    supports_vision: boolean;
-    is_reasoning_model: boolean;
-    knowledge_cutoff: string | null;
-    cost_per_1M_input: number;
-    cost_per_1M_output: number;
-  }>>;
+  detailed_models: Record<
+    string,
+    Array<{
+      name: string;
+      max_tokens: number;
+      max_output_tokens: number;
+      supports_function_calling: boolean;
+      supports_vision: boolean;
+      is_reasoning_model: boolean;
+      knowledge_cutoff: string | null;
+      cost_per_1M_input: number;
+      cost_per_1M_output: number;
+    }>
+  >;
   user_has_keys: string[];
   total_models: number;
 }> {
@@ -909,7 +926,7 @@ export async function getDetailedAvailableModels(token: string, provider?: strin
       formData.append('provider', provider);
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/models/available`, {
       method: 'POST',
       body: formData,
@@ -1162,10 +1179,10 @@ export async function isWikiGenerated(
  */
 export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const formData = new FormData();
     formData.append('jwt_token', jwt_token);
-    
+
     const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
       method: 'POST',
       body: formData,
