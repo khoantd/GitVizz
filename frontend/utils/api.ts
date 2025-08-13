@@ -1,6 +1,6 @@
 // API utilities for interacting with the backend using Hey-API generated SDK
 
-import { getAuthClient, apiClient } from './client-config';
+import { getAuthClient } from './client-config';
 import {
   generateTextRouteApiRepoGenerateTextPost,
   generateGraphRouteApiRepoGenerateGraphPost,
@@ -42,7 +42,7 @@ export interface RepoRequest {
   repo_url?: string;
   branch?: string;
   access_token?: string;
-  jwt_token?: string;
+  token?: string;
   zip_file?: File;
 }
 
@@ -318,7 +318,7 @@ async function executeOperation<T extends OperationType>(
       resolvedBranch = await resolveBranch(request.repo_url, request.branch, request.access_token);
     }
 
-    // Prepare the request data with resolved branch (no jwt_token in body)
+    // Prepare the request data with resolved branch (no token in body)
     const requestData = {
       repo_url: request.repo_url || null,
       branch: resolvedBranch,
@@ -333,7 +333,7 @@ async function executeOperation<T extends OperationType>(
     const response = await apiFunction({
       body: requestData,
       headers: {
-        Authorization: request.jwt_token || '', // Token already contains "Bearer "
+        Authorization: request.token || '', // Token already contains "Bearer "
       },
     });
 
@@ -441,10 +441,10 @@ export async function generateStructureFromGithub(
 /**
  * Upload and process local ZIP file to generate text
  */
-export async function uploadLocalZip(file: File, jwt_token: string): Promise<TextResponse> {
+export async function uploadLocalZip(file: File, token: string): Promise<TextResponse> {
   const response = await executeOperation(OperationType.TEXT, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
   return {
@@ -457,10 +457,10 @@ export async function uploadLocalZip(file: File, jwt_token: string): Promise<Tex
 /**
  * Generate graph from uploaded ZIP file
  */
-export async function generateGraphFromZip(file: File, jwt_token: string): Promise<GraphResponse> {
+export async function generateGraphFromZip(file: File, token: string): Promise<GraphResponse> {
   return executeOperation(OperationType.GRAPH, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
 }
@@ -470,11 +470,11 @@ export async function generateGraphFromZip(file: File, jwt_token: string): Promi
  */
 export async function generateStructureFromZip(
   file: File,
-  jwt_token: string,
+  token: string,
 ): Promise<StructureResponse> {
   return executeOperation(OperationType.STRUCTURE, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
 }
@@ -639,14 +639,14 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
  * Get list of user's chat sessions
  */
 export async function getUserChatSessions(
-  jwt_token: string,
+  token: string,
   repository_identifier: string,
 ): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
       body: { repository_identifier },
       headers: {
-        Authorization: jwt_token, // Token already contains "Bearer "
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -759,7 +759,6 @@ export async function verifyApiKey(verifyRequest: {
 
     const data = await response.json();
     return data;
-
   } catch (error) {
     handleApiError(error, OperationType.TEXT);
   }
@@ -1080,7 +1079,7 @@ function isTokenExpiredError(error: any): boolean {
  * Starts the process of generating wiki documentation. The task runs in the background.
  */
 export async function generateWikiDocumentation(
-  jwt_token: string,
+  token: string,
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
@@ -1099,7 +1098,7 @@ export async function generateWikiDocumentation(
         temperature,
       },
       headers: {
-        Authorization: jwt_token, // Token already contains "Bearer "
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1121,14 +1120,14 @@ export async function generateWikiDocumentation(
  * Get wiki generation status
  * Retrieves the current status of a wiki generation task using the provided task ID.
  */
-export async function getWikiGenerationStatus(jwt_token: string, repo_id: string): Promise<any> {
+export async function getWikiGenerationStatus(token: string, repo_id: string): Promise<any> {
   try {
     const response = await getWikiStatusApiDocumentationWikiStatusPost({
       body: {
         repo_id,
       },
       headers: {
-        Authorization: jwt_token, // Token already contains "Bearer "
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1150,14 +1149,14 @@ export async function getWikiGenerationStatus(jwt_token: string, repo_id: string
  * List repository documentation files
  * Lists all documentation files for a specific repository with parsed content.
  */
-export async function getRepositoryDocumentation(jwt_token: string, repo_id: string): Promise<any> {
+export async function getRepositoryDocumentation(token: string, repo_id: string): Promise<any> {
   try {
     const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
       body: {
         repo_id,
       },
       headers: {
-        Authorization: jwt_token, // Token already contains "Bearer "
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1180,17 +1179,16 @@ export async function getRepositoryDocumentation(jwt_token: string, repo_id: str
  * Checks if wiki documentation has been generated for a specific repository.
  */
 export async function isWikiGenerated(
-  jwt_token: string,
+  token: string,
   repo_id: string,
 ): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
-  console.log(jwt_token);
   try {
     const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
       body: {
         repo_id,
       },
       headers: {
-        Authorization: jwt_token, // Token already contains "Bearer "
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1211,14 +1209,14 @@ export async function isWikiGenerated(
 /**
  * Cancel wiki documentation generation
  */
-export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
+export async function cancelWikiGeneration(token: string, task_id: string): Promise<any> {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
     const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
       method: 'POST',
       headers: {
-        Authorization: jwt_token, // Token already contains "Bearer "
+        Authorization: token, // Token already contains "Bearer "
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
@@ -1241,8 +1239,8 @@ export async function cancelWikiGeneration(jwt_token: string, task_id: string): 
 /**
  * Universal function that can handle any operation type and source (repo/zip)
  * Usage examples:
- *   - processRepository('text', { repo_url: 'https://github.com/user/repo', jwt_token: 'xxx' })
- *   - processRepository('graph', { zip_file: file, jwt_token: 'xxx' })
+ *   - processRepository('text', { repo_url: 'https://github.com/user/repo', token: 'xxx' })
+ *   - processRepository('graph', { zip_file: file, token: 'xxx' })
  */
 export async function processRepository<T extends OperationType>(
   operationType: T,

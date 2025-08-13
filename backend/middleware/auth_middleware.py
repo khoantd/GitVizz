@@ -3,7 +3,7 @@ Strict JWT authentication middleware for FastAPI.
 Enforces Authorization header usage for secure token transmission.
 """
 
-from fastapi import Depends, HTTPException, Header
+from fastapi import  HTTPException, Header
 from typing import Optional
 from models.user import User
 from utils.jwt_utils import _decode_jwt_token
