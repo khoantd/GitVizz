@@ -18,7 +18,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch'; // Using Switch for a better toggle UX
 import {
   Key,
-  Save,
   Eye,
   EyeOff,
   ArrowLeft,
@@ -138,7 +137,6 @@ export default function ApiKeysPage() {
     );
   };
 
-
   const handleVerifyAndSave = async () => {
     if (!apiKey.trim() || !session?.jwt_token) return;
 
@@ -162,7 +160,7 @@ export default function ApiKeysPage() {
 
       if (result.is_valid) {
         showToast.success(`✅ ${result.message}`);
-        
+
         // Step 2: Save the API key since verification succeeded
         try {
           await saveApiKey({
@@ -556,9 +554,11 @@ export default function ApiKeysPage() {
               {isVerifying || isSaving ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  {isVerifying && !isSaving ? 'Verifying...' : 
-                   isVerifying && isSaving ? 'Verifying & Saving...' : 
-                   'Saving...'}
+                  {isVerifying && !isSaving
+                    ? 'Verifying...'
+                    : isVerifying && isSaving
+                      ? 'Verifying & Saving...'
+                      : 'Saving...'}
                 </>
               ) : (
                 <>

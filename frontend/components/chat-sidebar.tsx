@@ -24,10 +24,8 @@ import {
   Loader2,
   X,
   Plus,
-  ChevronDown,
   Sparkles,
   Brain,
-  AlertTriangle,
   Database,
   Zap,
   Cpu,
@@ -41,7 +39,7 @@ import { ContextIndicator, ContextMetadata } from './context-indicator';
 import { ApiKeyModal } from './api-key-modal';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
-import { formatTokenCount, calculateContextAllocation, getContextUtilizationColor } from '@/utils/model-config';
+import { formatTokenCount, getContextUtilizationColor } from '@/utils/model-config';
 
 type ContextMode = 'full' | 'smart' | 'agentic';
 
@@ -276,8 +274,8 @@ export function ChatSidebar({
   const hasActiveChat = messages.length > 0;
 
   // Get user keys info for display
-  const userHasKeys = availableModels?.user_has_keys || [];
-  const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
+  // const userHasKeys = availableModels?.user_has_keys || [];
+  // const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
 
   // Check if repository is ready for chat
   // For GitHub repos: should be owner/repo/branch format (contains '/')
@@ -543,7 +541,7 @@ export function ChatSidebar({
                   </div>
                 )}
               </div>
-              
+
               {/* Settings Popover */}
               <Collapsible open={showSettings} onOpenChange={setShowSettings}>
                 <CollapsibleTrigger asChild>
@@ -576,7 +574,10 @@ export function ChatSidebar({
                                   })}
                                   <SelectValue />
                                   {!contextModeConfig[contextMode].available && (
-                                    <Badge variant="secondary" className="text-[9px] h-3 px-1 ml-auto">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[9px] h-3 px-1 ml-auto"
+                                    >
                                       Soon
                                     </Badge>
                                   )}
@@ -602,18 +603,24 @@ export function ChatSidebar({
                             {contextMode === 'full' && currentModelConfig && (
                               <div className="mt-2 space-y-2">
                                 {(() => {
-                                  const contextPercentage = (contextSettings.maxTokens / currentModelConfig.max_tokens) * 100;
-                                  const utilizationColor = getContextUtilizationColor(contextPercentage / 100);
-                                  
+                                  const contextPercentage =
+                                    (contextSettings.maxTokens / currentModelConfig.max_tokens) *
+                                    100;
+                                  const utilizationColor = getContextUtilizationColor(
+                                    contextPercentage / 100,
+                                  );
+
                                   return (
                                     <div className="space-y-2">
                                       <div className="flex items-center justify-between text-[10px]">
                                         <div className="flex items-center gap-2">
                                           <span className="text-muted-foreground">Context</span>
-                                          <span className="text-muted-foreground">{Math.round(contextPercentage)}%</span>
+                                          <span className="text-muted-foreground">
+                                            {Math.round(contextPercentage)}%
+                                          </span>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                          <span className={cn("font-medium", utilizationColor)}>
+                                          <span className={cn('font-medium', utilizationColor)}>
                                             {formatTokenCount(contextSettings.maxTokens)}
                                           </span>
                                           {isLoadingModelConfig && (
@@ -625,8 +632,13 @@ export function ChatSidebar({
                                         value={[Math.round(contextPercentage)]}
                                         onValueChange={(values) => {
                                           const percentage = values[0];
-                                          const newTokens = Math.floor((currentModelConfig.max_tokens * percentage) / 100);
-                                          setContextSettings(prev => ({ ...prev, maxTokens: newTokens }));
+                                          const newTokens = Math.floor(
+                                            (currentModelConfig.max_tokens * percentage) / 100,
+                                          );
+                                          setContextSettings((prev) => ({
+                                            ...prev,
+                                            maxTokens: newTokens,
+                                          }));
                                         }}
                                         min={10}
                                         max={90}

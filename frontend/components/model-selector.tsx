@@ -13,7 +13,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, Settings, Zap, Brain, Sparkles, Gauge, Info, Eye, Wrench, Cpu } from 'lucide-react';
+import { RefreshCw, Settings, Zap, Brain, Sparkles, Gauge, Eye, Wrench, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatTokenCount } from '@/utils/model-config';
 
@@ -145,15 +145,21 @@ export function ModelSelector({
                       <div className="space-y-1">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Context:</span>
-                          <span className="font-medium">{formatTokenCount(currentModelConfig.max_tokens)}</span>
+                          <span className="font-medium">
+                            {formatTokenCount(currentModelConfig.max_tokens)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Output:</span>
-                          <span className="font-medium">{formatTokenCount(currentModelConfig.max_output_tokens)}</span>
+                          <span className="font-medium">
+                            {formatTokenCount(currentModelConfig.max_output_tokens)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Input:</span>
-                          <span className="font-medium">${currentModelConfig.cost_per_1M_input}/1M</span>
+                          <span className="font-medium">
+                            ${currentModelConfig.cost_per_1M_input}/1M
+                          </span>
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -163,10 +169,14 @@ export function ModelSelector({
                           ) : (
                             <Wrench className="h-2.5 w-2.5 text-muted-foreground/50" />
                           )}
-                          <span className={cn(
-                            "text-[9px]",
-                            currentModelConfig.supports_function_calling ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
-                          )}>
+                          <span
+                            className={cn(
+                              'text-[9px]',
+                              currentModelConfig.supports_function_calling
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-muted-foreground',
+                            )}
+                          >
                             Functions
                           </span>
                         </div>
@@ -176,10 +186,14 @@ export function ModelSelector({
                           ) : (
                             <Eye className="h-2.5 w-2.5 text-muted-foreground/50" />
                           )}
-                          <span className={cn(
-                            "text-[9px]",
-                            currentModelConfig.supports_vision ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
-                          )}>
+                          <span
+                            className={cn(
+                              'text-[9px]',
+                              currentModelConfig.supports_vision
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-muted-foreground',
+                            )}
+                          >
                             Vision
                           </span>
                         </div>
@@ -189,10 +203,14 @@ export function ModelSelector({
                           ) : (
                             <Cpu className="h-2.5 w-2.5 text-muted-foreground/50" />
                           )}
-                          <span className={cn(
-                            "text-[9px]",
-                            currentModelConfig.is_reasoning_model ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"
-                          )}>
+                          <span
+                            className={cn(
+                              'text-[9px]',
+                              currentModelConfig.is_reasoning_model
+                                ? 'text-purple-600 dark:text-purple-400'
+                                : 'text-muted-foreground',
+                            )}
+                          >
                             Reasoning
                           </span>
                         </div>
