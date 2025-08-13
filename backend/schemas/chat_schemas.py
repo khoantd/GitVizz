@@ -61,7 +61,7 @@ class MessageResponse(BaseModel):
 # Streaming Models
 class StreamChatResponse(BaseModel):
     """Response model for streaming chat events"""
-    event: str = Field(..., description="Type of streaming event (token, complete, error)")
+    event: str = Field(..., description="Type of streaming event (token, complete, error, progress, reasoning)")
     token: Optional[str] = Field(None, description="Token content for 'token' events")
     error: Optional[str] = Field(None, description="Error message for 'error' events")
     error_type: Optional[str] = Field(None, description="Type of error for 'error' events")
@@ -70,6 +70,8 @@ class StreamChatResponse(BaseModel):
     model: Optional[str] = Field(None, description="Model name for all events")
     chat_id: Optional[str] = Field(None, description="Chat session ID")
     conversation_id: Optional[str] = Field(None, description="Conversation thread ID")
+    progress_step: Optional[str] = Field(None, description="Progress step for 'progress' events")
+    reasoning: Optional[str] = Field(None, description="Reasoning traces for 'reasoning' events (o1/o3 models)")
     context_metadata: Optional[Dict[str, Any]] = Field(None, description="Smart context selection metadata")
 
 

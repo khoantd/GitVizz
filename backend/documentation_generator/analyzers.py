@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 import os
 import json
 from collections import Counter, defaultdict
-from documentationo_generator.structures import Document, RepositoryAnalysis
+from documentation_generator.structures import Document, RepositoryAnalysis
 
 
 class RepositoryAnalyzer:

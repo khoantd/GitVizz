@@ -114,6 +114,15 @@ async def stream_chat_response(
     context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart",
     repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None
 ):
+    print(f"repo identifier: {repository_id}")
+    print(f"use user: {use_user}")
+    print(f"chat id: {chat_id}")
+    print(f"conversation id: {conversation_id}")
+    print(f"provider: {provider}")
+    print(f"model: {model}")
+    print(f"temperature: {temperature}")
+    print(f"max tokens: {max_tokens}")
+    print(f"context mode: {context_mode}")
     return StreamingResponse(
         chat_controller.process_streaming_chat(
             token=token,
@@ -127,7 +136,6 @@ async def stream_chat_response(
             temperature=temperature,
             max_tokens=max_tokens,
             context_mode=context_mode,
-            repository_branch=repository_branch
         ),
         media_type="application/x-ndjson"
     )
@@ -191,9 +199,9 @@ async def get_conversation_history(
 )
 async def list_user_chat_sessions(
     jwt_token: Annotated[str, Form(description="JWT authentication token")],
-    repo_id: Annotated[str,Form(description="Repository ID")]
+    repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
 ):
-    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repo_id=repo_id)
+    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repository_identifier=repository_identifier)
 
 # Chat session endpoint
 @router.post(

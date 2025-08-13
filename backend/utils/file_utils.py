@@ -28,7 +28,9 @@ class FileManager:
     
     def get_repo_storage_path(self, user_id: str, repo_identifier: str) -> Path:
         """Get the storage path for a specific repository."""
-        repo_path = self.get_user_storage_path(user_id) / repo_identifier
+        # Convert forward slashes to underscores for filesystem compatibility
+        safe_identifier = sanitize_identifier_for_filesystem(repo_identifier)
+        repo_path = self.get_user_storage_path(user_id) / safe_identifier
         repo_path.mkdir(parents=True, exist_ok=True)
         return repo_path
     
@@ -374,15 +376,42 @@ async def save_repository_files(
 
 
 def generate_repo_identifier(repo_url: Optional[str], zip_filename: Optional[str], branch: str = "main") -> str:
-    """Generate a unique identifier for the repository."""
+    """Generate a unique identifier for the repository using owner/repo/branch format."""
     if repo_url:
         from utils.repo_utils import parse_repo_url
         repo_info = parse_repo_url(repo_url)
-        return f"{repo_info['owner']}_{repo_info['repo']}_{branch}"
+        return f"{repo_info['owner']}/{repo_info['repo']}/{branch}"
     elif zip_filename:
         # Create a hash of the filename for consistency
         return f"zip_{hashlib.md5(zip_filename.encode()).hexdigest()[:8]}"
     return f"unknown_repo_{datetime.utcnow().timestamp()}"
+
+
+def parse_repo_identifier(identifier: str) -> dict[str, str]:
+    """Parse repository identifier into owner, repo, and branch components."""
+    if '/' in identifier and identifier.count('/') >= 2:
+        parts = identifier.split('/')
+        return {
+            "owner": parts[0],
+            "repo": parts[1], 
+            "branch": parts[2] if len(parts) > 2 else "main"
+        }
+    # Handle legacy format owner_repo_branch for backward compatibility
+    elif '_' in identifier:
+        parts = identifier.split('_')
+        if len(parts) >= 3:
+            # Rejoin middle parts in case repo name contains underscores
+            return {
+                "owner": parts[0],
+                "repo": '_'.join(parts[1:-1]),
+                "branch": parts[-1]
+            }
+    return {"owner": "unknown", "repo": "repository", "branch": "main"}
+
+
+def sanitize_identifier_for_filesystem(identifier: str) -> str:
+    """Convert repository identifier to filesystem-safe format."""
+    return identifier.replace('/', '_')
 
 
 def calculate_file_hash(file_path: str, algorithm: str = "md5") -> Optional[str]:

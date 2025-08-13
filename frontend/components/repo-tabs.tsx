@@ -398,8 +398,19 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         );
 
         setRepositories(transformedRepos as Repository[]);
+        
+        // Auto-load branches for first few repositories to encourage branch selection
         if (transformedRepos.length > 0) {
           handleSuccess(`Successfully loaded ${transformedRepos.length} GitHub repositories`);
+          
+          // Load branches for first 3 repositories automatically
+          const reposToAutoLoad = transformedRepos.slice(0, 3);
+          reposToAutoLoad.forEach((repo: Repository) => {
+            // Don't auto-load if already loading or loaded
+            if (!loadingBranches.includes(repo.id) && !repoBranchStates[repo.id]) {
+              loadRepoBranches(repo);
+            }
+          });
         } else {
           handleSuccess(
             'No repositories found - you may need to grant access to more repositories',
@@ -462,7 +473,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   };
 
   // --- My Repos Branch Selection Functions ---
-  const loadRepoBranches = async (repo: Repository) => {
+  const loadRepoBranches = useCallback(async (repo: Repository) => {
     if (loadingBranches.includes(repo.id)) return;
 
     setLoadingBranches((prev) => [...prev, repo.id]);
@@ -495,7 +506,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     } finally {
       setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
     }
-  };
+  }, [loadingBranches, repoBranchStates, session?.accessToken, handleError]);
 
   const handleRepoBranchSelect = (repoId: number, branchName: string) => {
     setRepoBranchStates((prev) => ({
@@ -525,10 +536,17 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   const handleVizifyRepo = async (repo: Repository) => {
     if (processingRepos.includes(repo.id)) return;
 
+    // Check if branch is selected - make it mandatory
+    const repoState = repoBranchStates[repo.id];
+    if (!repoState?.selectedBranch) {
+      handleError('Please select a branch before proceeding.');
+      return;
+    }
+
     setProcessingRepos((prev) => [...prev, repo.id]);
     try {
       const repoUrl = repo.html_url;
-      const selected = repoBranchStates[repo.id]?.selectedBranch || repo.default_branch || 'main';
+      const selected = repoState.selectedBranch;
 
       const finalBranch = await resolveBranch(
         repoUrl,
@@ -555,7 +573,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
-        router.push(`/results/${owner}/${name}`);
+        router.push(`/results/${owner}/${name}/${finalBranch}`);
       } catch {
         router.push('/results');
       }
@@ -615,7 +633,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
-        router.push(`/results/${owner}/${name}`);
+        router.push(`/results/${owner}/${name}/${finalBranch}`);
       } catch {
         router.push('/results');
       }
@@ -1396,13 +1414,19 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                   <Button
                                     className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
                                     onClick={() => handleVizifyRepo(repo)}
-                                    disabled={isProcessingRepo || loading}
+                                    disabled={isProcessingRepo || loading || !repoBranchStates[repo.id]?.selectedBranch}
                                   >
                                     {isProcessingRepo ? (
                                       <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                         <span className="hidden sm:inline">Processing...</span>
                                         <span className="sm:hidden">Processing</span>
+                                      </>
+                                    ) : !hasSelectedBranch ? (
+                                      <>
+                                        <GitBranch className="h-4 w-4 mr-2" />
+                                        <span className="hidden sm:inline">Select Branch First</span>
+                                        <span className="sm:hidden">Select Branch</span>
                                       </>
                                     ) : (
                                       <>
