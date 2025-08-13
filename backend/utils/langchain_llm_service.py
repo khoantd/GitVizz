@@ -277,6 +277,240 @@ class SimpleLangChainService:
                 if self.providers.get(prov, {}).get("available", False)
             }
     
+    def count_tokens_approximately(self, content, chars_per_token: float = 4.0) -> int:
+        """
+        Count tokens in content using LangChain's approximate token counting
+        
+        Args:
+            content: Content to count (can be string, BaseMessage, or list of messages)
+            chars_per_token: Characters per token approximation (default: 4.0)
+            
+        Returns:
+            Approximate number of tokens
+        """
+        try:
+            from langchain_core.messages.utils import count_tokens_approximately
+            from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+            
+            # Handle different input types
+            if isinstance(content, str):
+                # For plain text, create a single message
+                message = HumanMessage(content=content)
+                return count_tokens_approximately([message], chars_per_token=chars_per_token)
+            elif isinstance(content, (list, tuple)):
+                # For list of messages or dict-like messages
+                messages = []
+                for item in content:
+                    if isinstance(item, dict):
+                        role = item.get("role", "user")
+                        content_text = item.get("content", "")
+                        if role == "system":
+                            messages.append(SystemMessage(content=content_text))
+                        elif role == "assistant":
+                            messages.append(AIMessage(content=content_text))
+                        else:
+                            messages.append(HumanMessage(content=content_text))
+                    else:
+                        # Assume it's already a BaseMessage
+                        messages.append(item)
+                return count_tokens_approximately(messages, chars_per_token=chars_per_token)
+            else:
+                # Assume it's already a BaseMessage or compatible
+                return count_tokens_approximately([content], chars_per_token=chars_per_token)
+                
+        except ImportError:
+            # Fallback to simple estimation if LangChain utils not available
+            if isinstance(content, str):
+                return len(content) // int(chars_per_token) + 3  # Add message overhead
+            elif isinstance(content, (list, tuple)):
+                total_chars = sum(len(str(item)) for item in content)
+                return total_chars // int(chars_per_token) + len(content) * 3  # Add overhead per message
+            else:
+                return len(str(content)) // int(chars_per_token) + 3
+    
+    def get_max_context_tokens(self, model: str, provider: Optional[str] = None) -> int:
+        """
+        Get maximum context tokens for a model from model config
+        
+        Args:
+            model: Model name
+            provider: Optional provider (auto-detected if not provided)
+            
+        Returns:
+            Maximum context tokens for the model
+        """
+        if not provider:
+            provider = self.detect_provider_from_model(model)
+        
+        config = self.get_model_config(provider, model)
+        return config.max_tokens if config else 128000  # Default fallback
+    
+    def get_max_output_tokens_for_model(self, model: str, provider: Optional[str] = None) -> int:
+        """
+        Get maximum output tokens for a model from model config
+        
+        Args:
+            model: Model name
+            provider: Optional provider (auto-detected if not provided)
+            
+        Returns:
+            Maximum output tokens for the model
+        """
+        if not provider:
+            provider = self.detect_provider_from_model(model)
+        
+        config = self.get_model_config(provider, model)
+        return config.max_output_tokens if config else 16384  # Default fallback
+    
+    def calculate_available_context_tokens(self, messages, model: str = "gpt-4o-mini", 
+                                         max_output_tokens: Optional[int] = None) -> int:
+        """
+        Calculate remaining context tokens available for additional content
+        
+        Args:
+            messages: Current messages in conversation
+            model: Model name
+            max_output_tokens: Reserved tokens for output (uses model default if not specified)
+            
+        Returns:
+            Available tokens for additional context
+        """
+        # Get model limits
+        max_context = self.get_max_context_tokens(model)
+        if max_output_tokens is None:
+            max_output_tokens = self.get_max_output_tokens_for_model(model)
+        
+        # Count current message tokens
+        used_tokens = self.count_tokens_approximately(messages)
+        
+        # Calculate available tokens (context - used - reserved for output)
+        available = max_context - used_tokens - max_output_tokens
+        
+        return max(0, available)  # Ensure non-negative
+    
+    def trim_content_to_fit(self, content, max_tokens: int) -> str:
+        """
+        Trim text content to fit within token limit
+        
+        Args:
+            content: String content to trim
+            max_tokens: Maximum tokens allowed
+            
+        Returns:
+            Trimmed content that fits within the token limit
+        """
+        # Get current token count
+        current_tokens = self.count_tokens_approximately(content)
+        
+        if current_tokens <= max_tokens:
+            return content
+        
+        # Calculate approximate ratio to trim
+        trim_ratio = max_tokens / current_tokens
+        
+        # Use a slightly smaller ratio to be safe
+        safe_ratio = trim_ratio * 0.9
+        target_chars = int(len(content) * safe_ratio)
+        
+        # Try to find a natural break point
+        trimmed = content[:target_chars]
+        
+        # Look for natural break points (paragraph, sentence, line endings)
+        for break_char in ['\n\n', '. ', '\n', ' ']:
+            last_break = trimmed.rfind(break_char)
+            if last_break > target_chars * 0.8:  # Don't trim too aggressively
+                trimmed = content[:last_break + len(break_char)]
+                break
+        
+        # Verify the result fits
+        final_tokens = self.count_tokens_approximately(trimmed)
+        if final_tokens <= max_tokens:
+            return trimmed + "\n\n... (content truncated due to token limit)"
+        else:
+            # If still too long, do a more aggressive trim
+            chars_per_token = len(trimmed) / final_tokens
+            safe_chars = int(max_tokens * chars_per_token * 0.8)
+            return content[:safe_chars] + "\n\n... (content truncated due to token limit)"
+    
+    def trim_messages_to_fit(self, messages, max_tokens: int):
+        """
+        Trim messages to fit within token limit
+        
+        Args:
+            messages: List of messages or string content to trim
+            max_tokens: Maximum tokens allowed
+            
+        Returns:
+            Trimmed messages that fit within the token limit
+        """
+        # If it's a string, use content trimming
+        if isinstance(messages, str):
+            return self.trim_content_to_fit(messages, max_tokens)
+        
+        try:
+            from langchain_core.messages.utils import trim_messages
+            from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+            
+            # Convert dict messages to LangChain messages if needed
+            langchain_messages = []
+            for msg in messages:
+                if isinstance(msg, dict):
+                    role = msg.get("role", "user")
+                    content_text = msg.get("content", "")
+                    if role == "system":
+                        langchain_messages.append(SystemMessage(content=content_text))
+                    elif role == "assistant":
+                        langchain_messages.append(AIMessage(content=content_text))
+                    else:
+                        langchain_messages.append(HumanMessage(content=content_text))
+                else:
+                    langchain_messages.append(msg)
+            
+            # Create a token counter function for the trim utility
+            def token_counter(msgs):
+                return self.count_tokens_approximately(msgs)
+            
+            trimmed = trim_messages(
+                messages=langchain_messages,
+                max_tokens=max_tokens,
+                token_counter=token_counter,
+                strategy="last"  # Keep most recent messages
+            )
+            
+            # Convert back to dict format for consistency
+            result = []
+            for msg in trimmed:
+                if hasattr(msg, 'content'):
+                    if hasattr(msg, 'role'):
+                        result.append({"role": msg.role, "content": msg.content})
+                    else:
+                        # Determine role from message type
+                        msg_type = type(msg).__name__
+                        if 'System' in msg_type:
+                            role = 'system'
+                        elif 'AI' in msg_type or 'Assistant' in msg_type:
+                            role = 'assistant'
+                        else:
+                            role = 'user'
+                        result.append({"role": role, "content": msg.content})
+            
+            return result
+            
+        except ImportError:
+            # Fallback: simple truncation from the end
+            trimmed = []
+            current_tokens = 0
+            
+            for message in reversed(messages):
+                msg_tokens = self.count_tokens_approximately(message)
+                if current_tokens + msg_tokens <= max_tokens:
+                    trimmed.insert(0, message)
+                    current_tokens += msg_tokens
+                else:
+                    break
+            
+            return trimmed
+    
     async def simple_chat(
         self, 
         message: str, 

@@ -119,7 +119,7 @@ export const Body_cancel_wiki_generation_api_documentation_cancel_generation__ta
     title: 'Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post',
   } as const;
 
-export const Body_delete_user_api_key_api_backend_chat_keys_delete_postSchema = {
+export const Body_delete_user_api_key_backend_enhancedSchema = {
   properties: {
     token: {
       type: 'string',
@@ -146,7 +146,7 @@ export const Body_delete_user_api_key_api_backend_chat_keys_delete_postSchema = 
   },
   type: 'object',
   required: ['token', 'provider'],
-  title: 'Body_delete_user_api_key_api_backend_chat_keys_delete_post',
+  title: 'Body_delete_user_api_key_backend_enhanced',
 } as const;
 
 export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
@@ -580,7 +580,20 @@ export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {
   title: 'Body_generate_wiki_api_documentation_generate_wiki_post',
 } as const;
 
-export const Body_get_available_models_api_backend_chat_models_available_postSchema = {
+export const Body_get_available_models_api_backend_chat_models_postSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+  },
+  type: 'object',
+  required: ['token'],
+  title: 'Body_get_available_models_api_backend_chat_models_post',
+} as const;
+
+export const Body_get_available_models_backend_enhancedSchema = {
   properties: {
     token: {
       type: 'string',
@@ -602,20 +615,7 @@ export const Body_get_available_models_api_backend_chat_models_available_postSch
   },
   type: 'object',
   required: ['token'],
-  title: 'Body_get_available_models_api_backend_chat_models_available_post',
-} as const;
-
-export const Body_get_available_models_api_backend_chat_models_postSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-  },
-  type: 'object',
-  required: ['token'],
-  title: 'Body_get_available_models_api_backend_chat_models_post',
+  title: 'Body_get_available_models_backend_enhanced',
 } as const;
 
 export const Body_get_chat_session_api_backend_chat_sessions__chat_id__postSchema = {
@@ -670,7 +670,7 @@ export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
   title: 'Body_get_indexed_repositories_api_indexed_repos__post',
 } as const;
 
-export const Body_get_user_api_keys_api_backend_chat_keys_list_postSchema = {
+export const Body_get_user_api_keys_backend_enhancedSchema = {
   properties: {
     token: {
       type: 'string',
@@ -680,7 +680,7 @@ export const Body_get_user_api_keys_api_backend_chat_keys_list_postSchema = {
   },
   type: 'object',
   required: ['token'],
-  title: 'Body_get_user_api_keys_api_backend_chat_keys_list_post',
+  title: 'Body_get_user_api_keys_backend_enhanced',
 } as const;
 
 export const Body_get_wiki_status_api_documentation_wiki_status_postSchema = {
@@ -858,6 +858,88 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
   type: 'object',
   required: ['token', 'message', 'repository_id'],
   title: 'Body_process_chat_message_api_backend_chat_chat_post',
+} as const;
+
+export const Body_save_api_key_backend_enhancedSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+    provider: {
+      type: 'string',
+      title: 'Provider',
+      description: 'Provider name (openai, anthropic, gemini, groq)',
+    },
+    api_key: {
+      type: 'string',
+      title: 'Api Key',
+      description: 'API key to save',
+    },
+    key_name: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Key Name',
+      description: 'Optional friendly name for the key',
+    },
+    verify_key: {
+      type: 'boolean',
+      title: 'Verify Key',
+      description: 'Whether to verify key before saving',
+      default: true,
+    },
+  },
+  type: 'object',
+  required: ['token', 'provider', 'api_key'],
+  title: 'Body_save_api_key_backend_enhanced',
+} as const;
+
+export const Body_save_user_api_key_api_backend_chat_keys_save_postSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+    provider: {
+      type: 'string',
+      title: 'Provider',
+      description: 'Provider name (openai, anthropic, gemini)',
+    },
+    api_key: {
+      type: 'string',
+      title: 'Api Key',
+      description: 'API key',
+    },
+    key_name: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Key Name',
+      description: 'Friendly name for the key',
+    },
+    verify_key: {
+      type: 'boolean',
+      title: 'Verify Key',
+      description: 'Whether to verify the key before saving',
+      default: true,
+    },
+  },
+  type: 'object',
+  required: ['token', 'provider', 'api_key'],
+  title: 'Body_save_user_api_key_api_backend_chat_keys_save_post',
 } as const;
 
 export const Body_search_context_api_backend_chat_context_search_postSchema = {
@@ -1062,6 +1144,52 @@ export const Body_update_chat_settings_api_backend_chat_settings_postSchema = {
   type: 'object',
   required: ['token', 'chat_id'],
   title: 'Body_update_chat_settings_api_backend_chat_settings_post',
+} as const;
+
+export const Body_verify_api_key_backend_enhancedSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+    provider: {
+      type: 'string',
+      title: 'Provider',
+      description: 'Provider name (openai, anthropic, gemini, groq)',
+    },
+    api_key: {
+      type: 'string',
+      title: 'Api Key',
+      description: 'API key to verify',
+    },
+  },
+  type: 'object',
+  required: ['token', 'provider', 'api_key'],
+  title: 'Body_verify_api_key_backend_enhanced',
+} as const;
+
+export const Body_verify_user_api_key_api_backend_chat_keys_verify_postSchema = {
+  properties: {
+    token: {
+      type: 'string',
+      title: 'Token',
+      description: 'JWT authentication token',
+    },
+    provider: {
+      type: 'string',
+      title: 'Provider',
+      description: 'Provider name (openai, anthropic, gemini)',
+    },
+    api_key: {
+      type: 'string',
+      title: 'Api Key',
+      description: 'API key to verify',
+    },
+  },
+  type: 'object',
+  required: ['token', 'provider', 'api_key'],
+  title: 'Body_verify_user_api_key_api_backend_chat_keys_verify_post',
 } as const;
 
 export const ChatResponseSchema = {
@@ -2386,133 +2514,3 @@ export const WikiGenerationResponseSchema = {
   required: ['status', 'message'],
   title: 'WikiGenerationResponse',
 } as const;
-
-export const fastapi___compat__Body_save_user_api_key_api_backend_chat_keys_save_post__1Schema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-    provider: {
-      type: 'string',
-      title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini)',
-    },
-    api_key: {
-      type: 'string',
-      title: 'Api Key',
-      description: 'API key',
-    },
-    key_name: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Key Name',
-      description: 'Friendly name for the key',
-    },
-    verify_key: {
-      type: 'boolean',
-      title: 'Verify Key',
-      description: 'Whether to verify the key before saving',
-      default: true,
-    },
-  },
-  type: 'object',
-  required: ['token', 'provider', 'api_key'],
-  title: 'Body_save_user_api_key_api_backend_chat_keys_save_post',
-} as const;
-
-export const fastapi___compat__Body_save_user_api_key_api_backend_chat_keys_save_post__2Schema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-    provider: {
-      type: 'string',
-      title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini, groq)',
-    },
-    api_key: {
-      type: 'string',
-      title: 'Api Key',
-      description: 'API key to save',
-    },
-    key_name: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Key Name',
-      description: 'Optional friendly name for the key',
-    },
-    verify_key: {
-      type: 'boolean',
-      title: 'Verify Key',
-      description: 'Whether to verify key before saving',
-      default: true,
-    },
-  },
-  type: 'object',
-  required: ['token', 'provider', 'api_key'],
-  title: 'Body_save_user_api_key_api_backend_chat_keys_save_post',
-} as const;
-
-export const fastapi___compat__Body_verify_user_api_key_api_backend_chat_keys_verify_post__1Schema =
-  {
-    properties: {
-      token: {
-        type: 'string',
-        title: 'Token',
-        description: 'JWT authentication token',
-      },
-      provider: {
-        type: 'string',
-        title: 'Provider',
-        description: 'Provider name (openai, anthropic, gemini)',
-      },
-      api_key: {
-        type: 'string',
-        title: 'Api Key',
-        description: 'API key to verify',
-      },
-    },
-    type: 'object',
-    required: ['token', 'provider', 'api_key'],
-    title: 'Body_verify_user_api_key_api_backend_chat_keys_verify_post',
-  } as const;
-
-export const fastapi___compat__Body_verify_user_api_key_api_backend_chat_keys_verify_post__2Schema =
-  {
-    properties: {
-      token: {
-        type: 'string',
-        title: 'Token',
-        description: 'JWT authentication token',
-      },
-      provider: {
-        type: 'string',
-        title: 'Provider',
-        description: 'Provider name (openai, anthropic, gemini, groq)',
-      },
-      api_key: {
-        type: 'string',
-        title: 'Api Key',
-        description: 'API key to verify',
-      },
-    },
-    type: 'object',
-    required: ['token', 'provider', 'api_key'],
-    title: 'Body_verify_user_api_key_api_backend_chat_keys_verify_post',
-  } as const;

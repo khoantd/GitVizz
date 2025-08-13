@@ -12,9 +12,10 @@ router = APIRouter(prefix="/backend-chat")
 @router.post(
     "/keys/verify",
     summary="Verify API key",
-    description="Verify if an API key is valid for a specific provider without saving it"
+    description="Verify if an API key is valid for a specific provider without saving it",
+    operation_id="verify_api_key_backend_enhanced"
 )
-async def verify_user_api_key(
+async def verify_user_api_key_enhanced(
     token: Annotated[str, Form(description="JWT authentication token")],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key to verify")]
@@ -30,9 +31,10 @@ async def verify_user_api_key(
 @router.post(
     "/keys/save",
     summary="Save user API key",
-    description="Save an encrypted API key for the authenticated user"
+    description="Save an encrypted API key for the authenticated user",
+    operation_id="save_api_key_backend_enhanced"
 )
-async def save_user_api_key(
+async def save_user_api_key_enhanced(
     token: Annotated[str, Form(description="JWT authentication token")],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key to save")],
@@ -52,9 +54,10 @@ async def save_user_api_key(
 @router.post(
     "/keys/list",
     summary="Get user API keys",
-    description="Get list of user's saved API keys (without exposing actual keys)"
+    description="Get list of user's saved API keys (without exposing actual keys)",
+    operation_id="get_user_api_keys_backend_enhanced"
 )
-async def get_user_api_keys(
+async def get_user_api_keys_enhanced(
     token: Annotated[str, Form(description="JWT authentication token")]
 ):
     """Get list of user's saved API keys"""
@@ -64,9 +67,10 @@ async def get_user_api_keys(
 @router.post(
     "/keys/delete",
     summary="Delete user API key",
-    description="Delete user's API key for a specific provider"
+    description="Delete user's API key for a specific provider",
+    operation_id="delete_user_api_key_backend_enhanced"
 )
-async def delete_user_api_key(
+async def delete_user_api_key_enhanced(
     token: Annotated[str, Form(description="JWT authentication token")],
     provider: Annotated[str, Form(description="Provider name to delete key for")],
     key_id: Annotated[Optional[str], Form(description="Specific key ID to delete")] = None
@@ -82,9 +86,10 @@ async def delete_user_api_key(
 @router.post(
     "/models/available",
     summary="Get available models",
-    description="Get available models for all providers or a specific provider"
+    description="Get available models for all providers or a specific provider",
+    operation_id="get_available_models_backend_enhanced"
 )
-async def get_available_models(
+async def get_available_models_enhanced(
     token: Annotated[str, Form(description="JWT authentication token")],
     provider: Annotated[Optional[str], Form(description="Specific provider to get models for")] = None
 ):
@@ -98,9 +103,10 @@ async def get_available_models(
 @router.get(
     "/models/available",
     summary="Get available models (GET)",
-    description="Get available models for all providers (GET method for easier frontend integration)"
+    description="Get available models for all providers (GET method for easier frontend integration)",
+    operation_id="get_available_models_get_backend_enhanced"
 )
-async def get_available_models_get(
+async def get_available_models_get_enhanced(
     token: Optional[str] = None,
     provider: Optional[str] = None
 ):
@@ -118,9 +124,10 @@ async def get_available_models_get(
 @router.get(
     "/health",
     summary="Health check",
-    description="Simple health check for API key service"
+    description="Simple health check for API key service",
+    operation_id="health_check_backend_enhanced"
 )
-async def health_check():
+async def health_check_enhanced():
     """Health check endpoint"""
     return {
         "status": "ok", 
@@ -139,9 +146,10 @@ async def health_check():
 @router.get(
     "/info",
     summary="Service information",
-    description="Get information about the API key service capabilities"
+    description="Get information about the API key service capabilities",
+    operation_id="service_info_backend_enhanced"
 )
-async def service_info():
+async def service_info_enhanced():
     """Get service information and capabilities"""
     from utils.llm_utils import llm_service
     

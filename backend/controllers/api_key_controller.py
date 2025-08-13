@@ -183,19 +183,41 @@ class ApiKeyController:
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
-            # Find and delete the key
-            query = {
-                "user.id": BeanieObjectId(user.id),
-                "provider": provider,
-                "is_active": True
-            }
-            
+            # Find the key using proper Beanie query format
             if key_id:
-                query["_id"] = BeanieObjectId(key_id)
-            
-            user_key = await UserApiKey.find_one(query)
+                # If specific key ID provided, find by ID and verify it belongs to user
+                try:
+                    user_key = await UserApiKey.find_one(
+                        UserApiKey.id == BeanieObjectId(key_id),
+                        UserApiKey.user.id == BeanieObjectId(user.id),
+                        UserApiKey.provider == provider,
+                        UserApiKey.is_active == True
+                    )
+                except Exception as e:
+                    print(f"Error finding key by ID {key_id}: {e}")
+                    user_key = None
+            else:
+                # Find by user and provider
+                user_key = await UserApiKey.find_one(
+                    UserApiKey.user.id == BeanieObjectId(user.id),
+                    UserApiKey.provider == provider,
+                    UserApiKey.is_active == True
+                )
             if not user_key:
-                raise HTTPException(status_code=404, detail="API key not found")
+                # Debug: List all keys for this user to help troubleshoot
+                all_user_keys = await UserApiKey.find(
+                    UserApiKey.user.id == BeanieObjectId(user.id)
+                ).to_list()
+                
+                print(f"Debug - Delete API key: User {user.id}, Provider {provider}, Key ID {key_id}")
+                print(f"Debug - User has {len(all_user_keys)} total keys")
+                for key in all_user_keys:
+                    print(f"Debug - Key: ID={key.id}, Provider={key.provider}, Active={key.is_active}")
+                
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"API key not found for provider '{provider}'. Available providers for user: {[k.provider for k in all_user_keys if k.is_active]}"
+                )
             
             # Soft delete by setting is_active to False
             user_key.is_active = False

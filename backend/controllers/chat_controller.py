@@ -92,7 +92,9 @@ class ChatController:
         context_search_query: Optional[str] = None,
         user_query: Optional[str] = None,
         max_context_tokens: int = 8000,
-        scope_preference: str = "moderate"
+        scope_preference: str = "moderate",
+        model: str = "gpt-4o-mini",
+        provider: str = "openai"
     ) -> tuple[str, dict]:
         """
         Get repository context for LLM processing by processing the locally stored ZIP file
@@ -126,13 +128,28 @@ class ChatController:
                             "search_query": context_search_query
                         }
                         
-                        # Truncate if too long (rough token estimation: 1 token ≈ 4 characters)
-                        estimated_tokens = len(cached_content) // 4
-                        if estimated_tokens > max_context_tokens:
-                            char_limit = max_context_tokens * 4
-                            cached_content = cached_content[:char_limit] + "\n\n... (content truncated due to length)"
-                            context_metadata["truncated"] = True
-                            context_metadata["truncated_at_tokens"] = max_context_tokens
+                        # Use intelligent token-aware truncation for cached content
+                        from utils.langchain_llm_service import langchain_service
+                        actual_tokens = langchain_service.count_tokens_approximately(cached_content)
+                        context_metadata["actual_tokens"] = actual_tokens
+                        context_metadata["model_used_for_counting"] = model
+                        
+                        if actual_tokens > max_context_tokens:
+                            logger.info(f"Cached content exceeds limit: {actual_tokens} > {max_context_tokens}, truncating...")
+                            
+                            # Calculate the proportion to keep
+                            keep_ratio = max_context_tokens / actual_tokens
+                            char_limit = int(len(cached_content) * keep_ratio * 0.9)  # Use 90% to be safe
+                            
+                            cached_content = cached_content[:char_limit] + "\n\n... (content truncated due to token limit)"
+                            final_tokens = langchain_service.count_tokens_approximately(cached_content)
+                            
+                            context_metadata.update({
+                                "truncated": True,
+                                "truncated_at_tokens": max_context_tokens,
+                                "final_tokens": final_tokens,
+                                "truncation_ratio": keep_ratio
+                            })
                         
                         return cached_content, context_metadata
                 except Exception as e:
@@ -182,27 +199,59 @@ class ChatController:
                     "repository_name": repository.repo_name
                 }
             
+            # Use intelligent token-aware truncation with LangChain utilities
+            from utils.langchain_llm_service import langchain_service
+            
             # Format repository contents into LLM-friendly text
             context_text = format_repo_contents(filtered_files)
+            
+            # Count actual tokens using LangChain's approximate counting
+            actual_tokens = langchain_service.count_tokens_approximately(context_text)
             
             context_metadata = {
                 "source": "zip_processed",
                 "repository_id": str(repository.id),
                 "repository_name": repository.repo_name,
                 "content_length": len(context_text),
+                "actual_tokens": actual_tokens,
+                "max_context_tokens": max_context_tokens,
                 "scope": scope_preference,
                 "search_query": context_search_query,
                 "files_processed": len(filtered_files),
-                "zip_path": zip_file_path
+                "zip_path": zip_file_path,
+                "model_used_for_counting": model
             }
             
-            # Truncate if too long (rough token estimation: 1 token ≈ 4 characters)
-            estimated_tokens = len(context_text) // 4
-            if estimated_tokens > max_context_tokens:
-                char_limit = max_context_tokens * 4
-                context_text = context_text[:char_limit] + "\n\n... (content truncated due to length)"
-                context_metadata["truncated"] = True
-                context_metadata["truncated_at_tokens"] = max_context_tokens
+            # Intelligent truncation if content exceeds token limit
+            if actual_tokens > max_context_tokens:
+                logger.info(f"Context exceeds limit: {actual_tokens} > {max_context_tokens}, truncating...")
+                
+                # Calculate the proportion to keep
+                keep_ratio = max_context_tokens / actual_tokens
+                char_limit = int(len(context_text) * keep_ratio * 0.9)  # Use 90% to be safe
+                
+                # Try to truncate at natural boundaries (file boundaries)
+                lines = context_text.split('\n')
+                truncated_lines = []
+                current_chars = 0
+                
+                for line in lines:
+                    if current_chars + len(line) + 1 > char_limit:
+                        break
+                    truncated_lines.append(line)
+                    current_chars += len(line) + 1
+                
+                context_text = '\n'.join(truncated_lines)
+                context_text += "\n\n... (content truncated due to token limit)"
+                
+                # Update token count after truncation
+                final_tokens = langchain_service.count_tokens_approximately(context_text)
+                context_metadata.update({
+                    "truncated": True,
+                    "truncated_at_tokens": max_context_tokens,
+                    "final_tokens": final_tokens,
+                    "truncation_ratio": keep_ratio
+                })
             
             logger.info(f"Successfully processed repository context: {len(filtered_files)} files, {len(context_text)} characters")
             return context_text, context_metadata
@@ -306,7 +355,9 @@ class ChatController:
                 context_search_query,
                 user_query=message,
                 max_context_tokens=max_tokens or 8000,
-                scope_preference=scope_preference
+                scope_preference=scope_preference,
+                model=model,
+                provider=provider
             )
             
             # Prepare messages for LLM with intelligent context window management
@@ -561,7 +612,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 chat_session.repository,
                 context_mode,
                 user_query=message,
-                max_context_tokens=max_tokens or 8000
+                max_context_tokens=max_tokens or 8000,
+                model=model,
+                provider=provider
             )
             
             # Prepare messages for LLM with intelligent context window management
@@ -1204,7 +1257,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
         repository,
         context_mode: str,
         user_query: str,
-        max_context_tokens: int = 8000
+        max_context_tokens: int = 8000,
+        model: str = "gpt-4o-mini",
+        provider: str = "openai"
     ) -> tuple[str, dict]:
         """Get repository context based on the selected mode"""
         
@@ -1212,7 +1267,8 @@ Provide detailed, accurate responses based on the repository content. Reference 
             # Full context mode - include entire repository
             return await self.get_full_repository_context(
                 repository,
-                max_context_tokens
+                max_context_tokens,
+                model=model
             )
         elif context_mode == "smart":
             # Smart context mode - use AI-powered retrieval (existing logic)
@@ -1221,7 +1277,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 context_search_query=user_query,
                 user_query=user_query,
                 max_context_tokens=max_context_tokens,
-                scope_preference="moderate"
+                scope_preference="moderate",
+                model=model,
+                provider=provider
             )
         elif context_mode == "agentic":
             # Agentic context mode - multi-step reasoning (not implemented yet)
@@ -1231,7 +1289,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 context_search_query=user_query,
                 user_query=user_query,
                 max_context_tokens=max_context_tokens,
-                scope_preference="comprehensive"
+                scope_preference="comprehensive",
+                model=model,
+                provider=provider
             )
         else:
             # Default to smart mode
@@ -1240,13 +1300,16 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 context_search_query=user_query,
                 user_query=user_query,
                 max_context_tokens=max_context_tokens,
-                scope_preference="moderate"
+                scope_preference="moderate",
+                model=model,
+                provider=provider
             )
 
     async def get_full_repository_context(
         self,
         repository,
-        max_context_tokens: int = 8000
+        max_context_tokens: int = 8000,
+        model: str = "gpt-4o-mini"
     ) -> tuple[str, dict]:
         """Get full repository context by extracting and including all files from ZIP"""
         temp_dirs_to_cleanup = []
@@ -1275,13 +1338,12 @@ Provide detailed, accurate responses based on the repository content. Reference 
             if not filtered_files:
                 return "No relevant source files found after filtering.", {"context_type": "full", "files_included": 0}
             
-            # Estimate tokens per character (rough approximation)
-            char_to_token_ratio = 4
-            max_chars = max_context_tokens * char_to_token_ratio
+            # Use intelligent token counting with LangChain
+            from utils.langchain_llm_service import langchain_service
             
             context_parts = []
             files_included = 0
-            current_chars = 0
+            current_tokens = 0
             
             # Sort files by importance (e.g., README files first, then main source files)
             def get_file_priority(file_info):
@@ -1318,44 +1380,60 @@ Provide detailed, accurate responses based on the repository content. Reference 
                     file_section = f"\n=== File: {file_path} ===\n{content}\n"
                     
                     # Check if adding this file would exceed token limit
-                    if current_chars + len(file_section) > max_chars and context_parts:
-                        # Truncate the current file if needed
-                        remaining_chars = max_chars - current_chars
-                        if remaining_chars > 200:  # Only include if we have reasonable space
-                            truncated_content = content[:remaining_chars-100] + "\n... (truncated due to length)"
-                            file_section = f"\n=== File: {file_path} ===\n{truncated_content}\n"
-                            context_parts.append(file_section)
-                            files_included += 1
+                    file_section_tokens = langchain_service.count_tokens_approximately(file_section)
+                    
+                    if current_tokens + file_section_tokens > max_context_tokens and context_parts:
+                        # Calculate how much content we can fit in remaining tokens
+                        remaining_tokens = max_context_tokens - current_tokens
+                        if remaining_tokens > 100:  # Only include if we have reasonable space
+                            # Estimate how much content we can fit
+                            approx_chars_per_token = len(file_section) / file_section_tokens
+                            max_content_chars = int(remaining_tokens * approx_chars_per_token * 0.8)  # Use 80% to be safe
+                            
+                            if max_content_chars > 200:  # Minimum reasonable content size
+                                truncated_content = content[:max_content_chars-100] + "\n... (truncated due to token limit)"
+                                file_section = f"\n=== File: {file_path} ===\n{truncated_content}\n"
+                                context_parts.append(file_section)
+                                files_included += 1
+                                current_tokens += langchain_service.count_tokens_approximately(file_section)
                         break
                     
                     context_parts.append(file_section)
                     files_included += 1
-                    current_chars += len(file_section)
+                    current_tokens += file_section_tokens
                     
                 except Exception as e:
                     logger.warning(f"Could not read file {file_path}: {e}")
                     # Add a placeholder for files that couldn't be read
                     file_section = f"\n=== File: {file_path} ===\n[Could not read file: {e}]\n"
-                    if current_chars + len(file_section) <= max_chars:
+                    file_section_tokens = langchain_service.count_tokens_approximately(file_section)
+                    
+                    if current_tokens + file_section_tokens <= max_context_tokens:
                         context_parts.append(file_section)
                         files_included += 1
-                        current_chars += len(file_section)
+                        current_tokens += file_section_tokens
                     continue
             
             context = "".join(context_parts)
             if not context:
                 context = "No file content could be extracted from the repository."
             
+            # Get final accurate token count
+            final_tokens = langchain_service.count_tokens_approximately(context)
+            
             metadata = {
                 "context_type": "full",
                 "files_included": files_included,
                 "total_files_available": len(filtered_files),
-                "estimated_tokens": current_chars // char_to_token_ratio,
+                "actual_tokens": final_tokens,
+                "max_context_tokens": max_context_tokens,
+                "content_length": len(context),
                 "zip_path": zip_file_path,
-                "extraction_successful": True
+                "extraction_successful": True,
+                "model_used_for_counting": model
             }
             
-            logger.info(f"Full context extracted: {files_included} files, {current_chars} characters, ~{current_chars // char_to_token_ratio} tokens")
+            logger.info(f"Full context extracted: {files_included} files, {len(context)} characters, {final_tokens} tokens")
             return context, metadata
             
         except Exception as e:

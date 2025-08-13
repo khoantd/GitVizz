@@ -41,12 +41,12 @@ import type {
   GetChatSessionApiBackendChatSessionsChatIdPostData,
   GetChatSessionApiBackendChatSessionsChatIdPostResponses,
   GetChatSessionApiBackendChatSessionsChatIdPostErrors,
-  VerifyUserApiKeyApiBackendChatKeysVerifyPostData,
-  VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses,
-  VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors,
-  SaveUserApiKeyApiBackendChatKeysSavePostData,
-  SaveUserApiKeyApiBackendChatKeysSavePostResponses,
-  SaveUserApiKeyApiBackendChatKeysSavePostErrors,
+  VerifyApiKeyBackendEnhancedData,
+  VerifyApiKeyBackendEnhancedResponses,
+  VerifyApiKeyBackendEnhancedErrors,
+  SaveApiKeyBackendEnhancedData,
+  SaveApiKeyBackendEnhancedResponses,
+  SaveApiKeyBackendEnhancedErrors,
   GetAvailableModelsApiBackendChatModelsPostData,
   GetAvailableModelsApiBackendChatModelsPostResponses,
   GetAvailableModelsApiBackendChatModelsPostErrors,
@@ -77,22 +77,22 @@ import type {
   GetIndexedRepositoriesApiIndexedReposPostData,
   GetIndexedRepositoriesApiIndexedReposPostResponses,
   GetIndexedRepositoriesApiIndexedReposPostErrors,
-  GetUserApiKeysApiBackendChatKeysListPostData,
-  GetUserApiKeysApiBackendChatKeysListPostResponses,
-  GetUserApiKeysApiBackendChatKeysListPostErrors,
-  DeleteUserApiKeyApiBackendChatKeysDeletePostData,
-  DeleteUserApiKeyApiBackendChatKeysDeletePostResponses,
-  DeleteUserApiKeyApiBackendChatKeysDeletePostErrors,
-  GetAvailableModelsGetApiBackendChatModelsAvailableGetData,
-  GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses,
-  GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors,
-  GetAvailableModelsApiBackendChatModelsAvailablePostData,
-  GetAvailableModelsApiBackendChatModelsAvailablePostResponses,
-  GetAvailableModelsApiBackendChatModelsAvailablePostErrors,
-  HealthCheckApiBackendChatHealthGetData,
-  HealthCheckApiBackendChatHealthGetResponses,
-  ServiceInfoApiBackendChatInfoGetData,
-  ServiceInfoApiBackendChatInfoGetResponses,
+  GetUserApiKeysBackendEnhancedData,
+  GetUserApiKeysBackendEnhancedResponses,
+  GetUserApiKeysBackendEnhancedErrors,
+  DeleteUserApiKeyBackendEnhancedData,
+  DeleteUserApiKeyBackendEnhancedResponses,
+  DeleteUserApiKeyBackendEnhancedErrors,
+  GetAvailableModelsGetBackendEnhancedData,
+  GetAvailableModelsGetBackendEnhancedResponses,
+  GetAvailableModelsGetBackendEnhancedErrors,
+  GetAvailableModelsBackendEnhancedData,
+  GetAvailableModelsBackendEnhancedResponses,
+  GetAvailableModelsBackendEnhancedErrors,
+  HealthCheckBackendEnhancedData,
+  HealthCheckBackendEnhancedResponses,
+  ServiceInfoBackendEnhancedData,
+  ServiceInfoBackendEnhancedResponses,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
@@ -381,12 +381,12 @@ export const getChatSessionApiBackendChatSessionsChatIdPost = <
  * Verify API key
  * Verify if an API key is valid for a specific provider without saving it
  */
-export const verifyUserApiKeyApiBackendChatKeysVerifyPost = <ThrowOnError extends boolean = false>(
-  options: Options<VerifyUserApiKeyApiBackendChatKeysVerifyPostData, ThrowOnError>,
+export const verifyApiKeyBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options: Options<VerifyApiKeyBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options.client ?? _heyApiClient).post<
-    VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses,
-    VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors,
+    VerifyApiKeyBackendEnhancedResponses,
+    VerifyApiKeyBackendEnhancedErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
@@ -403,12 +403,12 @@ export const verifyUserApiKeyApiBackendChatKeysVerifyPost = <ThrowOnError extend
  * Save user API key
  * Save an encrypted API key for the authenticated user
  */
-export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends boolean = false>(
-  options: Options<SaveUserApiKeyApiBackendChatKeysSavePostData, ThrowOnError>,
+export const saveApiKeyBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options: Options<SaveApiKeyBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options.client ?? _heyApiClient).post<
-    SaveUserApiKeyApiBackendChatKeysSavePostResponses,
-    SaveUserApiKeyApiBackendChatKeysSavePostErrors,
+    SaveApiKeyBackendEnhancedResponses,
+    SaveApiKeyBackendEnhancedErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
@@ -660,12 +660,12 @@ export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends b
  * Get user API keys
  * Get list of user's saved API keys (without exposing actual keys)
  */
-export const getUserApiKeysApiBackendChatKeysListPost = <ThrowOnError extends boolean = false>(
-  options: Options<GetUserApiKeysApiBackendChatKeysListPostData, ThrowOnError>,
+export const getUserApiKeysBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options: Options<GetUserApiKeysBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options.client ?? _heyApiClient).post<
-    GetUserApiKeysApiBackendChatKeysListPostResponses,
-    GetUserApiKeysApiBackendChatKeysListPostErrors,
+    GetUserApiKeysBackendEnhancedResponses,
+    GetUserApiKeysBackendEnhancedErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
@@ -682,12 +682,12 @@ export const getUserApiKeysApiBackendChatKeysListPost = <ThrowOnError extends bo
  * Delete user API key
  * Delete user's API key for a specific provider
  */
-export const deleteUserApiKeyApiBackendChatKeysDeletePost = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteUserApiKeyApiBackendChatKeysDeletePostData, ThrowOnError>,
+export const deleteUserApiKeyBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteUserApiKeyBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options.client ?? _heyApiClient).post<
-    DeleteUserApiKeyApiBackendChatKeysDeletePostResponses,
-    DeleteUserApiKeyApiBackendChatKeysDeletePostErrors,
+    DeleteUserApiKeyBackendEnhancedResponses,
+    DeleteUserApiKeyBackendEnhancedErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
@@ -704,14 +704,12 @@ export const deleteUserApiKeyApiBackendChatKeysDeletePost = <ThrowOnError extend
  * Get available models (GET)
  * Get available models for all providers (GET method for easier frontend integration)
  */
-export const getAvailableModelsGetApiBackendChatModelsAvailableGet = <
-  ThrowOnError extends boolean = false,
->(
-  options?: Options<GetAvailableModelsGetApiBackendChatModelsAvailableGetData, ThrowOnError>,
+export const getAvailableModelsGetBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAvailableModelsGetBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).get<
-    GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses,
-    GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors,
+    GetAvailableModelsGetBackendEnhancedResponses,
+    GetAvailableModelsGetBackendEnhancedErrors,
     ThrowOnError
   >({
     url: '/api/backend-chat/models/available',
@@ -723,14 +721,12 @@ export const getAvailableModelsGetApiBackendChatModelsAvailableGet = <
  * Get available models
  * Get available models for all providers or a specific provider
  */
-export const getAvailableModelsApiBackendChatModelsAvailablePost = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<GetAvailableModelsApiBackendChatModelsAvailablePostData, ThrowOnError>,
+export const getAvailableModelsBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options: Options<GetAvailableModelsBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options.client ?? _heyApiClient).post<
-    GetAvailableModelsApiBackendChatModelsAvailablePostResponses,
-    GetAvailableModelsApiBackendChatModelsAvailablePostErrors,
+    GetAvailableModelsBackendEnhancedResponses,
+    GetAvailableModelsBackendEnhancedErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
@@ -747,11 +743,11 @@ export const getAvailableModelsApiBackendChatModelsAvailablePost = <
  * Health check
  * Simple health check for API key service
  */
-export const healthCheckApiBackendChatHealthGet = <ThrowOnError extends boolean = false>(
-  options?: Options<HealthCheckApiBackendChatHealthGetData, ThrowOnError>,
+export const healthCheckBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options?: Options<HealthCheckBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).get<
-    HealthCheckApiBackendChatHealthGetResponses,
+    HealthCheckBackendEnhancedResponses,
     unknown,
     ThrowOnError
   >({
@@ -764,11 +760,11 @@ export const healthCheckApiBackendChatHealthGet = <ThrowOnError extends boolean 
  * Service information
  * Get information about the API key service capabilities
  */
-export const serviceInfoApiBackendChatInfoGet = <ThrowOnError extends boolean = false>(
-  options?: Options<ServiceInfoApiBackendChatInfoGetData, ThrowOnError>,
+export const serviceInfoBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options?: Options<ServiceInfoBackendEnhancedData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).get<
-    ServiceInfoApiBackendChatInfoGetResponses,
+    ServiceInfoBackendEnhancedResponses,
     unknown,
     ThrowOnError
   >({
