@@ -78,7 +78,7 @@ export const baseSEOConfig: SEOConfig = {
       'Visualize and extract code structure effortlessly. Convert repositories to AI-friendly plain text with gitvizz.',
     images: [
       {
-        url: 'https://gitvizz.com/og-image.png',
+        url: '/og-image.png', // Use the image from /public directory
         width: 1200,
         height: 630,
         alt: 'gitvizz - From Repo to Reasoning Instantly',
@@ -87,27 +87,21 @@ export const baseSEOConfig: SEOConfig = {
   },
   twitter: {
     card: 'summary_large_image',
-    creator: '@your_twitter_handle', // FIXME: Update with actual Twitter handle
+    creator: '@your_twitter_handle', // Use your actual Twitter handle
     title: 'gitvizz - From Repo to Reasoning Instantly',
     description: 'Understand GitHub repositories visually and convert them into AI-ready formats.',
-    images: ['https://gitvizz.com/og-image.png'], // This must be the full, absolute URL
-  }
+    images: ['/og-image.png'], // Use the image from /public directory
+  },
 };
-
-/**
- * Generates the metadata for a specific page by merging page-specific
- * configuration with the base configuration.
- * @param pageConfig - Optional, page-specific SEO settings
- * @returns A Next.js Metadata object
- */
 export function generateSEOMetadata(pageConfig: Partial<SEOConfig> = {}): Metadata {
-  // Merge base and page-specific configurations
-  const config = {
-    ...baseSEOConfig,
-    ...pageConfig,
-    openGraph: { ...baseSEOConfig.openGraph, ...pageConfig.openGraph },
-    twitter: { ...baseSEOConfig.twitter, ...pageConfig.twitter },
-  };
+  const config = { ...baseSEOConfig };
+
+  config.title = pageConfig.title || config.title;
+  config.description = pageConfig.description || config.description;
+  config.canonical = pageConfig.canonical || config.canonical;
+  config.keywords = Array.from(new Set([...(config.keywords || []), ...(pageConfig.keywords || [])]));
+  config.openGraph = { ...config.openGraph, ...pageConfig.openGraph };
+  config.twitter = { ...config.twitter, ...pageConfig.twitter };
 
   return {
     metadataBase: new URL(config.canonical || 'https://gitvizz.com'),
@@ -123,9 +117,9 @@ export function generateSEOMetadata(pageConfig: Partial<SEOConfig> = {}): Metada
     },
     openGraph: {
       ...config.openGraph,
-      url: config.canonical,
       title: config.openGraph?.title || config.title,
       description: config.openGraph?.description || config.description,
+      url: config.canonical,
     },
     twitter: {
       ...config.twitter,

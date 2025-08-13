@@ -1,13 +1,11 @@
-// app/layout.tsx
-
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { SessionProvider } from 'next-auth/react';
-import { generateSEOMetadata, structuredData } from '@/lib/seo'; // Adjust path if needed
+import { generateSEOMetadata, structuredData } from '@/lib/seo';
 
-// Generate metadata for the home page using our new function
+// Generate metadata for the site using our SEO function
 export const metadata: Metadata = generateSEOMetadata();
 
 const geistSans = Geist({
@@ -28,7 +26,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Inject JSON-LD Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData.website) }}
