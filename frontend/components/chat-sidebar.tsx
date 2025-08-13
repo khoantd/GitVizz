@@ -169,12 +169,17 @@ export function ChatSidebar({
     if (!input.trim() || isLoading) return;
 
     // Check if repository identifier is valid before proceeding
+    // For GitHub repos: should be owner/repo/branch format (contains '/')
+    // For ZIP files: should be a 24-character ObjectId (no '/')
+    const isGitHubFormat = repositoryIdentifier.includes('/');
+    const isObjectIdFormat = !isGitHubFormat && repositoryIdentifier.length === 24;
+    
     if (
       !repositoryIdentifier ||
       repositoryIdentifier.trim() === '' ||
-      !repositoryIdentifier.includes('/')
+      (!isGitHubFormat && !isObjectIdFormat)
     ) {
-      // Repository identifier should be in format: owner/repo/branch
+      // Repository identifier should be in valid format
       return;
     }
 
@@ -269,10 +274,14 @@ export function ChatSidebar({
   const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
 
   // Check if repository is ready for chat
-  const isRepositoryReady =
-    repositoryIdentifier &&
-    repositoryIdentifier.trim() !== '' &&
-    repositoryIdentifier.includes('/');
+  // For GitHub repos: should be owner/repo/branch format (contains '/')
+  // For ZIP files: should be a 24-character ObjectId (no '/')
+  const isRepositoryReady = (() => {
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '') return false;
+    const isGitHubFormat = repositoryIdentifier.includes('/');
+    const isObjectIdFormat = !isGitHubFormat && repositoryIdentifier.length === 24;
+    return isGitHubFormat || isObjectIdFormat;
+  })();
 
   return (
     <>

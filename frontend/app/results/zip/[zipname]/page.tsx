@@ -62,12 +62,33 @@ export default function ZipResultsPage() {
     return 'main';
   }, [sourceType, sourceData]);
 
-  // Only initialize chat sidebar with valid repository identifier for generic results
-  const validRepositoryIdentifier = currentRepoId && !currentRepoId.includes('/') ? currentRepoId : '';
-  // For ZIP-based results, disable chat if no valid repository ID
+  // Use currentRepoId directly for ZIP files, or construct GitHub format for GitHub repos
+  const validRepositoryIdentifier = useMemo(() => {
+    if (sourceType === 'github' && sourceData && typeof sourceData === 'object' && 'repo_url' in sourceData) {
+      // For GitHub repos, try to construct owner/repo/branch format
+      try {
+        const repoUrl = (sourceData as { repo_url?: string }).repo_url;
+        if (repoUrl) {
+          const url = new URL(repoUrl);
+          const pathParts = url.pathname.split('/').filter(Boolean);
+          if (pathParts.length >= 2) {
+            const owner = pathParts[0];
+            const repo = pathParts[1];
+            return `${owner}/${repo}/${repositoryBranch}`;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse GitHub repo URL:', e);
+      }
+    }
+    // For ZIP files or when GitHub parsing fails, use currentRepoId directly
+    return currentRepoId || '';
+  }, [sourceType, sourceData, currentRepoId, repositoryBranch]);
+  
+  // For ZIP-based results, enable chat if we have a repository ID
   const { currentModel } = useChatSidebar(validRepositoryIdentifier, userKeyPreferences, {
     repositoryBranch,
-    autoLoad: false, // Disable auto-loading for generic results page
+    autoLoad: Boolean(validRepositoryIdentifier), // Enable auto-loading when we have a valid identifier
   });
   void currentModel;
 
@@ -79,8 +100,8 @@ export default function ZipResultsPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleChat = () => {
-    // Allow chat if we have output (repository processed) and repo id is present
-    if (!output && !currentRepoId && !isChatOpen) {
+    // Allow chat if we have output (repository processed) and valid repository identifier
+    if (!output && !validRepositoryIdentifier && !isChatOpen) {
       showToast.error(
         'Repository not processed yet. Please wait for processing to complete before chatting.',
       );
@@ -709,13 +730,13 @@ export default function ZipResultsPage() {
         </Tabs>
       </main>
 
-      {session?.accessToken && currentRepoId && (
+      {session?.accessToken && validRepositoryIdentifier && (
         <>
           <FloatingChatButton
             onClick={toggleChat}
             isOpen={isChatOpen}
             unreadCount={0}
-            isLoading={!currentRepoId && loading}
+            isLoading={!validRepositoryIdentifier && loading}
           />
           <ChatSidebar
             isOpen={isChatOpen}
