@@ -62,7 +62,8 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   }
 
   // Make the request to your backend
-  const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {
+  let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+  const response = await fetch(`${backendUrl}/api/backend-chat/chat/stream`, {
     method: 'POST',
     body: formData,
   });
