@@ -245,9 +245,8 @@ class ChatController:
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
-        repository_id: Annotated[str, Form(description="Repository ID to chat about")],
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
-        repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
         provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
@@ -270,8 +269,8 @@ class ChatController:
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
                 user, 
-                repository_id,
-                repository_branch,
+                repository_identifier,
+                None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
             
@@ -434,9 +433,8 @@ Provide detailed, accurate responses based on the repository content. Reference 
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
-        repository_id: Annotated[str, Form(description="Repository ID to chat about")],
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
-        repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
         provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
@@ -448,10 +446,10 @@ Provide detailed, accurate responses based on the repository content. Reference 
         """Process a chat message with streaming response - yields JSON strings"""
         try:
             # Validate required parameters early
-            if not repository_id or repository_id.strip() == "":
+            if not repository_identifier or repository_identifier.strip() == "":
                 yield json.dumps(StreamChatResponse(
                     event="error",
-                    error="Repository ID is required for chat",
+                    error="Repository identifier is required for chat",
                     error_type="validation_error"
                 ).model_dump()) + "\n"
                 return
@@ -477,8 +475,8 @@ Provide detailed, accurate responses based on the repository content. Reference 
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
                 user, 
-                repository_id,
-                repository_branch,
+                repository_identifier,
+                None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
             
@@ -587,7 +585,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 # Use LangGraph for advanced chat orchestration
                 response_generator = langgraph_chat_service.stream_chat_response(
                     user_query=message,
-                    repository_id=repository_id,
+                    repository_id=repository_identifier,
                     user=user,
                     model=model,
                     provider=provider,
@@ -736,7 +734,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
     async def list_user_chat_sessions(
         self,
         jwt_token: Annotated[str, Form(description="JWT authentication token")],
-        repo_id: Annotated[str, Form(description="Repository ID")]
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
     ) -> ChatSessionListResponse:
         try:
             user = await get_current_user(jwt_token)
@@ -747,7 +745,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
             
             # Find repository using utility function
             try:
-                repository = await find_user_repository(repo_id, user)
+                repository = await find_user_repository(repository_identifier, user)
             except HTTPException:
                 # Repository not found, return empty list
                 return ChatSessionListResponse(
@@ -1146,7 +1144,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
     async def search_context(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
-        repository_id: Annotated[str, Form(description="Repository ID to search")],
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         query: Annotated[str, Form(description="Search query")],
         max_results: Annotated[int, Form(description="Maximum number of results (1-20)", ge=1, le=20)] = 5
     ) -> ContextSearchResponse:
@@ -1156,7 +1154,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
-            repository = await find_user_repository(repository_id, user)
+            repository = await find_user_repository(repository_identifier, user)
             
             # Load repository content
             content = await file_manager.load_text_content(repository.file_paths.text)

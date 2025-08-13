@@ -41,6 +41,7 @@ export default function ResultsPage() {
   const params = useParams();
   const owner = (params?.owner as string) || '';
   const repo = (params?.repo as string) || '';
+  const branch = (params?.branch as string) || 'main';
   const repoUrl = owner && repo ? `https://github.com/${owner}/${repo}` : '';
 
   const {
@@ -56,13 +57,10 @@ export default function ResultsPage() {
     setSourceData,
   } = useResultData();
   const { data: session } = useSession();
-  const repositoryBranch =
-    sourceData && typeof sourceData === 'object' && 'branch' in sourceData
-      ? (sourceData as { branch?: string }).branch
-      : 'main';
-  // Only initialize chat sidebar with valid repository ID (not owner/repo format)
-  const validRepositoryId = currentRepoId && !currentRepoId.includes('/') ? currentRepoId : '';
-  const { currentModel } = useChatSidebar(validRepositoryId, userKeyPreferences, {
+  const repositoryBranch = branch; // Use branch from URL params
+  // Create repository identifier for chat system (owner/repo/branch format)
+  const repositoryIdentifier = owner && repo && branch ? `${owner}/${repo}/${branch}` : '';
+  const { currentModel } = useChatSidebar(repositoryIdentifier, userKeyPreferences, {
     repositoryBranch,
   });
 
@@ -70,6 +68,7 @@ export default function ResultsPage() {
   const { refreshData } = useRepositoryData({
     owner,
     repo,
+    branch,
     repoId: currentRepoId || undefined,
   });
 
@@ -79,15 +78,15 @@ export default function ResultsPage() {
 
   // Hydrate context from URL params on first load/refresh
   useEffect(() => {
-    if (owner && repo) {
+    if (owner && repo && branch) {
       if (sourceType !== 'github' || !sourceData) {
         setSourceType('github');
-        setSourceData({ repo_url: repoUrl });
+        setSourceData({ repo_url: repoUrl, branch });
       }
       // Repository ID is set by the useRepositoryData hook after fetching data
       // Don't override it with user ID - that's incorrect
     }
-  }, [owner, repo, repoUrl, sourceType, sourceData, setSourceType, setSourceData]);
+  }, [owner, repo, branch, repoUrl, sourceType, sourceData, setSourceType, setSourceData]);
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';
@@ -97,10 +96,10 @@ export default function ResultsPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleChat = () => {
-    // Allow chat if we have output (repository has been processed) or if chat is already open
-    if (!output && !currentRepoId && !isChatOpen) {
+    // Allow chat if we have repository identifier (from URL) or if chat is already open
+    if (!repositoryIdentifier && !isChatOpen) {
       showToast.error(
-        'Repository not processed yet. Please wait for processing to complete before chatting.',
+        'Repository not available. Please select a valid repository to start chatting.',
       );
       return;
     }
@@ -182,10 +181,10 @@ export default function ResultsPage() {
 
   // Redirect if no output and no params (fallback)
   useEffect(() => {
-    if (!output && !loading && !(owner && repo)) {
+    if (!output && !loading && !(owner && repo && branch)) {
       router.replace('/');
     }
-  }, [output, loading, router, owner, repo]);
+  }, [output, loading, router, owner, repo, branch]);
 
   type GitHubSource = {
     repo_url: string;
@@ -233,7 +232,16 @@ export default function ResultsPage() {
     return 'Repository';
   };
 
-  if (loading || (!output && !(owner && repo))) {
+  // Helper to get display name with branch
+  const getRepoDisplayName = () => {
+    const repoName = getRepoName();
+    if (repoName !== 'Repository' && branch) {
+      return `${repoName} (${branch})`;
+    }
+    return repoName;
+  };
+
+  if (loading || (!output && !(owner && repo && branch))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="flex flex-col items-center gap-4 sm:gap-6 p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl max-w-sm w-full">
@@ -300,7 +308,7 @@ export default function ResultsPage() {
               {/* Show repo name in dropdown for small screens */}
               <div className="sm:hidden flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg">
                 <Github className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-medium truncate">{getRepoName()}</span>
+                <span className="text-sm font-medium truncate">{getRepoDisplayName()}</span>
               </div>
 
               <Button
@@ -353,7 +361,7 @@ export default function ResultsPage() {
         <div className="fixed top-4 lg:top-6 left-16 lg:left-20 z-40 flex items-center max-w-[calc(100vw-400px)]">
           <div className="flex items-center gap-2 bg-background/90 backdrop-blur-xl rounded-2xl px-3 lg:px-4 py-2 border border-border/60 shadow-md max-w-full">
             <Github className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-sm font-medium truncate">{getRepoName()}</span>
+            <span className="text-sm font-medium truncate">{getRepoDisplayName()}</span>
             <Button
               variant="ghost"
               size="icon"
@@ -402,6 +410,12 @@ export default function ResultsPage() {
                 <span className="text-muted-foreground">Source:</span>
                 <span>{sourceType === 'github' ? 'GitHub Repository' : 'ZIP Archive'}</span>
               </div>
+              {branch && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Branch:</span>
+                  <span className="font-mono text-xs bg-muted/50 px-2 py-1 rounded">{branch}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -814,12 +828,12 @@ export default function ResultsPage() {
             onClick={toggleChat}
             isOpen={isChatOpen}
             unreadCount={0}
-            isLoading={!currentRepoId && loading}
+            isLoading={!repositoryIdentifier && loading}
           />
           <ChatSidebar
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
-            repositoryId={validRepositoryId}
+            repositoryIdentifier={repositoryIdentifier}
             repositoryName={getRepoName()}
             repositoryBranch={repositoryBranch}
             userKeyPreferences={userKeyPreferences}

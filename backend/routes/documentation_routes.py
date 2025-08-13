@@ -357,7 +357,11 @@ async def generate_wiki(
         if not api_key:
             raise HTTPException(
                 status_code=400,
-                detail=f"No API key found for {original_provider.upper()} or fallback providers. Please configure your API key in settings."
+                detail={
+                    "error_type": "no_api_key",
+                    "message": f"No API key found for {original_provider.upper()} or fallback providers. Please add a valid API key in settings.",
+                    "provider": original_provider
+                }
             )
     # --- End of API Key Logic ---
 

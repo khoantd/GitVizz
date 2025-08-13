@@ -191,9 +191,9 @@ async def get_conversation_history(
 )
 async def list_user_chat_sessions(
     jwt_token: Annotated[str, Form(description="JWT authentication token")],
-    repo_id: Annotated[str,Form(description="Repository ID")]
+    repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
 ):
-    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repo_id=repo_id)
+    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repository_identifier=repository_identifier)
 
 # Chat session endpoint
 @router.post(

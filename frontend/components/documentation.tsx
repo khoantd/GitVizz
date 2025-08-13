@@ -55,6 +55,8 @@ import {
 import { extractJwtToken } from '@/utils/token-utils';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useDocumentationProgress } from '@/lib/sse-client';
+import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
+import { ApiKeyModal } from './api-key-modal';
 
 // Markdown and Syntax Highlighting imports
 import ReactMarkdown from 'react-markdown';
@@ -503,6 +505,7 @@ export default function Documentation({
   userKeyPreferences = {},
 }: DocumentationTabProps) {
   const { data: session } = useSession();
+  const apiKeyValidation = useApiKeyValidation();
 
   // Suppress unused variable warning
   void userKeyPreferences;
@@ -826,6 +829,10 @@ export default function Documentation({
   const handleGenerateDocumentation = async () => {
     if (!session?.jwt_token || !currentRepoId || !sourceData) return;
 
+    // Check for API keys before generating documentation
+    const canProceed = await apiKeyValidation.checkApiKeysBeforeAction();
+    if (!canProceed) return;
+
     try {
       setIsGenerating(true);
       setError(null);
@@ -873,9 +880,12 @@ export default function Documentation({
             ' Try switching to a different AI provider or wait a few minutes before retrying.';
         } else if (
           errorMessage.toLowerCase().includes('authentication') ||
-          errorMessage.toLowerCase().includes('api key')
+          errorMessage.toLowerCase().includes('api key') ||
+          errorMessage.toLowerCase().includes('no api key')
         ) {
-          actionableAdvice = ' Please check your API key configuration in Settings.';
+          actionableAdvice = ' Please add a valid API key in Settings.';
+          // Show API key modal for immediate action
+          apiKeyValidation.setShowApiKeyModal(true);
         } else if (
           errorMessage.toLowerCase().includes('quota') ||
           errorMessage.toLowerCase().includes('billing')
@@ -944,6 +954,8 @@ export default function Documentation({
           } else if (statusResponse.status === 'failed') {
             setIsGenerating(false);
             setError('Please Provide Valid API Key for the selected model or try again later');
+            // Show API key modal for immediate action
+            apiKeyValidation.setShowApiKeyModal(true);
           }
         } catch (err) {
           console.error('Error checking status:', err);
@@ -1814,6 +1826,14 @@ export default function Documentation({
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* API Key Modal */}
+      <ApiKeyModal
+        isOpen={apiKeyValidation.showApiKeyModal}
+        onClose={() => apiKeyValidation.setShowApiKeyModal(false)}
+        userHasKeys={apiKeyValidation.userHasKeys}
+        availableProviders={apiKeyValidation.availableProviders}
+      />
     </div>
   );
 }

@@ -555,7 +555,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
-        router.push(`/results/${owner}/${name}`);
+        router.push(`/results/${owner}/${name}/${finalBranch}`);
       } catch {
         router.push('/results');
       }
@@ -615,7 +615,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
-        router.push(`/results/${owner}/${name}`);
+        router.push(`/results/${owner}/${name}/${finalBranch}`);
       } catch {
         router.push('/results');
       }

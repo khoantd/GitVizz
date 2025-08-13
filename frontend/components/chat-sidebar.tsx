@@ -29,8 +29,6 @@ import {
   AlertTriangle,
   Database,
   Zap,
-  Code,
-  Activity,
   Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,7 +45,7 @@ type ContextMode = 'full' | 'smart' | 'agentic';
 interface ChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  repositoryId: string;
+  repositoryIdentifier: string; // Format: owner/repo/branch
   repositoryName: string;
   repositoryBranch?: string;
   userKeyPreferences?: Record<string, boolean>;
@@ -65,7 +63,7 @@ interface LoadingState {
 export function ChatSidebar({
   isOpen,
   onClose,
-  repositoryId,
+  repositoryIdentifier,
   repositoryName,
   repositoryBranch = 'main',
   userKeyPreferences = {},
@@ -85,8 +83,8 @@ export function ChatSidebar({
     isLoadingHistory,
     contextSettings,
     setContextSettings,
-  } = useChatSidebar(repositoryId, userKeyPreferences, {
-    autoLoad: isOpen && Boolean(repositoryId),
+  } = useChatSidebar(repositoryIdentifier, userKeyPreferences, {
+    autoLoad: isOpen && Boolean(repositoryIdentifier),
     repositoryBranch,
   });
 
@@ -169,9 +167,9 @@ export function ChatSidebar({
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
-    // Check if repository ID is valid before proceeding
-    if (!repositoryId || repositoryId.trim() === '' || repositoryId.includes('/')) {
-      // This should be handled by the hook, but add extra validation here
+    // Check if repository identifier is valid before proceeding
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || !repositoryIdentifier.includes('/')) {
+      // Repository identifier should be in format: owner/repo/branch
       return;
     }
 
@@ -266,7 +264,7 @@ export function ChatSidebar({
   const activeUserKeys = userHasKeys.filter((key) => userKeyPreferences[key] !== false);
 
   // Check if repository is ready for chat
-  const isRepositoryReady = repositoryId && repositoryId.trim() !== '' && !repositoryId.includes('/');
+  const isRepositoryReady = repositoryIdentifier && repositoryIdentifier.trim() !== '' && repositoryIdentifier.includes('/');
 
   return (
     <>
