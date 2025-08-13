@@ -25,11 +25,11 @@ export interface SSEEventHandlers {
 export class DocumentationSSEClient {
   private eventSource: EventSource | null = null;
   private baseUrl: string;
-  
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003') {
+
+  constructor(baseUrl: string = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003') {
     this.baseUrl = baseUrl;
   }
-  
+
   /**
    * Start streaming progress updates for a documentation generation task
    */
@@ -37,24 +37,24 @@ export class DocumentationSSEClient {
     if (this.eventSource) {
       this.eventSource.close();
     }
-    
+
     const url = `${this.baseUrl}/api/documentation/progress-stream/${taskId}`;
     this.eventSource = new EventSource(url);
-    
+
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
+
         switch (data.type) {
           case 'status':
             handlers.onStatusChange?.(data.status, data.message);
             break;
-            
+
           case 'complete':
             handlers.onComplete?.(data.status, data.final_message, data.error);
             this.stopStreaming();
             break;
-            
+
           default:
             // Regular progress update
             handlers.onProgress?.(data as ProgressUpdate);
@@ -65,18 +65,18 @@ export class DocumentationSSEClient {
         handlers.onError?.('Error parsing progress update');
       }
     };
-    
+
     this.eventSource.onerror = (error) => {
       console.error('SSE connection error:', error);
       handlers.onError?.('Connection error');
       this.stopStreaming();
     };
-    
+
     this.eventSource.onopen = () => {
       console.log('SSE connection opened for task:', taskId);
     };
   }
-  
+
   /**
    * Stop streaming and close the connection
    */
@@ -86,7 +86,7 @@ export class DocumentationSSEClient {
       this.eventSource = null;
     }
   }
-  
+
   /**
    * Check if currently streaming
    */
@@ -104,27 +104,27 @@ export function useDocumentationProgress(taskId: string | null) {
   const [currentMessage, setCurrentMessage] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const clientRef = useRef<DocumentationSSEClient | null>(null);
-  
+
   useEffect(() => {
     if (!taskId) return;
-    
+
     if (!clientRef.current) {
       clientRef.current = new DocumentationSSEClient();
     }
-    
+
     const handlers: SSEEventHandlers = {
       onProgress: (update) => {
-        setProgressUpdates(prev => [...prev, update]);
+        setProgressUpdates((prev) => [...prev, update]);
         setCurrentMessage(update.message);
       },
-      
+
       onStatusChange: (status, message) => {
         setCurrentStatus(status);
         setCurrentMessage(message);
       },
-      
+
       onComplete: (status, message, error) => {
         setCurrentStatus(status);
         setCurrentMessage(message);
@@ -133,28 +133,28 @@ export function useDocumentationProgress(taskId: string | null) {
         }
         setIsStreaming(false);
       },
-      
+
       onError: (errorMsg) => {
         setError(errorMsg);
         setIsStreaming(false);
-      }
+      },
     };
-    
+
     setIsStreaming(true);
     setError(null);
     clientRef.current.startStreaming(taskId, handlers);
-    
+
     return () => {
       clientRef.current?.stopStreaming();
       setIsStreaming(false);
     };
   }, [taskId]);
-  
+
   const stopStreaming = () => {
     clientRef.current?.stopStreaming();
     setIsStreaming(false);
   };
-  
+
   return {
     progressUpdates,
     currentStatus,
