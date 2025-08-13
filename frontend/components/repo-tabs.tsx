@@ -42,7 +42,6 @@ import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { SupportedLanguages, type Language } from '@/components/supported-languages';
 import { IndexedRepositories } from '@/components/IndexedRepositories';
-import { extractJwtToken } from '@/utils/token-utils';
 
 // --- Constants & Types ---
 const SUPPORTED_LANGUAGES: Language[] = [
@@ -398,11 +397,11 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         );
 
         setRepositories(transformedRepos as Repository[]);
-        
+
         // Auto-load branches for first few repositories to encourage branch selection
         if (transformedRepos.length > 0) {
           handleSuccess(`Successfully loaded ${transformedRepos.length} GitHub repositories`);
-          
+
           // Load branches for first 3 repositories automatically
           const reposToAutoLoad = transformedRepos.slice(0, 3);
           reposToAutoLoad.forEach((repo: Repository) => {
@@ -473,40 +472,43 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   };
 
   // --- My Repos Branch Selection Functions ---
-  const loadRepoBranches = useCallback(async (repo: Repository) => {
-    if (loadingBranches.includes(repo.id)) return;
+  const loadRepoBranches = useCallback(
+    async (repo: Repository) => {
+      if (loadingBranches.includes(repo.id)) return;
 
-    setLoadingBranches((prev) => [...prev, repo.id]);
+      setLoadingBranches((prev) => [...prev, repo.id]);
 
-    try {
-      const repoUrl = repo.html_url;
-      const branches = await getRepositoryBranches(repoUrl, session?.accessToken || undefined);
+      try {
+        const repoUrl = repo.html_url;
+        const branches = await getRepositoryBranches(repoUrl, session?.accessToken || undefined);
 
-      // Determine a default branch
-      let defaultBranch = repo.default_branch || '';
-      if (!defaultBranch) {
-        if (branches.includes('main')) defaultBranch = 'main';
-        else if (branches.includes('master')) defaultBranch = 'master';
-        else defaultBranch = branches[0] || 'main';
+        // Determine a default branch
+        let defaultBranch = repo.default_branch || '';
+        if (!defaultBranch) {
+          if (branches.includes('main')) defaultBranch = 'main';
+          else if (branches.includes('master')) defaultBranch = 'master';
+          else defaultBranch = branches[0] || 'main';
+        }
+
+        setRepoBranchStates((prev) => ({
+          ...prev,
+          [repo.id]: {
+            branches,
+            selectedBranch: prev[repo.id]?.selectedBranch || defaultBranch,
+            defaultBranch,
+            isLoading: false,
+            showBranchSelection: true,
+          },
+        }));
+      } catch (e) {
+        console.error('Failed to load branches:', e);
+        handleError('Failed to load branches for this repository.');
+      } finally {
+        setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
       }
-
-      setRepoBranchStates((prev) => ({
-        ...prev,
-        [repo.id]: {
-          branches,
-          selectedBranch: prev[repo.id]?.selectedBranch || defaultBranch,
-          defaultBranch,
-          isLoading: false,
-          showBranchSelection: true,
-        },
-      }));
-    } catch (e) {
-      console.error('Failed to load branches:', e);
-      handleError('Failed to load branches for this repository.');
-    } finally {
-      setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
-    }
-  }, [loadingBranches, repoBranchStates, session?.accessToken, handleError]);
+    },
+    [loadingBranches, repoBranchStates, session?.accessToken, handleError],
+  );
 
   const handleRepoBranchSelect = (repoId: number, branchName: string) => {
     setRepoBranchStates((prev) => ({
@@ -558,7 +560,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl,
         access_token: session?.accessToken || undefined,
         branch: finalBranch,
-        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
+        jwt_token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -619,7 +621,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: finalBranch,
-        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
+        jwt_token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -662,14 +664,14 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     try {
       const { text_content: text, repo_id } = await uploadLocalZipWithAuth(
         zipFile,
-        extractJwtToken(session?.jwt_token) || '',
+        session?.jwt_token || undefined,
       );
       setCurrentRepoId(repo_id);
       setOutput(text);
       setSourceType('zip');
       setSourceData(zipFile);
       setOutputMessage('ZIP file processed successfully!');
-      
+
       const zipName = zipFile.name.replace(/\.zip$/i, '');
       router.push(`/results/zip/${encodeURIComponent(zipName)}`);
     } catch (err: unknown) {
@@ -1416,7 +1418,11 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                   <Button
                                     className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
                                     onClick={() => handleVizifyRepo(repo)}
-                                    disabled={isProcessingRepo || loading || !repoBranchStates[repo.id]?.selectedBranch}
+                                    disabled={
+                                      isProcessingRepo ||
+                                      loading ||
+                                      !repoBranchStates[repo.id]?.selectedBranch
+                                    }
                                   >
                                     {isProcessingRepo ? (
                                       <>
@@ -1427,7 +1433,9 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                     ) : !hasSelectedBranch ? (
                                       <>
                                         <GitBranch className="h-4 w-4 mr-2" />
-                                        <span className="hidden sm:inline">Select Branch First</span>
+                                        <span className="hidden sm:inline">
+                                          Select Branch First
+                                        </span>
                                         <span className="sm:hidden">Select Branch</span>
                                       </>
                                     ) : (

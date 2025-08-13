@@ -2,9 +2,9 @@
 
 import { getAuthClient, apiClient } from './client-config';
 import {
-  generateTextEndpointApiRepoGenerateTextPost,
-  generateGraphEndpointApiRepoGenerateGraphPost,
-  generateStructureEndpointApiRepoGenerateStructurePost,
+  generateTextRouteApiRepoGenerateTextPost,
+  generateGraphRouteApiRepoGenerateGraphPost,
+  generateStructureRouteApiRepoGenerateStructurePost,
   loginUserApiBackendAuthLoginPost,
   processChatMessageApiBackendChatChatPost,
   streamChatResponseApiBackendChatChatStreamPost,
@@ -92,9 +92,9 @@ type ResponseMap = {
 
 // Type mapping for API functions
 type ApiFunctionMap = {
-  [OperationType.TEXT]: typeof generateTextEndpointApiRepoGenerateTextPost;
-  [OperationType.GRAPH]: typeof generateGraphEndpointApiRepoGenerateGraphPost;
-  [OperationType.STRUCTURE]: typeof generateStructureEndpointApiRepoGenerateStructurePost;
+  [OperationType.TEXT]: typeof generateTextRouteApiRepoGenerateTextPost;
+  [OperationType.GRAPH]: typeof generateGraphRouteApiRepoGenerateGraphPost;
+  [OperationType.STRUCTURE]: typeof generateStructureRouteApiRepoGenerateStructurePost;
 };
 
 /**
@@ -282,9 +282,9 @@ export async function resolveBranch(
 
 // API function mapping
 const API_FUNCTIONS: ApiFunctionMap = {
-  [OperationType.TEXT]: generateTextEndpointApiRepoGenerateTextPost,
-  [OperationType.GRAPH]: generateGraphEndpointApiRepoGenerateGraphPost,
-  [OperationType.STRUCTURE]: generateStructureEndpointApiRepoGenerateStructurePost,
+  [OperationType.TEXT]: generateTextRouteApiRepoGenerateTextPost,
+  [OperationType.GRAPH]: generateGraphRouteApiRepoGenerateGraphPost,
+  [OperationType.STRUCTURE]: generateStructureRouteApiRepoGenerateStructurePost,
 };
 
 // Error messages mapping
@@ -318,21 +318,23 @@ async function executeOperation<T extends OperationType>(
       resolvedBranch = await resolveBranch(request.repo_url, request.branch, request.access_token);
     }
 
-    // Prepare the request data with resolved branch
+    // Prepare the request data with resolved branch (no jwt_token in body)
     const requestData = {
       repo_url: request.repo_url || null,
       branch: resolvedBranch,
       access_token: request.access_token || null,
-      jwt_token: request.jwt_token || null,
       zip_file: request.zip_file || null,
     };
 
     // Get the appropriate API function
     const apiFunction = API_FUNCTIONS[operationType];
 
-    // Execute the API call with proper options structure
+    // Execute the API call with Authorization header
     const response = await apiFunction({
       body: requestData,
+      headers: {
+        Authorization: request.jwt_token || '', // Token already contains "Bearer "
+      },
     });
 
     // Handle errors
@@ -575,7 +577,6 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
   try {
     const response = await processChatMessageApiBackendChatChatPost({
       body: {
-        token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
         use_user: chatRequest.use_user || false,

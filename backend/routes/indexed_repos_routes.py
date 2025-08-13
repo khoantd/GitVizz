@@ -21,8 +21,6 @@ router = APIRouter(prefix="/indexed-repos")
     - Creation/update timestamps
     - File sizes
     - User tier information
-    
-    Requires authentication via JWT token in request body.
     """,
     response_description="List of indexed repositories with metadata",
     responses={

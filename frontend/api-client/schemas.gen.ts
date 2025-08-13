@@ -149,7 +149,7 @@ export const Body_delete_user_api_key_backend_enhancedSchema = {
   title: 'Body_delete_user_api_key_backend_enhanced',
 } as const;
 
-export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
+export const Body_generate_graph_route_api_repo_generate_graph_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -201,24 +201,12 @@ export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
       title: 'Access Token',
       description: 'Optional GitHub token for accessing private repositories.',
     },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token for user authentication.',
-    },
   },
   type: 'object',
-  title: 'Body_generate_graph_endpoint_api_repo_generate_graph_post',
+  title: 'Body_generate_graph_route_api_repo_generate_graph_post',
 } as const;
 
-export const Body_generate_structure_endpoint_api_repo_generate_structure_postSchema = {
+export const Body_generate_structure_route_api_repo_generate_structure_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -270,24 +258,12 @@ export const Body_generate_structure_endpoint_api_repo_generate_structure_postSc
       title: 'Access Token',
       description: 'Optional GitHub token for accessing private repositories.',
     },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token for user authentication.',
-    },
   },
   type: 'object',
-  title: 'Body_generate_structure_endpoint_api_repo_generate_structure_post',
+  title: 'Body_generate_structure_route_api_repo_generate_structure_post',
 } as const;
 
-export const Body_generate_subgraph_endpoint_api_repo_generate_subgraph_postSchema = {
+export const Body_generate_subgraph_route_api_repo_generate_subgraph_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -325,18 +301,6 @@ export const Body_generate_subgraph_endpoint_api_repo_generate_subgraph_postSche
       ],
       title: 'Access Token',
       description: 'Optional GitHub token.',
-    },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token.',
     },
     center_node_id: {
       anyOf: [
@@ -426,10 +390,10 @@ export const Body_generate_subgraph_endpoint_api_repo_generate_subgraph_postSche
     },
   },
   type: 'object',
-  title: 'Body_generate_subgraph_endpoint_api_repo_generate_subgraph_post',
+  title: 'Body_generate_subgraph_route_api_repo_generate_subgraph_post',
 } as const;
 
-export const Body_generate_text_endpoint_api_repo_generate_text_postSchema = {
+export const Body_generate_text_route_api_repo_generate_text_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -481,21 +445,9 @@ export const Body_generate_text_endpoint_api_repo_generate_text_postSchema = {
       title: 'Access Token',
       description: 'Optional GitHub token for accessing private repositories.',
     },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token for user authentication.',
-    },
   },
   type: 'object',
-  title: 'Body_generate_text_endpoint_api_repo_generate_text_post',
+  title: 'Body_generate_text_route_api_repo_generate_text_post',
 } as const;
 
 export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {

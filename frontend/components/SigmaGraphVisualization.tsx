@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { generateGraphFromGithub, generateGraphFromZip } from '@/utils/api';
-import { extractJwtToken } from '@/utils/token-utils';
 import type {
   GraphResponse,
   GraphNode as ApiGraphNode,
@@ -128,13 +127,10 @@ export default function SigmaGraphVisualization({
         if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
           response = await generateGraphFromGithubWithAuth({
             ...sourceData,
-            jwt_token: extractJwtToken(session?.jwt_token) || '',
+            jwt_token: session?.jwt_token || undefined,
           });
         } else if (sourceType === 'zip' && sourceData instanceof File) {
-          response = await generateGraphFromZipWithAuth(
-            sourceData,
-            extractJwtToken(session?.jwt_token) || '',
-          );
+          response = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
         } else {
           throw new Error('Invalid source type or data');
         }

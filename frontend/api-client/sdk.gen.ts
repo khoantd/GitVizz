@@ -8,18 +8,18 @@ import {
   urlSearchParamsBodySerializer,
 } from '@hey-api/client-fetch';
 import type {
-  GenerateTextEndpointApiRepoGenerateTextPostData,
-  GenerateTextEndpointApiRepoGenerateTextPostResponses,
-  GenerateTextEndpointApiRepoGenerateTextPostErrors,
-  GenerateGraphEndpointApiRepoGenerateGraphPostData,
-  GenerateGraphEndpointApiRepoGenerateGraphPostResponses,
-  GenerateGraphEndpointApiRepoGenerateGraphPostErrors,
-  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostData,
-  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses,
-  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors,
-  GenerateStructureEndpointApiRepoGenerateStructurePostData,
-  GenerateStructureEndpointApiRepoGenerateStructurePostResponses,
-  GenerateStructureEndpointApiRepoGenerateStructurePostErrors,
+  GenerateTextRouteApiRepoGenerateTextPostData,
+  GenerateTextRouteApiRepoGenerateTextPostResponses,
+  GenerateTextRouteApiRepoGenerateTextPostErrors,
+  GenerateGraphRouteApiRepoGenerateGraphPostData,
+  GenerateGraphRouteApiRepoGenerateGraphPostResponses,
+  GenerateGraphRouteApiRepoGenerateGraphPostErrors,
+  GenerateSubgraphRouteApiRepoGenerateSubgraphPostData,
+  GenerateSubgraphRouteApiRepoGenerateSubgraphPostResponses,
+  GenerateSubgraphRouteApiRepoGenerateSubgraphPostErrors,
+  GenerateStructureRouteApiRepoGenerateStructurePostData,
+  GenerateStructureRouteApiRepoGenerateStructurePostResponses,
+  GenerateStructureRouteApiRepoGenerateStructurePostErrors,
   LoginUserApiBackendAuthLoginPostData,
   LoginUserApiBackendAuthLoginPostResponses,
   LoginUserApiBackendAuthLoginPostErrors,
@@ -125,12 +125,12 @@ export type Options<
  * Generates LLM-friendly text from a code repository with smart caching.
  * Generates LLM-friendly text from a code repository or ZIP file.
  */
-export const generateTextEndpointApiRepoGenerateTextPost = <ThrowOnError extends boolean = false>(
-  options?: Options<GenerateTextEndpointApiRepoGenerateTextPostData, ThrowOnError>,
+export const generateTextRouteApiRepoGenerateTextPost = <ThrowOnError extends boolean = false>(
+  options?: Options<GenerateTextRouteApiRepoGenerateTextPostData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).post<
-    GenerateTextEndpointApiRepoGenerateTextPostResponses,
-    GenerateTextEndpointApiRepoGenerateTextPostErrors,
+    GenerateTextRouteApiRepoGenerateTextPostResponses,
+    GenerateTextRouteApiRepoGenerateTextPostErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
@@ -147,12 +147,12 @@ export const generateTextEndpointApiRepoGenerateTextPost = <ThrowOnError extends
  * Generates a dependency graph from a code repository with smart caching.
  * Generates a dependency graph representation from a code repository or ZIP file.
  */
-export const generateGraphEndpointApiRepoGenerateGraphPost = <ThrowOnError extends boolean = false>(
-  options?: Options<GenerateGraphEndpointApiRepoGenerateGraphPostData, ThrowOnError>,
+export const generateGraphRouteApiRepoGenerateGraphPost = <ThrowOnError extends boolean = false>(
+  options?: Options<GenerateGraphRouteApiRepoGenerateGraphPostData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).post<
-    GenerateGraphEndpointApiRepoGenerateGraphPostResponses,
-    GenerateGraphEndpointApiRepoGenerateGraphPostErrors,
+    GenerateGraphRouteApiRepoGenerateGraphPostResponses,
+    GenerateGraphRouteApiRepoGenerateGraphPostErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
@@ -170,14 +170,14 @@ export const generateGraphEndpointApiRepoGenerateGraphPost = <ThrowOnError exten
  * Returns a subset of the repository graph, centered at a node (ego network) and/or filtered by
  * categories, file paths, or relationship types. Uses cached full graph if available.
  */
-export const generateSubgraphEndpointApiRepoGenerateSubgraphPost = <
+export const generateSubgraphRouteApiRepoGenerateSubgraphPost = <
   ThrowOnError extends boolean = false,
 >(
-  options?: Options<GenerateSubgraphEndpointApiRepoGenerateSubgraphPostData, ThrowOnError>,
+  options?: Options<GenerateSubgraphRouteApiRepoGenerateSubgraphPostData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).post<
-    GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses,
-    GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors,
+    GenerateSubgraphRouteApiRepoGenerateSubgraphPostResponses,
+    GenerateSubgraphRouteApiRepoGenerateSubgraphPostErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
@@ -194,14 +194,14 @@ export const generateSubgraphEndpointApiRepoGenerateSubgraphPost = <
  * Generates the file structure and content of a code repository with smart caching.
  * Generates the complete file structure and content of a code repository or ZIP file.
  */
-export const generateStructureEndpointApiRepoGenerateStructurePost = <
+export const generateStructureRouteApiRepoGenerateStructurePost = <
   ThrowOnError extends boolean = false,
 >(
-  options?: Options<GenerateStructureEndpointApiRepoGenerateStructurePostData, ThrowOnError>,
+  options?: Options<GenerateStructureRouteApiRepoGenerateStructurePostData, ThrowOnError>,
 ) => {
   return (options?.client ?? _heyApiClient).post<
-    GenerateStructureEndpointApiRepoGenerateStructurePostResponses,
-    GenerateStructureEndpointApiRepoGenerateStructurePostErrors,
+    GenerateStructureRouteApiRepoGenerateStructurePostResponses,
+    GenerateStructureRouteApiRepoGenerateStructurePostErrors,
     ThrowOnError
   >({
     ...formDataBodySerializer,
@@ -637,8 +637,6 @@ export const listRepositoryDocsApiDocumentationRepositoryDocsPost = <
  * - Creation/update timestamps
  * - File sizes
  * - User tier information
- *
- * Requires authentication via JWT token in request body.
  */
 export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends boolean = false>(
   options?: Options<GetIndexedRepositoriesApiIndexedReposPostData, ThrowOnError>,

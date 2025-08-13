@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, Depends
 from fastapi.responses import StreamingResponse
 from typing import Optional, Annotated
+from middleware.auth_middleware import require_auth
+from models.user import User
 from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
     ChatSessionResponse, ApiKeyResponse,
@@ -43,7 +45,7 @@ router = APIRouter(prefix="/backend-chat")
     }
 )
 async def process_chat_message(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     message: Annotated[str, Form(description="User's message/question")],
     repository_id: Annotated[str, Form(description="Repository ID to chat about")],
     use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
@@ -57,7 +59,7 @@ async def process_chat_message(
     context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None
 ):
     return await chat_controller.process_chat_message(
-        token=token,
+        user=current_user,
         message=message,
         repository_id=repository_id,
         use_user=use_user,

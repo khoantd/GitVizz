@@ -88,9 +88,9 @@ export type BodyDeleteUserApiKeyBackendEnhanced = {
 };
 
 /**
- * Body_generate_graph_endpoint_api_repo_generate_graph_post
+ * Body_generate_graph_route_api_repo_generate_graph_post
  */
-export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
+export type BodyGenerateGraphRouteApiRepoGenerateGraphPost = {
   /**
    * Repo Url
    * URL to a downloadable ZIP of the repository.
@@ -111,17 +111,12 @@ export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
    * Optional GitHub token for accessing private repositories.
    */
   access_token?: string | null;
-  /**
-   * Jwt Token
-   * Optional JWT token for user authentication.
-   */
-  jwt_token?: string | null;
 };
 
 /**
- * Body_generate_structure_endpoint_api_repo_generate_structure_post
+ * Body_generate_structure_route_api_repo_generate_structure_post
  */
-export type BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
+export type BodyGenerateStructureRouteApiRepoGenerateStructurePost = {
   /**
    * Repo Url
    * URL to a downloadable ZIP of the repository.
@@ -142,17 +137,12 @@ export type BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
    * Optional GitHub token for accessing private repositories.
    */
   access_token?: string | null;
-  /**
-   * Jwt Token
-   * Optional JWT token for user authentication.
-   */
-  jwt_token?: string | null;
 };
 
 /**
- * Body_generate_subgraph_endpoint_api_repo_generate_subgraph_post
+ * Body_generate_subgraph_route_api_repo_generate_subgraph_post
  */
-export type BodyGenerateSubgraphEndpointApiRepoGenerateSubgraphPost = {
+export type BodyGenerateSubgraphRouteApiRepoGenerateSubgraphPost = {
   /**
    * Repo Url
    * URL to a downloadable ZIP of the repository.
@@ -168,11 +158,6 @@ export type BodyGenerateSubgraphEndpointApiRepoGenerateSubgraphPost = {
    * Optional GitHub token.
    */
   access_token?: string | null;
-  /**
-   * Jwt Token
-   * Optional JWT token.
-   */
-  jwt_token?: string | null;
   /**
    * Center Node Id
    * Center node id for ego network.
@@ -211,9 +196,9 @@ export type BodyGenerateSubgraphEndpointApiRepoGenerateSubgraphPost = {
 };
 
 /**
- * Body_generate_text_endpoint_api_repo_generate_text_post
+ * Body_generate_text_route_api_repo_generate_text_post
  */
-export type BodyGenerateTextEndpointApiRepoGenerateTextPost = {
+export type BodyGenerateTextRouteApiRepoGenerateTextPost = {
   /**
    * Repo Url
    * URL to a downloadable ZIP of the repository (e.g., GitHub archive link).
@@ -234,11 +219,6 @@ export type BodyGenerateTextEndpointApiRepoGenerateTextPost = {
    * Optional GitHub token for accessing private repositories.
    */
   access_token?: string | null;
-  /**
-   * Jwt Token
-   * Optional JWT token for user authentication.
-   */
-  jwt_token?: string | null;
 };
 
 /**
@@ -1594,14 +1574,20 @@ export type WikiGenerationResponse = {
   } | null;
 };
 
-export type GenerateTextEndpointApiRepoGenerateTextPostData = {
-  body?: BodyGenerateTextEndpointApiRepoGenerateTextPost;
+export type GenerateTextRouteApiRepoGenerateTextPostData = {
+  body?: BodyGenerateTextRouteApiRepoGenerateTextPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/repo/generate-text';
 };
 
-export type GenerateTextEndpointApiRepoGenerateTextPostErrors = {
+export type GenerateTextRouteApiRepoGenerateTextPostErrors = {
   /**
    * Invalid input (e.g., no URL or ZIP provided).
    */
@@ -1624,27 +1610,33 @@ export type GenerateTextEndpointApiRepoGenerateTextPostErrors = {
   500: ErrorResponse;
 };
 
-export type GenerateTextEndpointApiRepoGenerateTextPostError =
-  GenerateTextEndpointApiRepoGenerateTextPostErrors[keyof GenerateTextEndpointApiRepoGenerateTextPostErrors];
+export type GenerateTextRouteApiRepoGenerateTextPostError =
+  GenerateTextRouteApiRepoGenerateTextPostErrors[keyof GenerateTextRouteApiRepoGenerateTextPostErrors];
 
-export type GenerateTextEndpointApiRepoGenerateTextPostResponses = {
+export type GenerateTextRouteApiRepoGenerateTextPostResponses = {
   /**
    * Repository content as JSON (cached or newly generated).
    */
   200: TextResponse;
 };
 
-export type GenerateTextEndpointApiRepoGenerateTextPostResponse =
-  GenerateTextEndpointApiRepoGenerateTextPostResponses[keyof GenerateTextEndpointApiRepoGenerateTextPostResponses];
+export type GenerateTextRouteApiRepoGenerateTextPostResponse =
+  GenerateTextRouteApiRepoGenerateTextPostResponses[keyof GenerateTextRouteApiRepoGenerateTextPostResponses];
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostData = {
-  body?: BodyGenerateGraphEndpointApiRepoGenerateGraphPost;
+export type GenerateGraphRouteApiRepoGenerateGraphPostData = {
+  body?: BodyGenerateGraphRouteApiRepoGenerateGraphPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/repo/generate-graph';
 };
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostErrors = {
+export type GenerateGraphRouteApiRepoGenerateGraphPostErrors = {
   /**
    * Invalid input (e.g., no URL or ZIP provided).
    */
@@ -1667,27 +1659,33 @@ export type GenerateGraphEndpointApiRepoGenerateGraphPostErrors = {
   500: ErrorResponse;
 };
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostError =
-  GenerateGraphEndpointApiRepoGenerateGraphPostErrors[keyof GenerateGraphEndpointApiRepoGenerateGraphPostErrors];
+export type GenerateGraphRouteApiRepoGenerateGraphPostError =
+  GenerateGraphRouteApiRepoGenerateGraphPostErrors[keyof GenerateGraphRouteApiRepoGenerateGraphPostErrors];
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostResponses = {
+export type GenerateGraphRouteApiRepoGenerateGraphPostResponses = {
   /**
    * Dependency graph data as JSON (cached or newly generated).
    */
   200: GraphResponse;
 };
 
-export type GenerateGraphEndpointApiRepoGenerateGraphPostResponse =
-  GenerateGraphEndpointApiRepoGenerateGraphPostResponses[keyof GenerateGraphEndpointApiRepoGenerateGraphPostResponses];
+export type GenerateGraphRouteApiRepoGenerateGraphPostResponse =
+  GenerateGraphRouteApiRepoGenerateGraphPostResponses[keyof GenerateGraphRouteApiRepoGenerateGraphPostResponses];
 
-export type GenerateSubgraphEndpointApiRepoGenerateSubgraphPostData = {
-  body?: BodyGenerateSubgraphEndpointApiRepoGenerateSubgraphPost;
+export type GenerateSubgraphRouteApiRepoGenerateSubgraphPostData = {
+  body?: BodyGenerateSubgraphRouteApiRepoGenerateSubgraphPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/repo/generate-subgraph';
 };
 
-export type GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors = {
+export type GenerateSubgraphRouteApiRepoGenerateSubgraphPostErrors = {
   /**
    * Invalid input.
    */
@@ -1710,27 +1708,33 @@ export type GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors = {
   500: ErrorResponse;
 };
 
-export type GenerateSubgraphEndpointApiRepoGenerateSubgraphPostError =
-  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors[keyof GenerateSubgraphEndpointApiRepoGenerateSubgraphPostErrors];
+export type GenerateSubgraphRouteApiRepoGenerateSubgraphPostError =
+  GenerateSubgraphRouteApiRepoGenerateSubgraphPostErrors[keyof GenerateSubgraphRouteApiRepoGenerateSubgraphPostErrors];
 
-export type GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses = {
+export type GenerateSubgraphRouteApiRepoGenerateSubgraphPostResponses = {
   /**
    * Subgraph data as JSON.
    */
   200: GraphResponse;
 };
 
-export type GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponse =
-  GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses[keyof GenerateSubgraphEndpointApiRepoGenerateSubgraphPostResponses];
+export type GenerateSubgraphRouteApiRepoGenerateSubgraphPostResponse =
+  GenerateSubgraphRouteApiRepoGenerateSubgraphPostResponses[keyof GenerateSubgraphRouteApiRepoGenerateSubgraphPostResponses];
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostData = {
-  body?: BodyGenerateStructureEndpointApiRepoGenerateStructurePost;
+export type GenerateStructureRouteApiRepoGenerateStructurePostData = {
+  body?: BodyGenerateStructureRouteApiRepoGenerateStructurePost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/repo/generate-structure';
 };
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostErrors = {
+export type GenerateStructureRouteApiRepoGenerateStructurePostErrors = {
   /**
    * Invalid input (e.g., no URL or ZIP provided).
    */
@@ -1753,18 +1757,18 @@ export type GenerateStructureEndpointApiRepoGenerateStructurePostErrors = {
   500: ErrorResponse;
 };
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostError =
-  GenerateStructureEndpointApiRepoGenerateStructurePostErrors[keyof GenerateStructureEndpointApiRepoGenerateStructurePostErrors];
+export type GenerateStructureRouteApiRepoGenerateStructurePostError =
+  GenerateStructureRouteApiRepoGenerateStructurePostErrors[keyof GenerateStructureRouteApiRepoGenerateStructurePostErrors];
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostResponses = {
+export type GenerateStructureRouteApiRepoGenerateStructurePostResponses = {
   /**
    * Repository structure and content as JSON (cached or newly generated).
    */
   200: StructureResponse;
 };
 
-export type GenerateStructureEndpointApiRepoGenerateStructurePostResponse =
-  GenerateStructureEndpointApiRepoGenerateStructurePostResponses[keyof GenerateStructureEndpointApiRepoGenerateStructurePostResponses];
+export type GenerateStructureRouteApiRepoGenerateStructurePostResponse =
+  GenerateStructureRouteApiRepoGenerateStructurePostResponses[keyof GenerateStructureRouteApiRepoGenerateStructurePostResponses];
 
 export type LoginUserApiBackendAuthLoginPostData = {
   body: LoginRequest;
