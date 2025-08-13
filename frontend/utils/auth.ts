@@ -42,7 +42,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 
       // Return previous token if the access token has not expired yet
       const currentTime = Math.floor(Date.now() / 1000);
-      if (token.exp && currentTime < token.exp - 300) { // Refresh 5 minutes before expiry
+      if (token.exp && currentTime < token.exp - 300) {
+        // Refresh 5 minutes before expiry
         return token;
       }
 
@@ -50,7 +51,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       if (token.refresh_token) {
         try {
           const refreshedTokens = await refreshJwtToken(token.refresh_token as string);
-          
+
           return {
             ...token,
             jwt_token: 'Bearer ' + refreshedTokens.access_token,

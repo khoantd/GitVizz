@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { fetchGithubRepo, uploadLocalZip } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { useResultData } from '@/context/ResultDataContext';
-import { extractJwtToken } from '@/utils/token-utils';
 import type { SourceData, SourceType } from '@/utils/models';
 
 interface GitHubSourceData {
@@ -55,65 +54,64 @@ export function useRepositoryData({ owner, repo, branch, repoId }: UseRepository
   }, []);
 
   // Function to fetch repository data
-  const fetchRepositoryData = useCallback(async (
-    sourceType: SourceType,
-    sourceData: SourceData,
-    forceRefresh: boolean = false
-  ) => {
-    if (loading) return;
-    
-    // Don't fetch again if we already have the data for this source (unless forced)
-    if (!forceRefresh && output && currentRepoId) {
-      return;
-    }
+  const fetchRepositoryData = useCallback(
+    async (sourceType: SourceType, sourceData: SourceData, forceRefresh: boolean = false) => {
+      if (loading) return;
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (sourceType === 'github' && isGitHubSourceData(sourceData)) {
-        const requestData = {
-          ...sourceData,
-          access_token: session?.accessToken || undefined,
-          jwt_token: extractJwtToken(session?.jwt_token) || undefined,
-        };
-
-        const response = await fetchGithubRepoWithAuth(requestData);
-        setOutput(response.text_content);
-        setCurrentRepoId(response.repo_id);
-        setSourceType('github');
-        setSourceData(requestData);
-        
-        // Repository ID is now stored in the session, no need to update URL
-      } else if (sourceType === 'zip' && sourceData instanceof File) {
-        // For ZIP files, we would need the actual file, which might not be available on refresh
-        throw new Error('ZIP file data not available on page refresh');
+      // Don't fetch again if we already have the data for this source (unless forced)
+      if (!forceRefresh && output && currentRepoId) {
+        return;
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch repository data';
-      setError(errorMessage);
-      console.error('Error fetching repository data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    loading,
-    output,
-    currentRepoId,
-    setLoading,
-    setError,
-    setOutput,
-    setCurrentRepoId,
-    setSourceType,
-    setSourceData,
-    fetchGithubRepoWithAuth,
-    isGitHubSourceData,
-    session?.accessToken,
-    session?.jwt_token,
-    router,
-    owner,
-    repo,
-  ]);
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (sourceType === 'github' && isGitHubSourceData(sourceData)) {
+          const requestData = {
+            ...sourceData,
+            access_token: session?.accessToken || undefined,
+            jwt_token: session?.jwt_token || undefined,
+          };
+
+          const response = await fetchGithubRepoWithAuth(requestData);
+          setOutput(response.text_content);
+          setCurrentRepoId(response.repo_id);
+          setSourceType('github');
+          setSourceData(requestData);
+
+          // Repository ID is now stored in the session, no need to update URL
+        } else if (sourceType === 'zip' && sourceData instanceof File) {
+          // For ZIP files, we would need the actual file, which might not be available on refresh
+          throw new Error('ZIP file data not available on page refresh');
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch repository data';
+        setError(errorMessage);
+        console.error('Error fetching repository data:', err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      loading,
+      output,
+      currentRepoId,
+      setLoading,
+      setError,
+      setOutput,
+      setCurrentRepoId,
+      setSourceType,
+      setSourceData,
+      fetchGithubRepoWithAuth,
+      isGitHubSourceData,
+      session?.accessToken,
+      session?.jwt_token,
+      router,
+      owner,
+      repo,
+    ],
+  );
 
   // Auto-fetch data on mount if we have the necessary info but no data
   useEffect(() => {
@@ -132,7 +130,7 @@ export function useRepositoryData({ owner, repo, branch, repoId }: UseRepository
         repo_url: repoUrl,
         branch: branch || 'main',
       };
-      
+
       // Set the source data first, then fetch
       setSourceType('github');
       setSourceData(githubSourceData);
@@ -175,10 +173,10 @@ export function useRepositoryData({ owner, repo, branch, repoId }: UseRepository
     currentRepoId,
     sourceType,
     sourceData,
-    
+
     // Actions
     refreshData,
-    
+
     // Status
     hasAttemptedFetch,
   };

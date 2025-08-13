@@ -49,7 +49,6 @@ import {
 } from '@/utils/api';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useResultData } from '@/context/ResultDataContext';
-import { extractJwtToken } from '@/utils/token-utils';
 
 export default function ApiKeysPage() {
   const router = useRouter();
@@ -82,7 +81,7 @@ export default function ApiKeysPage() {
       if (!session?.jwt_token) return;
       try {
         setIsLoading(true);
-        const token = extractJwtToken(session?.jwt_token) || '';
+        const token = session?.jwt_token || undefined;
 
         // Fetch basic models first
         const models = await getAvailableModels(token);
@@ -147,7 +146,7 @@ export default function ApiKeysPage() {
     try {
       // Step 1: Verify the API key
       const result = await verifyApiKey({
-        token: extractJwtToken(session?.jwt_token) || '',
+        token: session?.jwt_token || undefined,
         provider,
         api_key: apiKey.trim(),
       });
@@ -164,7 +163,7 @@ export default function ApiKeysPage() {
         // Step 2: Save the API key since verification succeeded
         try {
           await saveApiKey({
-            token: extractJwtToken(session?.jwt_token) || '',
+            token: session?.jwt_token || undefined,
             provider,
             api_key: apiKey.trim(),
             key_name: keyName.trim() || undefined,
@@ -178,7 +177,7 @@ export default function ApiKeysPage() {
           );
 
           // Refetch all data to update the UI with the new key status
-          const token = extractJwtToken(session?.jwt_token) || '';
+          const token = session?.jwt_token || undefined;
           const models = await getAvailableModels(token);
           setAvailableModels(models);
 
@@ -229,14 +228,14 @@ export default function ApiKeysPage() {
 
     setIsDeletingKey(providerName);
     try {
-      await deleteUserApiKey(extractJwtToken(session?.jwt_token) || '', providerName, keyId);
+      await deleteUserApiKey(session?.jwt_token || undefined, providerName, keyId);
 
       showToast.success(
         `${providerName.charAt(0).toUpperCase() + providerName.slice(1)} API key deleted successfully!`,
       );
 
       // Refetch all data to update the UI
-      const token = extractJwtToken(session?.jwt_token) || '';
+      const token = session?.jwt_token || undefined;
       const models = await getAvailableModels(token);
       setAvailableModels(models);
 

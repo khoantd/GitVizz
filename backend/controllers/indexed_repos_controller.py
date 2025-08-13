@@ -1,12 +1,12 @@
 from fastapi import HTTPException
 import os
 from models.repository import Repository
+from models.user import User
 from schemas.response_schemas import IndexedRepository, IndexedRepositoriesResponse
-from utils.jwt_utils import get_current_user
 
 
 async def get_user_indexed_repositories(
-    token: str,
+    user: User,
     limit: int = 50,
     offset: int = 0,
 ) -> IndexedRepositoriesResponse:
@@ -14,15 +14,11 @@ async def get_user_indexed_repositories(
     Get all indexed repositories for the current authenticated user.
     Returns clean minimal repository data for frontend display.
     """
-    # Authenticate user
-    current_user = await get_current_user(token)
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     try:
         # Query repositories for the current user with pagination
         repositories = (
-            await Repository.find(Repository.user.id == current_user.id)
+            await Repository.find(Repository.user.id == user.id)
             .sort(-Repository.created_at)
             .skip(offset)
             .limit(limit)
@@ -31,7 +27,7 @@ async def get_user_indexed_repositories(
 
         # Get total count for pagination info
         total_count = await Repository.find(
-            Repository.user.id == current_user.id
+            Repository.user.id == user.id
         ).count()
 
         # Transform to response format
@@ -64,7 +60,7 @@ async def get_user_indexed_repositories(
         return IndexedRepositoriesResponse(
             repositories=indexed_repos,
             total_count=total_count,
-            user_tier=current_user.user_tier,
+            user_tier=user.user_tier,
         )
 
     except Exception as e:

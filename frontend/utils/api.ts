@@ -1,10 +1,10 @@
 // API utilities for interacting with the backend using Hey-API generated SDK
 
-import { getAuthClient, apiClient } from './client-config';
+import { getAuthClient } from './client-config';
 import {
-  generateTextEndpointApiRepoGenerateTextPost,
-  generateGraphEndpointApiRepoGenerateGraphPost,
-  generateStructureEndpointApiRepoGenerateStructurePost,
+  generateTextRouteApiRepoGenerateTextPost,
+  generateGraphRouteApiRepoGenerateGraphPost,
+  generateStructureRouteApiRepoGenerateStructurePost,
   loginUserApiBackendAuthLoginPost,
   processChatMessageApiBackendChatChatPost,
   streamChatResponseApiBackendChatChatStreamPost,
@@ -42,7 +42,7 @@ export interface RepoRequest {
   repo_url?: string;
   branch?: string;
   access_token?: string;
-  jwt_token?: string;
+  token?: string;
   zip_file?: File;
 }
 
@@ -92,9 +92,9 @@ type ResponseMap = {
 
 // Type mapping for API functions
 type ApiFunctionMap = {
-  [OperationType.TEXT]: typeof generateTextEndpointApiRepoGenerateTextPost;
-  [OperationType.GRAPH]: typeof generateGraphEndpointApiRepoGenerateGraphPost;
-  [OperationType.STRUCTURE]: typeof generateStructureEndpointApiRepoGenerateStructurePost;
+  [OperationType.TEXT]: typeof generateTextRouteApiRepoGenerateTextPost;
+  [OperationType.GRAPH]: typeof generateGraphRouteApiRepoGenerateGraphPost;
+  [OperationType.STRUCTURE]: typeof generateStructureRouteApiRepoGenerateStructurePost;
 };
 
 /**
@@ -282,9 +282,9 @@ export async function resolveBranch(
 
 // API function mapping
 const API_FUNCTIONS: ApiFunctionMap = {
-  [OperationType.TEXT]: generateTextEndpointApiRepoGenerateTextPost,
-  [OperationType.GRAPH]: generateGraphEndpointApiRepoGenerateGraphPost,
-  [OperationType.STRUCTURE]: generateStructureEndpointApiRepoGenerateStructurePost,
+  [OperationType.TEXT]: generateTextRouteApiRepoGenerateTextPost,
+  [OperationType.GRAPH]: generateGraphRouteApiRepoGenerateGraphPost,
+  [OperationType.STRUCTURE]: generateStructureRouteApiRepoGenerateStructurePost,
 };
 
 // Error messages mapping
@@ -318,21 +318,23 @@ async function executeOperation<T extends OperationType>(
       resolvedBranch = await resolveBranch(request.repo_url, request.branch, request.access_token);
     }
 
-    // Prepare the request data with resolved branch
+    // Prepare the request data with resolved branch (no token in body)
     const requestData = {
       repo_url: request.repo_url || null,
       branch: resolvedBranch,
       access_token: request.access_token || null,
-      jwt_token: request.jwt_token || null,
       zip_file: request.zip_file || null,
     };
 
     // Get the appropriate API function
     const apiFunction = API_FUNCTIONS[operationType];
 
-    // Execute the API call with proper options structure
+    // Execute the API call with Authorization header
     const response = await apiFunction({
       body: requestData,
+      headers: {
+        Authorization: request.token || '', // Token already contains "Bearer "
+      },
     });
 
     // Handle errors
@@ -439,10 +441,10 @@ export async function generateStructureFromGithub(
 /**
  * Upload and process local ZIP file to generate text
  */
-export async function uploadLocalZip(file: File, jwt_token: string): Promise<TextResponse> {
+export async function uploadLocalZip(file: File, token: string): Promise<TextResponse> {
   const response = await executeOperation(OperationType.TEXT, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
   return {
@@ -455,10 +457,10 @@ export async function uploadLocalZip(file: File, jwt_token: string): Promise<Tex
 /**
  * Generate graph from uploaded ZIP file
  */
-export async function generateGraphFromZip(file: File, jwt_token: string): Promise<GraphResponse> {
+export async function generateGraphFromZip(file: File, token: string): Promise<GraphResponse> {
   return executeOperation(OperationType.GRAPH, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
 }
@@ -468,11 +470,11 @@ export async function generateGraphFromZip(file: File, jwt_token: string): Promi
  */
 export async function generateStructureFromZip(
   file: File,
-  jwt_token: string,
+  token: string,
 ): Promise<StructureResponse> {
   return executeOperation(OperationType.STRUCTURE, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
 }
@@ -575,7 +577,6 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
   try {
     const response = await processChatMessageApiBackendChatChatPost({
       body: {
-        token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
         use_user: chatRequest.use_user || false,
@@ -585,6 +586,9 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
+      },
+      headers: {
+        Authorization: chatRequest.token, // Token already contains "Bearer "
       },
     });
 
@@ -609,7 +613,6 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
   try {
     const response = await streamChatResponseApiBackendChatChatStreamPost({
       body: {
-        token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
         use_user: chatRequest.use_user || false,
@@ -619,6 +622,9 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
+      },
+      headers: {
+        Authorization: chatRequest.token, // Token already contains "Bearer "
       },
     });
 
@@ -633,12 +639,15 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
  * Get list of user's chat sessions
  */
 export async function getUserChatSessions(
-  jwt_token: string,
+  token: string,
   repository_identifier: string,
 ): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
-      body: { jwt_token, repository_identifier },
+      body: { repository_identifier },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -665,7 +674,9 @@ export async function getConversationHistory(
   try {
     const response = await getConversationHistoryApiBackendChatConversationsConversationIdPost({
       path: { conversation_id: conversationId },
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -689,7 +700,9 @@ export async function getChatSession(token: string, chatId: string): Promise<Cha
   try {
     const response = await getChatSessionApiBackendChatSessionsChatIdPost({
       path: { chat_id: chatId },
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -726,7 +739,6 @@ export async function verifyApiKey(verifyRequest: {
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', verifyRequest.token);
     formData.append('provider', verifyRequest.provider);
     formData.append('api_key', verifyRequest.api_key);
 
@@ -734,6 +746,9 @@ export async function verifyApiKey(verifyRequest: {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/verify`, {
       method: 'POST',
+      headers: {
+        Authorization: verifyRequest.token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -756,7 +771,6 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
   try {
     // Use manual form data to include verify_key parameter that might not be in generated types yet
     const formData = new FormData();
-    formData.append('token', apiKeyRequest.token);
     formData.append('provider', apiKeyRequest.provider);
     formData.append('api_key', apiKeyRequest.api_key);
     if (apiKeyRequest.key_name) {
@@ -768,6 +782,9 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/save`, {
       method: 'POST',
+      headers: {
+        Authorization: apiKeyRequest.token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -799,7 +816,9 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
 export async function getAvailableModels(token: string): Promise<AvailableModelsResponse> {
   try {
     const response = await getAvailableModelsApiBackendChatModelsPost({
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -832,13 +851,13 @@ export async function getUserApiKeys(token: string): Promise<{
   total_keys: number;
 }> {
   try {
-    const formData = new FormData();
-    formData.append('token', token);
-
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/list`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
 
     if (!response.ok) {
@@ -868,7 +887,6 @@ export async function deleteUserApiKey(
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', token);
     formData.append('provider', provider);
     if (keyId) {
       formData.append('key_id', keyId);
@@ -877,6 +895,9 @@ export async function deleteUserApiKey(
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/delete`, {
       method: 'POST',
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -964,12 +985,14 @@ export async function updateChatSettings(
   try {
     const response = await updateChatSettingsApiBackendChatSettingsPost({
       body: {
-        token,
         chat_id: chatId,
         title: settings.title || null,
         default_provider: settings.default_provider || null,
         default_model: settings.default_model || null,
         default_temperature: settings.default_temperature || null,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1003,10 +1026,12 @@ export async function searchContext(
   try {
     const response = await searchContextApiBackendChatContextSearchPost({
       body: {
-        token,
         repository_id: repositoryId,
         query,
         max_results: Math.min(Math.max(maxResults, 1), 20), // Ensure between 1-20
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1054,7 +1079,7 @@ function isTokenExpiredError(error: any): boolean {
  * Starts the process of generating wiki documentation. The task runs in the background.
  */
 export async function generateWikiDocumentation(
-  jwt_token: string,
+  token: string,
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
@@ -1065,13 +1090,15 @@ export async function generateWikiDocumentation(
   try {
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
-        jwt_token,
         repository_url,
         language,
         comprehensive,
         provider_name: provider,
         model_name: model,
         temperature,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1093,12 +1120,14 @@ export async function generateWikiDocumentation(
  * Get wiki generation status
  * Retrieves the current status of a wiki generation task using the provided task ID.
  */
-export async function getWikiGenerationStatus(jwt_token: string, repo_id: string): Promise<any> {
+export async function getWikiGenerationStatus(token: string, repo_id: string): Promise<any> {
   try {
     const response = await getWikiStatusApiDocumentationWikiStatusPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1120,12 +1149,14 @@ export async function getWikiGenerationStatus(jwt_token: string, repo_id: string
  * List repository documentation files
  * Lists all documentation files for a specific repository with parsed content.
  */
-export async function getRepositoryDocumentation(jwt_token: string, repo_id: string): Promise<any> {
+export async function getRepositoryDocumentation(token: string, repo_id: string): Promise<any> {
   try {
     const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1148,15 +1179,16 @@ export async function getRepositoryDocumentation(jwt_token: string, repo_id: str
  * Checks if wiki documentation has been generated for a specific repository.
  */
 export async function isWikiGenerated(
-  jwt_token: string,
+  token: string,
   repo_id: string,
 ): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
-  console.log(jwt_token);
   try {
     const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1177,15 +1209,16 @@ export async function isWikiGenerated(
 /**
  * Cancel wiki documentation generation
  */
-export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
+export async function cancelWikiGeneration(token: string, task_id: string): Promise<any> {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
-    const formData = new FormData();
-    formData.append('jwt_token', jwt_token);
 
     const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
 
     if (!response.ok) {
@@ -1206,8 +1239,8 @@ export async function cancelWikiGeneration(jwt_token: string, task_id: string): 
 /**
  * Universal function that can handle any operation type and source (repo/zip)
  * Usage examples:
- *   - processRepository('text', { repo_url: 'https://github.com/user/repo', jwt_token: 'xxx' })
- *   - processRepository('graph', { zip_file: file, jwt_token: 'xxx' })
+ *   - processRepository('text', { repo_url: 'https://github.com/user/repo', token: 'xxx' })
+ *   - processRepository('graph', { zip_file: file, token: 'xxx' })
  */
 export async function processRepository<T extends OperationType>(
   operationType: T,
