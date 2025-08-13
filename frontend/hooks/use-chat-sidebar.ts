@@ -110,13 +110,17 @@ export function useChatSidebar(
       return;
     }
 
-    // Validate repository identifier format (should be owner/repo/branch)
-    if (!repositoryIdentifier.includes('/')) {
-      console.warn(
-        'Repository identifier should be in owner/repo/branch format:',
+    // Validate repository identifier format 
+    // For GitHub repos: should be owner/repo/branch format
+    // For ZIP files: can be just the repository ID
+    if (!repositoryIdentifier.includes('/') && repositoryIdentifier.length !== 24) {
+      // If it's not a GitHub format (owner/repo/branch) and not a 24-char ObjectId, 
+      // we might still want to allow it for ZIP files or other sources
+      console.log(
+        'Repository identifier format:',
         repositoryIdentifier,
+        '(non-GitHub format, proceeding anyway)',
       );
-      return;
     }
 
     // Models: only load once per token
@@ -225,8 +229,13 @@ export function useChatSidebar(
   ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
 
-    // Check if repository identifier is valid - should be in owner/repo/branch format
-    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || !repositoryIdentifier.includes('/')) {
+    // Check if repository identifier is valid
+    // For GitHub repos: should be owner/repo/branch format (contains '/')
+    // For ZIP files: should be a 24-character ObjectId (no '/')
+    const isGitHubFormat = repositoryIdentifier.includes('/');
+    const isObjectIdFormat = !isGitHubFormat && repositoryIdentifier.length === 24;
+    
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || (!isGitHubFormat && !isObjectIdFormat)) {
       console.error(
         'Cannot send message: Repository identifier is invalid:',
         repositoryIdentifier,

@@ -137,17 +137,17 @@ function HierarchyNodeComponent({
   }, [node.code, showFullCode]);
 
   return (
-    <div className={`${level > 0 ? 'ml-5 border-l border-border/30 pl-4 mt-2' : ''} space-y-3`}>
+    <div className={`${level > 0 ? 'ml-3 sm:ml-5 border-l border-border/30 pl-2 sm:pl-4 mt-2' : ''} space-y-2 sm:space-y-3 w-full overflow-hidden`}>
       <Collapsible
         open={node.isExpanded}
         onOpenChange={() => hasChildren && onToggleExpansion(node.id)}
       >
         <div className="group relative">
           <div
-            className={`flex items-start gap-3 p-3 rounded-xl transition-all duration-200 border
+            className={`flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl transition-all duration-200 border
             ${
               focusedNodeId === node.id
-                ? 'bg-background/70 border-border/50 ring-2 ring-primary/40'
+                ? 'bg-background/70 border-border/50 ring-primary/40'
                 : 'bg-background/50 hover:bg-background/80 border-border/30 hover:border-border/60'
             }`}
           >
@@ -175,39 +175,48 @@ function HierarchyNodeComponent({
             </div>
 
             {/* Node content */}
-            <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex-1 min-w-0 space-y-1 sm:space-y-2 overflow-hidden">
               {/* Node header */}
-              <div className="flex items-center gap-2 min-w-0 justify-between">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-1 sm:gap-2 min-w-0 justify-between">
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1 overflow-hidden">
                   <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    className="w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: nodeColor }}
                   />
-                  <IconComponent className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
+                  <IconComponent className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-1 sm:gap-2 min-w-0 overflow-hidden">
                       <button
                         onClick={handleCenterInGraph}
-                        className="font-medium text-foreground truncate text-left hover:text-primary transition-colors"
+                        className="font-medium text-foreground truncate text-left hover:text-primary transition-colors text-sm sm:text-base max-w-full"
+                        title={node.name}
                       >
                         {node.name}
                       </button>
                       <Badge
                         variant="outline"
-                        className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                        className="text-xs px-1 py-0.5 sm:px-2 sm:py-0.5 rounded-full flex-shrink-0 hidden sm:inline-flex"
                       >
                         {node.category}
                       </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-xs px-1 py-0.5 rounded-full flex-shrink-0 sm:hidden"
+                      >
+                        {node.category.charAt(0).toUpperCase()}
+                      </Badge>
                     </div>
                     {/* Relationship and file info */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                    <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-1 overflow-hidden">
                       {node.relationship && (
                         <>
-                          <span className="flex-shrink-0">{node.relationship}</span>
-                          <span className="flex-shrink-0">•</span>
+                          <span className="flex-shrink-0 hidden sm:inline">{node.relationship}</span>
+                          <span className="flex-shrink-0 sm:inline hidden">•</span>
                         </>
                       )}
-                      <span className="truncate">{node.file.split('/').pop()}</span>
+                      <span className="truncate max-w-[120px] sm:max-w-none" title={node.file}>
+                        {node.file.split('/').pop()}
+                      </span>
                       {node.start_line && (
                         <>
                           <span className="flex-shrink-0">•</span>
@@ -224,10 +233,10 @@ function HierarchyNodeComponent({
                         <Button
                           variant={focusedNodeId === node.id ? 'secondary' : 'outline'}
                           size="icon"
-                          className="h-7 w-7 rounded-md"
+                          className="h-6 w-6 sm:h-7 sm:w-7 rounded-md"
                           onClick={() => onToggleFocus?.(node.id)}
                         >
-                          <Crosshair className="h-3.5 w-3.5" />
+                          <Crosshair className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -240,14 +249,14 @@ function HierarchyNodeComponent({
 
               {/* Code preview (revamped) */}
               {node.code && (
-                <div className="bg-muted/30 rounded-lg border border-border/30 overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-border/30">
+                <div className="bg-muted/30 rounded-lg border border-border/30 overflow-hidden w-full">
+                  <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 border-b border-border/30">
                     <span className="text-xs font-medium text-muted-foreground">Code</span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs rounded-md"
+                        className="h-6 sm:h-7 px-1.5 sm:px-2 text-xs rounded-md"
                         onClick={() => setShowFullCode(!showFullCode)}
                       >
                         {showFullCode ? 'Collapse' : 'Expand'}
@@ -255,30 +264,35 @@ function HierarchyNodeComponent({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 rounded-md"
+                        className="h-6 w-6 sm:h-7 sm:w-7 rounded-md"
                         onClick={handleCopy}
                         title="Copy"
                       >
                         <Copy
-                          className={`h-3.5 w-3.5 ${copied ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+                          className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${copied ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
                         />
                       </Button>
                     </div>
                   </div>
-                  <div className="max-h-56 overflow-x-auto overflow-y-auto">
+                  <div className="max-h-32 sm:max-h-56 overflow-auto w-full">
                     <SyntaxHighlighter
                       language={node.file.split('.').pop() || 'tsx'}
                       style={theme === 'dark' ? oneDark : oneLight}
                       customStyle={{
                         margin: 0,
-                        padding: '10px 12px',
-                        fontSize: '12px',
+                        padding: '8px 10px',
+                        fontSize: '11px',
                         background: 'transparent',
                         width: '100%',
+                        maxWidth: '100%',
+                        overflow: 'auto',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
                       }}
-                      wrapLines
+                      wrapLines={true}
+                      wrapLongLines={true}
                       showLineNumbers
-                      lineNumberStyle={{ opacity: 0.45, fontSize: '10px' }}
+                      lineNumberStyle={{ opacity: 0.45, fontSize: '9px', minWidth: '20px' }}
                     >
                       {showFullCode
                         ? (node.code || '').trim()
@@ -290,9 +304,9 @@ function HierarchyNodeComponent({
 
               {/* Children count */}
               {hasChildren && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground">
                   <GitBranch className="h-3 w-3" />
-                  <span>
+                  <span className="truncate">
                     {node.children.length} connected {node.children.length === 1 ? 'node' : 'nodes'}
                   </span>
                 </div>
@@ -308,7 +322,7 @@ function HierarchyNodeComponent({
                       variant="outline"
                       size="sm"
                       onClick={handleGoToEditor}
-                      className="h-8 w-8 p-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      className="h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     >
                       <ExternalLink className="h-3 w-3" />
                     </Button>
@@ -322,7 +336,7 @@ function HierarchyNodeComponent({
 
         {/* Children */}
         {hasChildren && !hideChildren && (
-          <CollapsibleContent className="space-y-2">
+          <CollapsibleContent className="space-y-1 sm:space-y-2 w-full overflow-hidden">
             {node.children.map((child, index) => (
               <HierarchyNodeComponent
                 key={`${node.id}-child-${child.id}-${index}`}
@@ -402,14 +416,14 @@ export function HierarchyTab({
 
   if (!selectedNode) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 min-h-[200px]">
-        <div className="text-center space-y-4 max-w-xs">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center">
-            <TreePine className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
+      <div className="flex-1 flex items-center justify-center p-3 sm:p-4 lg:p-8 min-h-[200px] w-full overflow-hidden">
+        <div className="text-center space-y-3 sm:space-y-4 max-w-[250px] sm:max-w-xs w-full">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center">
+            <TreePine className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-muted-foreground/50" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2">
             <h3 className="text-sm font-medium text-foreground">Select a Node</h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground px-2 sm:px-0">
               Click on any node in the graph to view its hierarchical relationships
             </p>
           </div>
@@ -419,25 +433,31 @@ export function HierarchyTab({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
       {/* Header with Controls - Fixed */}
-      <div className="flex-shrink-0 p-3 sm:p-4 border-b border-border/20 bg-background/50 backdrop-blur-sm space-y-4">
+      <div className="flex-shrink-0 p-2 sm:p-3 lg:p-4 border-b border-border/20 bg-background/50 backdrop-blur-sm space-y-3 sm:space-y-4 overflow-hidden">
         {/* Node Info and Stats */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-primary flex-shrink-0" />
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">
+        <div className="space-y-1 sm:space-y-2 overflow-hidden">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0 overflow-hidden">
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 lg:w-3 lg:h-3 rounded-full bg-primary flex-shrink-0" />
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate max-w-[60%]" title={selectedNode.name}>
               {selectedNode.name}
             </h3>
             <Badge
               variant="outline"
-              className="text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full flex-shrink-0"
+              className="text-xs px-1 py-0.5 sm:px-1.5 sm:py-0.5 lg:px-2 lg:py-1 rounded-full flex-shrink-0 hidden sm:inline-flex"
             >
               {selectedNode.category}
             </Badge>
+            <Badge
+              variant="outline"
+              className="text-xs px-1 py-0.5 rounded-full flex-shrink-0 sm:hidden"
+            >
+              {selectedNode.category.charAt(0).toUpperCase()}
+            </Badge>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 text-xs text-muted-foreground overflow-x-auto">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 text-xs text-muted-foreground overflow-x-auto scrollbar-hide">
             <div className="flex items-center gap-1 flex-shrink-0">
               <TreePine className="w-3 h-3" />
               <span>{stats.totalNodes} nodes</span>
@@ -454,7 +474,7 @@ export function HierarchyTab({
         </div>
 
         {/* Depth Control */}
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs sm:text-sm font-medium text-foreground">
               Hierarchy Depth
@@ -474,37 +494,37 @@ export function HierarchyTab({
         </div>
 
         {/* Tree Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
           <Button
             variant="outline"
             size="sm"
             onClick={handleExpandAll}
-            className="flex-1 text-xs h-8 rounded-lg"
+            className="flex-1 text-xs h-7 sm:h-8 rounded-lg min-w-0"
           >
-            <ExpandIcon className="w-3 h-3 mr-1.5" />
-            Expand All
+            <ExpandIcon className="w-3 h-3 mr-1 sm:mr-1.5" />
+            <span className="truncate">Expand All</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleCollapseAll}
-            className="flex-1 text-xs h-8 rounded-lg"
+            className="flex-1 text-xs h-7 sm:h-8 rounded-lg min-w-0"
           >
-            <ShrinkIcon className="w-3 h-3 mr-1.5" />
-            Collapse All
+            <ShrinkIcon className="w-3 h-3 mr-1 sm:mr-1.5" />
+            <span className="truncate">Collapse All</span>
           </Button>
         </div>
 
         {/* Quick Depth Buttons */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground flex-shrink-0">Quick expand:</span>
+        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
+          <span className="text-xs text-muted-foreground flex-shrink-0">Quick:</span>
           {[1, 2, 3, 4, 5].map((depth) => (
             <Button
               key={depth}
               variant={currentDepth >= depth ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleExpandToDepth(depth)}
-              className="h-6 w-6 p-0 text-xs rounded-md"
+              className="h-6 w-6 p-0 text-xs rounded-md flex-shrink-0"
             >
               {depth}
             </Button>
@@ -513,15 +533,15 @@ export function HierarchyTab({
       </div>
 
       {/* Hierarchy Tree - Scrollable */}
-      <div className="flex-1 min-h-0">
-        <ScrollArea className="h-full">
-          <div className="p-3 sm:p-4 space-y-4">
+      <div className="flex-1 min-h-0 w-full overflow-hidden">
+        <ScrollArea className="h-full w-full">
+          <div className="p-2 sm:p-3 lg:p-4 space-y-3 sm:space-y-4 w-full">
             {tree.totalNodes > 0 ? (
               <>
                 {/* Current Node - Always on Top */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 px-2">
-                    <div className="w-1 h-4 bg-primary rounded-full" />
+                <div className="space-y-2 sm:space-y-3 w-full overflow-hidden">
+                  <div className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2">
+                    <div className="w-1 h-3 sm:h-4 bg-primary rounded-full" />
                     <h4 className="text-sm font-semibold text-foreground">Current Node</h4>
                   </div>
                   <HierarchyNodeComponent
@@ -539,24 +559,24 @@ export function HierarchyTab({
 
                 {/* Parents Section - Collapsible */}
                 {tree.rootNode.parents && tree.rootNode.parents.length > 0 && (
-                  <Collapsible defaultOpen={true}>
+                  <Collapsible defaultOpen={true} className="w-full overflow-hidden">
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-between text-sm font-medium p-3 h-auto"
+                        className="w-full justify-between text-sm font-medium p-2 sm:p-3 h-auto overflow-hidden"
                       >
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-4 bg-orange-500 rounded-full" />
-                          <span>Called By (Parents)</span>
-                          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
+                        <div className="flex items-center gap-1 sm:gap-2 min-w-0 overflow-hidden">
+                          <div className="w-1 h-3 sm:h-4 bg-orange-500 rounded-full flex-shrink-0" />
+                          <span className="truncate">Called By (Parents)</span>
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
                             {tree.rootNode.parents.length}
                           </Badge>
                         </div>
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
                       </Button>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-3">
-                      <div className="space-y-2">
+                    <CollapsibleContent className="pt-2 sm:pt-3 w-full overflow-hidden">
+                      <div className="space-y-1 sm:space-y-2 w-full overflow-hidden">
                         {tree.rootNode.parents.map((parent, index) => (
                           <HierarchyNodeComponent
                             key={`parent-${parent.id}-${index}`}
@@ -577,24 +597,24 @@ export function HierarchyTab({
 
                 {/* Children Section - Collapsible */}
                 {tree.rootNode.children && tree.rootNode.children.length > 0 && (
-                  <Collapsible defaultOpen={true}>
+                  <Collapsible defaultOpen={true} className="w-full overflow-hidden">
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-between text-sm font-medium p-3 h-auto"
+                        className="w-full justify-between text-sm font-medium p-2 sm:p-3 h-auto overflow-hidden"
                       >
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-4 bg-green-500 rounded-full" />
-                          <span>Calls (Children)</span>
-                          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
+                        <div className="flex items-center gap-1 sm:gap-2 min-w-0 overflow-hidden">
+                          <div className="w-1 h-3 sm:h-4 bg-green-500 rounded-full flex-shrink-0" />
+                          <span className="truncate">Calls (Children)</span>
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
                             {tree.rootNode.children.length}
                           </Badge>
                         </div>
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
                       </Button>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-3">
-                      <div className="space-y-2">
+                    <CollapsibleContent className="pt-2 sm:pt-3 w-full overflow-hidden">
+                      <div className="space-y-1 sm:space-y-2 w-full overflow-hidden">
                         {tree.rootNode.children.map((child, index) => (
                           <HierarchyNodeComponent
                             key={`child-${child.id}-${index}`}
@@ -614,12 +634,12 @@ export function HierarchyTab({
                 )}
               </>
             ) : (
-              <div className="text-center py-6 sm:py-8">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center mb-3 sm:mb-4">
-                  <TreePine className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/50" />
+              <div className="text-center py-4 sm:py-6 lg:py-8 w-full">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center mb-2 sm:mb-3 lg:mb-4">
+                  <TreePine className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-muted-foreground/50" />
                 </div>
-                <h3 className="text-sm font-medium text-foreground mb-2">No Hierarchy Available</h3>
-                <p className="text-xs text-muted-foreground px-4">
+                <h3 className="text-sm font-medium text-foreground mb-1 sm:mb-2">No Hierarchy Available</h3>
+                <p className="text-xs text-muted-foreground px-2 sm:px-4">
                   This node doesn&apos;t have any connected relationships in the graph
                 </p>
               </div>

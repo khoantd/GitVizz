@@ -669,7 +669,9 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('zip');
       setSourceData(zipFile);
       setOutputMessage('ZIP file processed successfully!');
-      router.push('/results');
+      
+      const zipName = zipFile.name.replace(/\.zip$/i, '');
+      router.push(`/results/zip/${encodeURIComponent(zipName)}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
