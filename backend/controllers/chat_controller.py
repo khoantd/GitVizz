@@ -298,7 +298,7 @@ class ChatController:
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
+        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
@@ -488,7 +488,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
+        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
@@ -985,7 +985,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
     async def verify_user_api_key(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
-        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key to verify")]
     ) -> dict:
         """Verify API key without saving it"""
@@ -995,7 +995,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Validate provider
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if provider not in valid_providers:
                 raise HTTPException(
                     status_code=400,
@@ -1029,7 +1029,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
     async def save_user_api_key(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
-        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key")],
         key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
         verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
@@ -1041,7 +1041,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Validate provider
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if provider not in valid_providers:
                 raise HTTPException(
                     status_code=400,

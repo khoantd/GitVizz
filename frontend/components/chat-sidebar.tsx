@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
   Database,
   Zap,
   Cpu,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatHistory } from './chat-history';
@@ -39,6 +41,7 @@ import { ContextIndicator, ContextMetadata } from './context-indicator';
 import { ApiKeyModal } from './api-key-modal';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
 import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
+import { formatTokenCount, calculateContextAllocation, getContextUtilizationColor } from '@/utils/model-config';
 
 type ContextMode = 'full' | 'smart' | 'agentic';
 
@@ -73,6 +76,8 @@ export function ChatSidebar({
     messages,
     isLoading,
     currentModel,
+    currentModelConfig,
+    isLoadingModelConfig,
     availableModels,
     chatHistory,
     sendMessage,
@@ -93,6 +98,7 @@ export function ChatSidebar({
   // UI State
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState('42vw');
   const [isResizing, setIsResizing] = useState(false);
   // Remove unused lastDailyUsage state - daily usage is handled in the hook
@@ -320,25 +326,34 @@ export function ChatSidebar({
           </div>
         </div>
 
-        {/* Header with Quick Actions */}
-        <div className="border-b border-border/30">
-          <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
-                  <Bot className="h-3.5 w-3.5 text-primary" />
-                </div>
-                {isLoading && (
-                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
-                )}
+        {/* Minimal Header */}
+        <div className="flex items-center justify-between p-3 border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
+                <Bot className="h-3 w-3 text-primary" />
               </div>
-              <div>
-                <h2 className="font-medium text-xs text-foreground">AI Assistant</h2>
-                <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">
-                  {repositoryName}
-                </p>
-              </div>
+              {isLoading && (
+                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
+              )}
             </div>
+            <div>
+              <h2 className="font-medium text-xs text-foreground">AI Assistant</h2>
+              <p className="text-[9px] text-muted-foreground truncate max-w-[140px]">
+                {repositoryName}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowHistory(true)}
+              className="h-6 w-6 rounded hover:bg-muted/50"
+              title="Chat History"
+            >
+              <History className="h-3 w-3" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -347,49 +362,6 @@ export function ChatSidebar({
             >
               <X className="h-3 w-3" />
             </Button>
-          </div>
-
-          {/* Quick Actions Row */}
-          <div className="px-3 pb-3 flex items-center justify-between gap-2">
-            <div className="flex gap-2 flex-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowHistory(true)}
-                className="h-7 text-xs flex-1"
-              >
-                <History className="h-3 w-3 mr-1" />
-                History
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleApiKeysClick}
-                className="h-7 text-xs flex-1"
-              >
-                <Key className="h-3 w-3 mr-1" />
-                API Keys
-              </Button>
-            </div>
-
-            {/* Status Indicators */}
-            <div className="flex items-center gap-2">
-              {hasActiveChat && (
-                <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                  {messages.length}
-                </Badge>
-              )}
-              {activeUserKeys.length > 0 ? (
-                <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                  <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
-                    {activeUserKeys.length}
-                  </span>
-                </div>
-              ) : (
-                <AlertTriangle className="h-3 w-3 text-orange-500" />
-              )}
-            </div>
           </div>
         </div>
 
@@ -525,93 +497,9 @@ export function ChatSidebar({
 
         {/* Input and Controls Area */}
         <div className="border-t border-border/30 bg-background/95 backdrop-blur-sm">
-          <div className="p-3 space-y-3">
-            {/* Context Mode Selector */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Context Mode
-              </label>
-
-              <Select
-                value={contextMode}
-                onValueChange={(value: ContextMode) => setContextMode(value)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <div className="flex items-center gap-2 flex-1">
-                    {React.createElement(contextModeConfig[contextMode].icon, {
-                      className: 'h-3 w-3',
-                    })}
-                    <SelectValue />
-                    {!contextModeConfig[contextMode].available && (
-                      <Badge variant="secondary" className="text-[9px] h-3 px-1 ml-auto">
-                        Soon
-                      </Badge>
-                    )}
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(contextModeConfig).map(([key, config]) => {
-                    // const IconComponent = config.icon;
-                    return (
-                      <SelectItem key={key} value={key} disabled={!config.available}>
-                        <div className="flex items-center gap-2">
-                          {/* <IconComponent className="h-3.5 w-3.5" /> */}
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium">{config.label}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {config.description}
-                            </span>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Model Selection Accordion - Open by Default */}
-            <Collapsible defaultOpen>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between h-8 text-xs hover:bg-muted/50"
-                >
-                  <div className="flex items-center gap-2">
-                    <Bot className="h-3 w-3" />
-                    <span>AI Model</span>
-                    <Badge variant="secondary" className="text-[9px] h-3 px-1">
-                      {currentModel?.model || 'Select'}
-                    </Badge>
-                  </div>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-3">
-                <ModelSelector
-                  currentModel={currentModel}
-                  availableModels={availableModels}
-                  onModelChange={setModel}
-                  onRefresh={refreshModels}
-                />
-
-                {/* New Chat Button */}
-                {hasActiveChat && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearCurrentChat}
-                    className="w-full h-7 text-xs"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    New Chat
-                  </Button>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-
-            {/* Input Row */}
-            <div className="flex gap-2">
+          <div className="p-3">
+            {/* Input Row with Settings */}
+            <div className="flex gap-2 items-center">
               <div className="flex-1 relative">
                 <Input
                   ref={inputRef}
@@ -646,6 +534,148 @@ export function ChatSidebar({
                   </div>
                 )}
               </div>
+              
+              {/* Settings Popover */}
+              <Collapsible open={showSettings} onOpenChange={setShowSettings}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 rounded-lg hover:bg-muted/50 flex-shrink-0"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                  </Button>
+                </CollapsibleTrigger>
+                {showSettings && (
+                  <div className="absolute bottom-full right-0 mb-2 z-50">
+                    <CollapsibleContent>
+                      <div className="bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl rounded-lg p-4 w-80">
+                        <div className="space-y-4">
+                          {/* Context Mode */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              Context Mode
+                            </label>
+                            <Select
+                              value={contextMode}
+                              onValueChange={(value: ContextMode) => setContextMode(value)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <div className="flex items-center gap-2 flex-1">
+                                  {React.createElement(contextModeConfig[contextMode].icon, {
+                                    className: 'h-3 w-3',
+                                  })}
+                                  <SelectValue />
+                                  {!contextModeConfig[contextMode].available && (
+                                    <Badge variant="secondary" className="text-[9px] h-3 px-1 ml-auto">
+                                      Soon
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(contextModeConfig).map(([key, config]) => (
+                                  <SelectItem key={key} value={key} disabled={!config.available}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex flex-col">
+                                        <span className="text-xs font-medium">{config.label}</span>
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {config.description}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {/* Context Control for Full Mode */}
+                            {contextMode === 'full' && currentModelConfig && (
+                              <div className="mt-2 space-y-2">
+                                {(() => {
+                                  const contextPercentage = (contextSettings.maxTokens / currentModelConfig.max_tokens) * 100;
+                                  const utilizationColor = getContextUtilizationColor(contextPercentage / 100);
+                                  
+                                  return (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between text-[10px]">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground">Context</span>
+                                          <span className="text-muted-foreground">{Math.round(contextPercentage)}%</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className={cn("font-medium", utilizationColor)}>
+                                            {formatTokenCount(contextSettings.maxTokens)}
+                                          </span>
+                                          {isLoadingModelConfig && (
+                                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                          )}
+                                        </div>
+                                      </div>
+                                      <Slider
+                                        value={[Math.round(contextPercentage)]}
+                                        onValueChange={(values) => {
+                                          const percentage = values[0];
+                                          const newTokens = Math.floor((currentModelConfig.max_tokens * percentage) / 100);
+                                          setContextSettings(prev => ({ ...prev, maxTokens: newTokens }));
+                                        }}
+                                        min={10}
+                                        max={90}
+                                        step={5}
+                                        className="w-full"
+                                      />
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Model Selection */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              AI Model
+                            </label>
+                            <ModelSelector
+                              currentModel={currentModel}
+                              currentModelConfig={currentModelConfig}
+                              isLoadingModelConfig={isLoadingModelConfig}
+                              availableModels={availableModels}
+                              onModelChange={setModel}
+                              onRefresh={refreshModels}
+                            />
+                          </div>
+
+                          {/* Quick Actions */}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleApiKeysClick}
+                              className="h-7 text-xs flex-1"
+                            >
+                              <Key className="h-3 w-3 mr-1" />
+                              API Keys
+                            </Button>
+                            {hasActiveChat && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={clearCurrentChat}
+                                className="h-7 text-xs flex-1"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                New Chat
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                )}
+              </Collapsible>
+
               <Button
                 onClick={handleSendMessage}
                 disabled={

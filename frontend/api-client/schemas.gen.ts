@@ -805,7 +805,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
     provider: {
       type: 'string',
       title: 'Provider',
-      description: 'LLM provider (openai, anthropic, gemini)',
+      description: 'LLM provider (openai, anthropic, gemini, groq)',
       default: 'openai',
     },
     model: {
@@ -826,7 +826,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
       anyOf: [
         {
           type: 'integer',
-          maximum: 4000,
+          maximum: 1000000,
           minimum: 1,
         },
         {
@@ -834,7 +834,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
         },
       ],
       title: 'Max Tokens',
-      description: 'Maximum tokens in response (1-4000)',
+      description: 'Maximum tokens for context (1-1000000)',
     },
     include_full_context: {
       type: 'boolean',
@@ -911,7 +911,7 @@ export const Body_save_user_api_key_api_backend_chat_keys_save_postSchema = {
     provider: {
       type: 'string',
       title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini)',
+      description: 'Provider name (openai, anthropic, gemini, groq)',
     },
     api_key: {
       type: 'string',
@@ -1023,7 +1023,7 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
     provider: {
       type: 'string',
       title: 'Provider',
-      description: 'LLM provider (openai, anthropic, gemini)',
+      description: 'LLM provider (openai, anthropic, gemini, groq)',
       default: 'openai',
     },
     model: {
@@ -1044,7 +1044,7 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
       anyOf: [
         {
           type: 'integer',
-          maximum: 4000,
+          maximum: 1000000,
           minimum: 1,
         },
         {
@@ -1052,7 +1052,7 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
         },
       ],
       title: 'Max Tokens',
-      description: 'Maximum tokens in response (1-4000)',
+      description: 'Maximum tokens for context (1-1000000)',
     },
     context_mode: {
       type: 'string',
@@ -1179,7 +1179,7 @@ export const Body_verify_user_api_key_api_backend_chat_keys_verify_postSchema = 
     provider: {
       type: 'string',
       title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini)',
+      description: 'Provider name (openai, anthropic, gemini, groq)',
     },
     api_key: {
       type: 'string',

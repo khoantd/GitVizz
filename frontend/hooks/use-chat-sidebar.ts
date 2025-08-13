@@ -19,6 +19,7 @@ import {
 } from '@/lib/streaming-chat';
 import type { DailyUsage } from '@/api-client/types.gen';
 import { showToast } from '@/components/toaster';
+import { fetchModelConfig, type ModelConfig } from '@/utils/model-config';
 
 interface ContextSettings {
   scope: 'focused' | 'moderate' | 'comprehensive';
@@ -78,6 +79,8 @@ export function useChatSidebar(
   });
   const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [currentModelConfig, setCurrentModelConfig] = useState<ModelConfig | null>(null);
+  const [isLoadingModelConfig, setIsLoadingModelConfig] = useState(false);
 
   const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>(userKeyPreferences);
   const [contextSettings, setContextSettings] = useState<ContextSettings>({
@@ -130,6 +133,32 @@ export function useChatSidebar(
     }
   }, [autoLoad, session?.jwt_token, repositoryIdentifier]);
 
+  const loadModelConfig = async (provider?: string, model?: string) => {
+    const targetProvider = provider || modelState.provider;
+    const targetModel = model || modelState.model;
+    
+    if (!targetProvider || !targetModel) return;
+    
+    setIsLoadingModelConfig(true);
+    try {
+      const config = await fetchModelConfig(targetProvider, targetModel);
+      setCurrentModelConfig(config);
+      
+      // Auto-adjust context settings based on model capabilities
+      if (config) {
+        setContextSettings(prev => ({
+          ...prev,
+          maxTokens: Math.min(prev.maxTokens, Math.floor(config.max_tokens * 0.7)), // Use 70% of max context for repository content
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load model config:', error);
+      setCurrentModelConfig(null);
+    } finally {
+      setIsLoadingModelConfig(false);
+    }
+  };
+
   const loadAvailableModels = async () => {
     if (!session?.jwt_token) return;
 
@@ -152,7 +181,12 @@ export function useChatSidebar(
             provider: firstProvider,
             model: firstModel,
           }));
+          // Load config for new model
+          loadModelConfig(firstProvider, firstModel);
         }
+      } else if (providerKey && modelKey) {
+        // Load config for current model
+        loadModelConfig(providerKey, modelKey);
       }
     } catch (error) {
       showToast.error('Failed to load available models');
@@ -513,6 +547,8 @@ export function useChatSidebar(
       provider,
       model,
     }));
+    // Load configuration for the new model
+    loadModelConfig(provider, model);
   };
 
   const refreshModels = async () => {
@@ -528,6 +564,8 @@ export function useChatSidebar(
     isLoading: chatState.isLoading,
     isLoadingHistory,
     currentModel: modelState,
+    currentModelConfig,
+    isLoadingModelConfig,
     availableModels,
     chatHistory,
     sendMessage,

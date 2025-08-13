@@ -17,6 +17,8 @@ class APIKeyVerifier:
                 return self._verify_anthropic_key(api_key)
             elif provider == "gemini":
                 return self._verify_gemini_key(api_key)
+            elif provider == "groq":
+                return self._verify_groq_key(api_key)
             else:
                 print(f"Unsupported provider for verification: {provider}")
                 return False
@@ -77,6 +79,20 @@ class APIKeyVerifier:
             print(f"Gemini key verification failed: {e}")
             return False
 
+    def _verify_groq_key(self, api_key: str) -> bool:
+        """Verify Groq API key by making a simple request."""
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    "https://api.groq.com/openai/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=10
+                )
+                return response.status_code == 200
+        except Exception as e:
+            print(f"Groq key verification failed: {e}")
+            return False
+
     def get_valid_models_for_provider(self, provider: str, api_key: str) -> List[str]:
         """Get a list of valid models for a specific provider."""
         try:
@@ -104,6 +120,16 @@ class APIKeyVerifier:
                     "gemini-1.5-pro",
                     "gemini-1.5-flash",
                     "gemini-pro"
+                ],
+                "groq": [
+                    "llama-3.3-70b-versatile",
+                    "llama-3.1-70b-versatile",
+                    "llama-3.1-8b-instant",
+                    "llama3-groq-70b-8192-tool-use-preview",
+                    "llama3-groq-8b-8192-tool-use-preview",
+                    "mixtral-8x7b-32768",
+                    "gemma2-9b-it",
+                    "gemma-7b-it"
                 ]
             }
             

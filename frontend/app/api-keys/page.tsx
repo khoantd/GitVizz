@@ -138,13 +138,16 @@ export default function ApiKeysPage() {
     );
   };
 
-  const handleVerifyKey = async () => {
+
+  const handleVerifyAndSave = async () => {
     if (!apiKey.trim() || !session?.jwt_token) return;
 
     setIsVerifying(true);
+    setIsSaving(true);
     setVerificationResult(null);
 
     try {
+      // Step 1: Verify the API key
       const result = await verifyApiKey({
         token: extractJwtToken(session?.jwt_token) || '',
         provider,
@@ -159,6 +162,48 @@ export default function ApiKeysPage() {
 
       if (result.is_valid) {
         showToast.success(`✅ ${result.message}`);
+        
+        // Step 2: Save the API key since verification succeeded
+        try {
+          await saveApiKey({
+            token: extractJwtToken(session?.jwt_token) || '',
+            provider,
+            api_key: apiKey.trim(),
+            key_name: keyName.trim() || undefined,
+          });
+
+          setApiKey('');
+          setKeyName('');
+          setVerificationResult(null);
+          showToast.success(
+            `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully!`,
+          );
+
+          // Refetch all data to update the UI with the new key status
+          const token = extractJwtToken(session?.jwt_token) || '';
+          const models = await getAvailableModels(token);
+          setAvailableModels(models);
+
+          // Try to refresh enhanced data
+          try {
+            const [detailedModelsData, userKeysData] = await Promise.all([
+              getDetailedAvailableModels(token),
+              getUserApiKeys(token),
+            ]);
+
+            setDetailedModels(detailedModelsData);
+            setUserApiKeys(userKeysData.keys || []);
+          } catch {
+            console.log('Enhanced endpoints not available, skipping enhanced refresh');
+          }
+
+          // Ensure the new key is enabled by default in preferences
+          handleToggleUserKey(provider, true);
+        } catch (saveError) {
+          showToast.error(
+            `Failed to save API key: ${saveError instanceof Error ? saveError.message : String(saveError)}`,
+          );
+        }
       } else {
         showToast.error(`❌ ${result.message}`);
       }
@@ -171,59 +216,6 @@ export default function ApiKeysPage() {
       showToast.error(`Failed to verify API key: ${errorMessage}`);
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  const handleSaveKey = async () => {
-    if (!apiKey.trim() || !session?.jwt_token) return;
-
-    // Require verification before saving
-    if (!verificationResult || !verificationResult.isValid) {
-      showToast.error('Please verify your API key before saving it.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await saveApiKey({
-        token: extractJwtToken(session?.jwt_token) || '',
-        provider,
-        api_key: apiKey.trim(),
-        key_name: keyName.trim() || undefined,
-      });
-
-      setApiKey('');
-      setKeyName('');
-      setVerificationResult(null);
-      showToast.success(
-        `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully!`,
-      );
-
-      // Refetch all data to update the UI with the new key status
-      const token = extractJwtToken(session?.jwt_token) || '';
-      const models = await getAvailableModels(token);
-      setAvailableModels(models);
-
-      // Try to refresh enhanced data
-      try {
-        const [detailedModelsData, userKeysData] = await Promise.all([
-          getDetailedAvailableModels(token),
-          getUserApiKeys(token),
-        ]);
-
-        setDetailedModels(detailedModelsData);
-        setUserApiKeys(userKeysData.keys || []);
-      } catch {
-        console.log('Enhanced endpoints not available, skipping enhanced refresh');
-      }
-
-      // Ensure the new key is enabled by default in preferences
-      handleToggleUserKey(provider, true);
-    } catch (error) {
-      showToast.error(
-        `Failed to save API key: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
       setIsSaving(false);
     }
   };
@@ -556,40 +548,24 @@ export default function ApiKeysPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleVerifyKey}
-                disabled={!apiKey.trim() || isVerifying}
-                variant="outline"
-                className="flex-1 h-11 text-base"
-              >
-                {isVerifying ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Verifying...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="h-4 w-4 mr-2" /> Verify Key
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={handleSaveKey}
-                disabled={!apiKey.trim() || isSaving}
-                className="flex-1 h-11 text-base"
-              >
-                {isSaving ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" /> Save & Connect
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button
+              onClick={handleVerifyAndSave}
+              disabled={!apiKey.trim() || isVerifying || isSaving}
+              className="w-full h-11 text-base"
+            >
+              {isVerifying || isSaving ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  {isVerifying && !isSaving ? 'Verifying...' : 
+                   isVerifying && isSaving ? 'Verifying & Saving...' : 
+                   'Saving...'}
+                </>
+              ) : (
+                <>
+                  <Shield className="h-4 w-4 mr-2" /> Verify & Save
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
 

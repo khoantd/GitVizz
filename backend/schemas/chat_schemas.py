@@ -89,7 +89,7 @@ class ChatRequest(BaseModel):
     provider: str = Field("openai", description="LLM provider (openai, anthropic, gemini, groq)")
     model: str = Field("gpt-4o-mini", description="Model name")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Response randomness")
-    max_tokens: Optional[int] = Field(None, ge=1, le=4000, description="Maximum tokens in response")
+    max_tokens: Optional[int] = Field(None, ge=1, le=1000000, description="Maximum tokens for context")
     
     # Context settings
     include_full_context: bool = Field(False, description="Include full repository content as context")
@@ -199,7 +199,7 @@ class ApiKeyRequest(BaseModel):
     @validator('provider', pre=True)
     def validate_provider(cls, v):
         if isinstance(v, str):
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if v not in valid_providers:
                 raise ValueError(f"Invalid provider. Valid providers: {', '.join(valid_providers)}")
         return v
@@ -243,7 +243,7 @@ class ChatSettingsRequest(BaseModel):
     @validator('default_provider', pre=True)
     def validate_provider(cls, v):
         if v is not None and isinstance(v, str):
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if v not in valid_providers:
                 raise ValueError(f"Invalid provider. Valid providers: {', '.join(valid_providers)}")
         return v
@@ -291,7 +291,7 @@ class StreamingChatRequest(BaseModel):
     provider: str = Field("openai", description="LLM provider (openai, anthropic, gemini, groq)")
     model: str = Field("gpt-4o-mini", description="Model name")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Response randomness")
-    max_tokens: Optional[int] = Field(None, ge=1, le=4000, description="Maximum tokens in response")
+    max_tokens: Optional[int] = Field(None, ge=1, le=1000000, description="Maximum tokens for context")
     
     # Context settings
     include_full_context: bool = Field(False, description="Include full repository content as context")

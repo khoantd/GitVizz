@@ -49,10 +49,10 @@ async def process_chat_message(
     use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
     chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
     conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-    provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
+    provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
     model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
     temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
-    max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
+    max_tokens: Annotated[Optional[int], Form(description="Maximum tokens for context (1-1000000)", ge=1, le=1000000)] = None,
     include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
     context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None
 ):
@@ -107,10 +107,10 @@ async def stream_chat_response(
     use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
     chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
     conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-    provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
+    provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
     model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
     temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
-    max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
+    max_tokens: Annotated[Optional[int], Form(description="Maximum tokens for context (1-1000000)", ge=1, le=1000000)] = None,
     context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart",
     repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None
 ):
@@ -265,7 +265,7 @@ async def get_chat_session(
 )
 async def verify_user_api_key(
     token: Annotated[str, Form(description="JWT authentication token")],
-    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key to verify")]
 ):
     return await chat_controller.verify_user_api_key(
@@ -302,7 +302,7 @@ async def verify_user_api_key(
 )
 async def save_user_api_key(
     token: Annotated[str, Form(description="JWT authentication token")],
-    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key")],
     key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
     verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True

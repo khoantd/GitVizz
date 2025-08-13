@@ -89,6 +89,9 @@ import type {
   GetAvailableModelsBackendEnhancedData,
   GetAvailableModelsBackendEnhancedResponses,
   GetAvailableModelsBackendEnhancedErrors,
+  GetModelConfigBackendEnhancedData,
+  GetModelConfigBackendEnhancedResponses,
+  GetModelConfigBackendEnhancedErrors,
   HealthCheckBackendEnhancedData,
   HealthCheckBackendEnhancedResponses,
   ServiceInfoBackendEnhancedData,
@@ -736,6 +739,23 @@ export const getAvailableModelsBackendEnhanced = <ThrowOnError extends boolean =
       'Content-Type': 'application/x-www-form-urlencoded',
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Get model configuration
+ * Get detailed configuration for a specific model including max tokens, capabilities, and pricing
+ */
+export const getModelConfigBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options: Options<GetModelConfigBackendEnhancedData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetModelConfigBackendEnhancedResponses,
+    GetModelConfigBackendEnhancedErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/models/{provider}/{model}/config',
+    ...options,
   });
 };
 
