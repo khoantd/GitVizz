@@ -641,14 +641,38 @@ export default function Documentation({
       const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
       setAvailableModels(models);
 
-      // Set default model if available
-      const firstProvider = Object.keys(models.providers)[0];
+      // Choose provider preference: if user has keys, limit to those; otherwise show all
+      const preferredProviders =
+        models.user_has_keys && models.user_has_keys.length > 0
+          ? models.user_has_keys
+          : Object.keys(models.providers);
+      const firstProvider = preferredProviders.find((p) => (models.providers[p] || []).length > 0);
       const firstModel = firstProvider ? models.providers[firstProvider]?.[0] : undefined;
-      if (firstProvider && firstModel && !generationSettings.provider) {
+
+      // If current provider is not available or not in preferred list, switch to preferred
+      const currentProvider = generationSettings.provider;
+      const currentModel = generationSettings.model;
+      const providerIsAllowed = firstProvider
+        ? preferredProviders.includes(currentProvider) &&
+          (models.providers[currentProvider] || []).length > 0
+        : false;
+      const modelIsAllowed =
+        providerIsAllowed && (models.providers[currentProvider] || []).includes(currentModel);
+
+      if (!providerIsAllowed && firstProvider && firstModel) {
         setGenerationSettings((prev) => ({
           ...prev,
           provider: firstProvider,
           model: firstModel,
+        }));
+      } else if (
+        providerIsAllowed &&
+        !modelIsAllowed &&
+        (models.providers[currentProvider] || []).length > 0
+      ) {
+        setGenerationSettings((prev) => ({
+          ...prev,
+          model: models.providers[currentProvider][0],
         }));
       }
     } catch (error) {
@@ -1287,22 +1311,30 @@ export default function Documentation({
                         </SelectTrigger>
                         <SelectContent>
                           {availableModels &&
-                            Object.keys(availableModels.providers).map((provider) => (
-                              <SelectItem key={provider} value={provider}>
-                                <div className="flex items-center gap-2">
-                                  {provider === 'openai' && <Zap className="h-4 w-4" />}
-                                  {provider === 'anthropic' && <Brain className="h-4 w-4" />}
-                                  {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
-                                  {provider === 'groq' && <Gauge className="h-4 w-4" />}
-                                  <span className="capitalize">{provider}</span>
-                                  {availableModels.user_has_keys.includes(provider) && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Your Key
-                                    </Badge>
-                                  )}
-                                </div>
-                              </SelectItem>
-                            ))}
+                            (() => {
+                              const userKeys = availableModels.user_has_keys || [];
+                              const providersToShow = (
+                                userKeys.length > 0
+                                  ? userKeys
+                                  : Object.keys(availableModels.providers)
+                              ).filter((p) => (availableModels.providers[p] || []).length > 0);
+                              return providersToShow.map((provider) => (
+                                <SelectItem key={provider} value={provider}>
+                                  <div className="flex items-center gap-2">
+                                    {provider === 'openai' && <Zap className="h-4 w-4" />}
+                                    {provider === 'anthropic' && <Brain className="h-4 w-4" />}
+                                    {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                                    {provider === 'groq' && <Gauge className="h-4 w-4" />}
+                                    <span className="capitalize">{provider}</span>
+                                    {availableModels.user_has_keys.includes(provider) && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Your Key
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ));
+                            })()}
                         </SelectContent>
                       </Select>
                     </div>

@@ -433,7 +433,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
-        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
+        repository_id: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
@@ -446,7 +446,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
         """Process a chat message with streaming response - yields JSON strings"""
         try:
             # Validate required parameters early
-            if not repository_identifier or repository_identifier.strip() == "":
+            if not repository_id or repository_id.strip() == "":
                 yield json.dumps(StreamChatResponse(
                     event="error",
                     error="Repository identifier is required for chat",
@@ -475,7 +475,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
                 user, 
-                repository_identifier,
+                repository_id,
                 None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
@@ -585,7 +585,7 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 # Use LangGraph for advanced chat orchestration
                 response_generator = langgraph_chat_service.stream_chat_response(
                     user_query=message,
-                    repository_id=repository_identifier,
+                    repository_id=repository_id,
                     user=user,
                     model=model,
                     provider=provider,

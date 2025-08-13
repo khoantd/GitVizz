@@ -277,44 +277,32 @@ export default function ApiKeysPage() {
   const getProviderInfo = (p: string) => {
     const info = {
       openai: {
-        icon: '🤖',
         url: 'https://platform.openai.com/api-keys',
         instruction: 'Create an API key from your OpenAI dashboard.',
         description: 'Leading AI models including GPT-4, GPT-5, and o1 reasoning models',
         color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
       },
       anthropic: {
-        icon: '🧠',
         url: 'https://console.anthropic.com/',
         instruction: 'Generate an API key from Anthropic Console.',
         description: 'Claude 4, Claude Opus, and advanced reasoning capabilities',
         color: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
       },
       gemini: {
-        icon: '💎',
         url: 'https://makersuite.google.com/app/apikey',
         instruction: 'Get your API key from Google AI Studio.',
         description: "Google's Gemini 2.5 Pro, Flash, and multimodal models",
         color: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
       },
       groq: {
-        icon: '⚡️',
         url: 'https://console.groq.com/keys',
         instruction: 'Create an API key from Groq Console.',
         description: 'Ultra-fast inference with Llama and Mixtral models',
         color: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
       },
-      xai: {
-        icon: '🚀',
-        url: 'https://console.x.ai/',
-        instruction: 'Generate an API key from xAI Console.',
-        description: 'Grok and other cutting-edge AI models',
-        color: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
-      },
     };
     return (
       info[p as keyof typeof info] || {
-        icon: '🔑',
         url: '#',
         instruction: "Check the provider's documentation for API key instructions.",
         description: 'AI model provider',
@@ -412,7 +400,7 @@ export default function ApiKeysPage() {
     label: key.charAt(0).toUpperCase() + key.slice(1),
     description: `${models.length} models available`,
     hasUserKey: availableModels.user_has_keys?.includes(key) ?? false,
-    icon: getProviderInfo(key).icon,
+    // icon: getProviderInfo(key).icon,
   }));
 
   const providerInfo = getProviderInfo(provider);
@@ -446,65 +434,6 @@ export default function ApiKeysPage() {
       {/* Main Content */}
       <main className="container mx-auto p-4 md:p-6 lg:p-8 max-w-4xl space-y-8">
         {/* Overview Stats */}
-        {availableModels && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-900/10 border-blue-200/50 dark:border-blue-800/30">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/10">
-                    <Key className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                      {userApiKeys.length}
-                    </p>
-                    <p className="text-sm text-blue-600/80 dark:text-blue-400/80">Connected Keys</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10 border-green-200/50 dark:border-green-800/30">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-500/10">
-                    <Brain className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                      {detailedModels
-                        ? Object.values(detailedModels.detailed_models || {})
-                            .flat()
-                            .filter((m: any) => m.is_reasoning_model).length
-                        : 0}
-                    </p>
-                    <p className="text-sm text-green-600/80 dark:text-green-400/80">
-                      Reasoning Models
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-900/10 border-purple-200/50 dark:border-purple-800/30">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <Zap className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                      {Object.values(availableModels.providers).flat().length}
-                    </p>
-                    <p className="text-sm text-purple-600/80 dark:text-purple-400/80">
-                      Total Models
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Add New Key Form */}
         <Card ref={addKeyCardRef}>
@@ -518,7 +447,7 @@ export default function ApiKeysPage() {
               provider will overwrite it.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-2">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="provider">AI Provider</Label>
@@ -530,7 +459,7 @@ export default function ApiKeysPage() {
                     {allProviders.map((p) => (
                       <SelectItem key={p.value} value={p.value}>
                         <div className="flex items-center gap-3">
-                          <span className="text-xl">{p.icon}</span>
+                          {/* <span className="text-xl">{p.icon}</span> */}
                           <span className="font-medium">{p.label}</span>
                           {p.hasUserKey && <CheckCircle className="h-4 w-4 text-green-500" />}
                         </div>
@@ -685,7 +614,7 @@ export default function ApiKeysPage() {
               <Card
                 key={p.value}
                 className={cn(
-                  'transition-all duration-200 overflow-hidden',
+                  'transition-all duration-200 overflow-hidden py-2',
                   p.hasUserKey
                     ? 'bg-gradient-to-r from-green-50/50 to-transparent dark:from-green-900/20 dark:to-transparent border-green-200/50 dark:border-green-800/30'
                     : 'bg-gradient-to-r from-muted/30 to-transparent hover:from-muted/50',
@@ -695,7 +624,6 @@ export default function ApiKeysPage() {
                 <div className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="text-4xl">{providerInfo.icon}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold">{p.label}</h3>
