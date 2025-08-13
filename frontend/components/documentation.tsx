@@ -1,16 +1,15 @@
 'use client';
 
 import type React from 'react';
+import Image from 'next/image';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   FileText,
   Lock,
   Loader2,
   BookOpen,
-  Code2,
   ChevronRight,
   Folder,
   FolderOpen,
@@ -19,15 +18,45 @@ import {
   Eye,
   X,
   Menu,
+  Hash,
+  Sparkles,
+  GripVertical,
+  List,
+  Settings,
+  RefreshCw,
+  Zap,
+  Brain,
+  RotateCcw,
+  Pause,
+  Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   isWikiGenerated,
   generateWikiDocumentation,
   getWikiGenerationStatus,
   getRepositoryDocumentation,
+  getAvailableModels,
+  cancelWikiGeneration,
 } from '@/utils/api';
+import { extractJwtToken } from '@/utils/token-utils';
+import type { AvailableModelsResponse } from '@/api-client/types.gen';
+import { useDocumentationProgress } from '@/lib/sse-client';
+import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
+import { ApiKeyModal } from './api-key-modal';
 
 // Markdown and Syntax Highlighting imports
 import ReactMarkdown from 'react-markdown';
@@ -39,6 +68,13 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 // Types
+interface HeaderInfo {
+  id: string;
+  text: string;
+  level: number;
+  element?: HTMLElement;
+}
+
 interface FileNode {
   type: 'file' | 'folder';
   name: string;
@@ -85,7 +121,15 @@ interface DocumentationTabProps {
     repo_url?: string;
   };
   sourceType: string;
-  selectedModel?: string;
+  userKeyPreferences?: Record<string, boolean>;
+}
+
+interface GenerationSettings {
+  provider: string;
+  model: string;
+  temperature: number;
+  comprehensive: boolean;
+  language: string;
 }
 
 // Helper function moved outside the component
@@ -193,9 +237,30 @@ const MermaidDiagram = ({ code }: MermaidDiagramProps) => {
 interface MarkdownRendererProps {
   content: string;
   onNavItemClick: (filePath: string) => void;
+  onHeadersExtracted?: (headers: HeaderInfo[]) => void;
 }
 
-const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) => {
+const MarkdownRenderer = ({
+  content,
+  onNavItemClick,
+  onHeadersExtracted,
+}: MarkdownRendererProps) => {
+  const markdownRef = useRef<HTMLDivElement>(null);
+
+  // Extract headers from content for navigation
+  useEffect(() => {
+    if (markdownRef.current && onHeadersExtracted) {
+      const headerElements = markdownRef.current.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      const headerInfo: HeaderInfo[] = Array.from(headerElements).map((el, index) => ({
+        id: el.id || `header-${index}`,
+        text: el.textContent || '',
+        level: parseInt(el.tagName.charAt(1)),
+        element: el as HTMLElement,
+      }));
+      onHeadersExtracted(headerInfo);
+    }
+  }, [content, onHeadersExtracted]);
+
   const components: Components = {
     a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
       const href = props.href || '';
@@ -233,16 +298,8 @@ const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) =>
         />
       );
     },
-    code({
-      inline,
-      className,
-      children,
-      ...props
-    }: {
-      inline?: boolean;
-      className?: string;
-      children: React.ReactNode;
-    }) {
+    code(props: React.ComponentProps<'code'> & { inline?: boolean }) {
+      const { inline, className, children } = props;
       const match = /language-(\w+)/.exec(className || '');
       const lang = match ? match[1] : '';
 
@@ -258,43 +315,51 @@ const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) =>
             PreTag="div"
             className="!m-0 !bg-slate-900"
             customStyle={{ fontSize: '14px', lineHeight: '1.5', padding: '1rem' }}
-            {...props}
           >
             {String(children).replace(/\n$/, '')}
           </SyntaxHighlighter>
         </div>
       ) : (
-        <code
-          className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-1 rounded-md text-sm font-mono"
-          {...props}
-        >
+        <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-1 rounded-md text-sm font-mono">
           {children}
         </code>
       );
     },
-    h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h1
-        className="text-3xl font-bold mt-8 mb-4 pb-2 border-b border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
-        {...props}
-      />
-    ),
-    h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h2
-        className="text-2xl font-semibold mt-6 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
-        {...props}
-      />
-    ),
-    h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h3
-        className="text-xl font-semibold mt-6 mb-3 text-slate-900 dark:text-slate-100"
-        {...props}
-      />
-    ),
+    h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
+      const id = props.id || `h1-${Math.random().toString(36).substring(2, 11)}`;
+      return (
+        <h1
+          {...props}
+          id={id}
+          className="text-3xl font-bold mt-6 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 scroll-mt-4"
+        />
+      );
+    },
+    h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
+      const id = props.id || `h2-${Math.random().toString(36).substring(2, 11)}`;
+      return (
+        <h2
+          {...props}
+          id={id}
+          className="text-2xl font-semibold mt-5 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 scroll-mt-4"
+        />
+      );
+    },
+    h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
+      const id = props.id || `h3-${Math.random().toString(36).substring(2, 11)}`;
+      return (
+        <h3
+          {...props}
+          id={id}
+          className="text-xl font-semibold mt-4 mb-2 text-slate-900 dark:text-slate-100 scroll-mt-4"
+        />
+      );
+    },
     ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-      <ul className="list-disc pl-6 my-4 space-y-2 text-slate-700 dark:text-slate-300" {...props} />
+      <ul className="list-disc pl-6 my-3 space-y-1 text-slate-700 dark:text-slate-300" {...props} />
     ),
     p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
-      <p className="leading-7 my-4 text-slate-700 dark:text-slate-300" {...props} />
+      <p className="leading-7 my-3 text-slate-700 dark:text-slate-300" {...props} />
     ),
     blockquote: (props: React.HTMLAttributes<HTMLElement>) => (
       <blockquote
@@ -322,12 +387,15 @@ const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) =>
         {...props}
       />
     ),
-     
+
     img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-      <img
+      <Image
         className="max-w-full h-auto rounded-lg shadow-md my-4"
         alt={props.alt || ''}
-        {...props}
+        src={typeof props.src === 'string' ? props.src : ''}
+        width={props.width ? Number(props.width) : 800}
+        height={props.height ? Number(props.height) : 600}
+        style={{ width: 'auto', height: 'auto' }}
       />
     ),
     hr: (props: React.HTMLAttributes<HTMLHRElement>) => (
@@ -336,13 +404,15 @@ const MarkdownRenderer = ({ content, onNavItemClick }: MarkdownRendererProps) =>
   };
 
   return (
-    <ReactMarkdown
-      components={components}
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeRaw, rehypeSlug]}
-    >
-      {content}
-    </ReactMarkdown>
+    <div ref={markdownRef}>
+      <ReactMarkdown
+        components={components}
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, rehypeSlug]}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 };
 
@@ -432,9 +502,14 @@ export default function Documentation({
   currentRepoId,
   sourceData,
   sourceType,
-  selectedModel,
+  userKeyPreferences = {},
 }: DocumentationTabProps) {
   const { data: session } = useSession();
+  const apiKeyValidation = useApiKeyValidation();
+
+  // Suppress unused variable warning
+  void userKeyPreferences;
+  const hasValidApiKeys = apiKeyValidation.userHasKeys.length > 0;
   const [isDocGenerated, setIsDocGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -444,10 +519,45 @@ export default function Documentation({
   // Documentation display states
   const [documentation, setDocumentation] = useState<Documentation | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [activeContent, setActiveContent] = useState<DocContent | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [headers, setHeaders] = useState<HeaderInfo[]>([]);
+  const [activeHeaderId, setActiveHeaderId] = useState<string>('');
+  const [isRightNavCollapsed, setIsRightNavCollapsed] = useState(false);
+  const [rightNavWidth, setRightNavWidth] = useState(256); // 16rem = 256px
+  const [leftNavWidth, setLeftNavWidth] = useState(220); // 13.75rem = 220px (slightly increased)
+  const [isResizingRight, setIsResizingRight] = useState(false);
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced generation states
+  const [availableModels, setAvailableModels] = useState<AvailableModelsResponse | null>(null);
+  const [generationSettings, setGenerationSettings] = useState<GenerationSettings>({
+    provider: 'gemini',
+    model: 'gemini-2.0-flash',
+    temperature: 0.7,
+    comprehensive: true,
+    language: 'en',
+  });
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [canCancel, setCanCancel] = useState(false);
+  const [showRegenerateOptions, setShowRegenerateOptions] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+
+  // SSE progress streaming
+  const {
+    progressUpdates: sseUpdates,
+    currentStatus: sseStatus,
+    currentMessage: sseMessage,
+    isStreaming,
+    error: sseError,
+    stopStreaming,
+    clearProgress,
+  } = useDocumentationProgress(currentTaskId);
 
   // Helper functions
   const getAncestorPaths = (path: string): Set<string> => {
@@ -476,12 +586,112 @@ export default function Documentation({
     });
   };
 
+  const formatTitle = (filename?: string) => {
+    if (!filename) return 'Documentation';
+    // Remove .md extension and capitalize
+    const cleanName = filename.replace(/\.md$/, '');
+    return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+  };
+
+  // Handle resize functionality for both sidebars
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const containerRect = resizeRef.current?.getBoundingClientRect();
+      if (!containerRect) return;
+
+      if (isResizingRight) {
+        const newWidth = containerRect.right - e.clientX;
+        const minWidth = 200;
+        const maxWidth = containerRect.width * 0.3;
+        setRightNavWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
+      }
+
+      if (isResizingLeft) {
+        const newWidth = e.clientX - containerRect.left;
+        const minWidth = 160;
+        const maxWidth = containerRect.width * 0.3;
+        setLeftNavWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingRight(false);
+      setIsResizingLeft(false);
+    };
+
+    if (isResizingRight || isResizingLeft) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizingRight, isResizingLeft]);
+
+  // Load available models
+  const loadAvailableModels = useCallback(async () => {
+    if (!session?.jwt_token) return;
+    try {
+      const models = await getAvailableModels(extractJwtToken(session?.jwt_token) || '');
+      setAvailableModels(models);
+
+      // Choose provider preference: if user has keys, limit to those; otherwise show all
+      const preferredProviders =
+        models.user_has_keys && models.user_has_keys.length > 0
+          ? models.user_has_keys
+          : Object.keys(models.providers);
+      const firstProvider = preferredProviders.find((p) => (models.providers[p] || []).length > 0);
+      const firstModel = firstProvider ? models.providers[firstProvider]?.[0] : undefined;
+
+      // If current provider is not available or not in preferred list, switch to preferred
+      const currentProvider = generationSettings.provider;
+      const currentModel = generationSettings.model;
+      const providerIsAllowed = firstProvider
+        ? preferredProviders.includes(currentProvider) &&
+          (models.providers[currentProvider] || []).length > 0
+        : false;
+      const modelIsAllowed =
+        providerIsAllowed && (models.providers[currentProvider] || []).includes(currentModel);
+
+      if (!providerIsAllowed && firstProvider && firstModel) {
+        setGenerationSettings((prev) => ({
+          ...prev,
+          provider: firstProvider,
+          model: firstModel,
+        }));
+      } else if (
+        providerIsAllowed &&
+        !modelIsAllowed &&
+        (models.providers[currentProvider] || []).length > 0
+      ) {
+        setGenerationSettings((prev) => ({
+          ...prev,
+          model: models.providers[currentProvider][0],
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading models:', error);
+    }
+  }, [session?.jwt_token, generationSettings.provider]);
+
   // Check documentation status
   const checkDocumentationStatus = useCallback(async () => {
     try {
-      if (!session?.jwt_token || !currentRepoId) return;
+      if (!session?.jwt_token || !currentRepoId) {
+        setInitializing(false);
+        return;
+      }
 
-      const wikiResponse = await isWikiGenerated(session.jwt_token, currentRepoId);
+      const wikiResponse = await isWikiGenerated(
+        extractJwtToken(session?.jwt_token) || '',
+        currentRepoId,
+      );
       setIsDocGenerated(wikiResponse.is_generated);
       setCurrentStatus(wikiResponse.status);
 
@@ -494,9 +704,12 @@ export default function Documentation({
       if (wikiResponse.status === 'running' || wikiResponse.status === 'pending') {
         setIsGenerating(true);
       }
+
+      setInitializing(false);
     } catch (err) {
       console.error('Error checking documentation status:', err);
       setError('Failed to check documentation status');
+      setInitializing(false);
     }
   }, [session?.jwt_token, currentRepoId]);
 
@@ -520,10 +733,61 @@ export default function Documentation({
         setActiveContent(docs.data.content[fileItem.path]);
         setActivePath(fileItem.path);
         setSidebarOpen(false);
+        setHeaders([]);
+        setActiveHeaderId('');
+        // Reset scroll position
+        if (contentRef.current) {
+          contentRef.current.scrollTo({ top: 0 });
+        }
       }
     },
     [documentation],
   );
+
+  // Handle header extraction
+  const handleHeadersExtracted = useCallback((extractedHeaders: HeaderInfo[]) => {
+    setHeaders(extractedHeaders);
+    if (extractedHeaders.length > 0) {
+      setActiveHeaderId(extractedHeaders[0].id);
+    }
+  }, []);
+
+  // Handle header click for smooth scrolling
+  const handleHeaderClick = useCallback((headerId: string) => {
+    const element = document.getElementById(headerId);
+    if (element && contentRef.current) {
+      const container = contentRef.current;
+      const targetOffset = element.offsetTop - container.offsetTop - 60;
+      container.scrollTo({ top: targetOffset, behavior: 'smooth' });
+      setActiveHeaderId(headerId);
+    }
+  }, []);
+
+  // Track scroll position for active header within content area
+  useEffect(() => {
+    const handleScroll = () => {
+      if (headers.length === 0 || !contentRef.current) return;
+
+      const container = contentRef.current;
+      const scrollPosition = container.scrollTop + 80;
+      let activeId = headers[0].id;
+
+      for (const header of headers) {
+        const element = document.getElementById(header.id);
+        if (element && element.offsetTop - container.offsetTop <= scrollPosition) {
+          activeId = header.id;
+        }
+      }
+
+      setActiveHeaderId(activeId);
+    };
+
+    const container = contentRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll, { passive: true });
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [headers]);
 
   // Fetch documentation content
   const fetchDocumentation = useCallback(async () => {
@@ -531,7 +795,10 @@ export default function Documentation({
 
     try {
       setLoading(true);
-      const docs = await getRepositoryDocumentation(session.jwt_token, currentRepoId);
+      const docs = await getRepositoryDocumentation(
+        extractJwtToken(session?.jwt_token) || '',
+        currentRepoId,
+      );
 
       if (!docs || !docs.success || !docs.data) {
         throw new Error(docs?.message || 'Invalid documentation format received.');
@@ -587,6 +854,10 @@ export default function Documentation({
   const handleGenerateDocumentation = async () => {
     if (!session?.jwt_token || !currentRepoId || !sourceData) return;
 
+    // Check for API keys before generating documentation
+    const canProceed = await apiKeyValidation.checkApiKeysBeforeAction();
+    if (!canProceed) return;
+
     try {
       setIsGenerating(true);
       setError(null);
@@ -599,29 +870,95 @@ export default function Documentation({
         throw new Error('Repository URL not available');
       }
 
-      // Pass selectedModel from props to the API
-      await generateWikiDocumentation(session?.jwt_token, repositoryUrl, 'en', true, selectedModel);
+      const response = await generateWikiDocumentation(
+        extractJwtToken(session?.jwt_token) || '',
+        repositoryUrl,
+        generationSettings.language,
+        generationSettings.comprehensive,
+        generationSettings.provider,
+        generationSettings.model,
+        generationSettings.temperature,
+      );
+
+      // Start SSE streaming if we got a task ID
+      if (response.task_id) {
+        setCurrentTaskId(response.task_id);
+        setCanCancel(true);
+        clearProgress(); // Clear any existing progress
+      }
     } catch (err) {
       console.error('Error generating documentation:', err);
       setIsGenerating(false);
-      setError(err instanceof Error ? err.message : 'Failed to generate documentation');
+      setCanCancel(false);
+      setCurrentTaskId(null);
+
+      // Enhanced error handling with user guidance
+      let errorMessage = 'Failed to generate documentation';
+      let actionableAdvice = '';
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+
+        // Provider-specific error guidance
+        if (errorMessage.toLowerCase().includes('rate limit')) {
+          actionableAdvice =
+            ' Try switching to a different AI provider or wait a few minutes before retrying.';
+        } else if (
+          errorMessage.toLowerCase().includes('authentication') ||
+          errorMessage.toLowerCase().includes('api key') ||
+          errorMessage.toLowerCase().includes('no api key')
+        ) {
+          actionableAdvice = ' Please add a valid API key in Settings.';
+          // Show API key modal for immediate action
+          apiKeyValidation.setShowApiKeyModal(true);
+        } else if (
+          errorMessage.toLowerCase().includes('quota') ||
+          errorMessage.toLowerCase().includes('billing')
+        ) {
+          actionableAdvice = ' Check your API provider billing status and usage limits.';
+        } else if (errorMessage.toLowerCase().includes('model')) {
+          actionableAdvice = ' Try selecting a different model or provider.';
+        }
+      }
+
+      setError(errorMessage + actionableAdvice);
     }
   };
 
   // Effects
   useEffect(() => {
     if (session?.jwt_token && currentRepoId) {
+      loadAvailableModels();
       checkDocumentationStatus();
+    } else {
+      setInitializing(false);
     }
-  }, [session?.jwt_token, currentRepoId, checkDocumentationStatus]);
+  }, [session?.jwt_token, currentRepoId, checkDocumentationStatus, loadAvailableModels]);
+
+  // Handle SSE completion
+  useEffect(() => {
+    if (sseStatus === 'completed') {
+      setIsGenerating(false);
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      fetchDocumentation(); // Reload documentation data
+    } else if (sseStatus === 'failed') {
+      setIsGenerating(false);
+      setCanCancel(false);
+      setCurrentTaskId(null);
+      if (sseError) {
+        setError(sseError);
+      }
+    }
+  }, [sseStatus, sseError, fetchDocumentation]);
 
   useEffect(() => {
-    if (isDocGenerated && !documentation) {
+    if (isDocGenerated && !documentation && !loading) {
       fetchDocumentation();
     }
-  }, [isDocGenerated, documentation, fetchDocumentation]);
+  }, [isDocGenerated, documentation, loading, fetchDocumentation]);
 
-  // Status polling
+  // Status polling with reduced frequency
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
@@ -629,7 +966,10 @@ export default function Documentation({
       interval = setInterval(async () => {
         try {
           setIsCheckingStatus(true);
-          const statusResponse = await getWikiGenerationStatus(session?.jwt_token, currentRepoId);
+          const statusResponse = await getWikiGenerationStatus(
+            extractJwtToken(session?.jwt_token) || '',
+            currentRepoId,
+          );
           setCurrentStatus(statusResponse.status);
 
           if (statusResponse.status === 'completed') {
@@ -638,16 +978,16 @@ export default function Documentation({
             setError(null);
           } else if (statusResponse.status === 'failed') {
             setIsGenerating(false);
-            setError(
-              'Please Provide Valid API Key for the selected model or try again later',
-            );
+            setError('Please Provide Valid API Key for the selected model or try again later');
+            // Show API key modal for immediate action
+            apiKeyValidation.setShowApiKeyModal(true);
           }
         } catch (err) {
           console.error('Error checking status:', err);
         } finally {
           setIsCheckingStatus(false);
         }
-      }, 3000);
+      }, 8000);
     }
 
     return () => {
@@ -655,10 +995,68 @@ export default function Documentation({
     };
   }, [isGenerating, session?.jwt_token, currentRepoId]);
 
-  // Render logic
+  // Show initial loading state
+  if (initializing) {
+    return (
+      <div className="h-full flex overflow-hidden">
+        {/* Loading Left Sidebar */}
+        <div className="w-80 xl:w-96 border-r border-border/30 p-6 bg-background/50 backdrop-blur-sm flex-shrink-0">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="h-4 w-4 bg-muted/50 rounded animate-pulse" />
+              <div className="h-4 bg-muted/50 rounded animate-pulse w-32" />
+            </div>
+            <div className="space-y-3">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="h-3 w-3 bg-muted/30 rounded animate-pulse" />
+                  <div
+                    className="h-3 bg-muted/30 rounded animate-pulse"
+                    style={{ width: `${60 + Math.random() * 40}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Loading Main Content */}
+        <div className="flex-1 flex items-center justify-center bg-background/20">
+          <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="text-center space-y-2">
+              <h3 className="font-medium text-foreground">Initializing Documentation</h3>
+              <p className="text-sm text-muted-foreground">Checking documentation status...</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading Right Nav */}
+        <div className="hidden xl:block w-64 bg-background/50 backdrop-blur-sm p-6 flex-shrink-0">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-4 w-4 bg-muted/50 rounded animate-pulse" />
+              <div className="h-4 bg-muted/50 rounded animate-pulse w-24" />
+            </div>
+            <div className="space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-3 bg-muted/30 rounded animate-pulse"
+                  style={{ width: `${50 + Math.random() * 30}%` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Authentication guard
   if (!session?.jwt_token) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
             <Lock className="h-6 w-6 text-muted-foreground/50" />
@@ -674,85 +1072,548 @@ export default function Documentation({
     );
   }
 
+  // Loading state with skeleton
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <div className="text-center space-y-2">
-            <h3 className="font-medium text-foreground">Loading Documentation</h3>
-            <p className="text-sm text-muted-foreground">Fetching repository documentation...</p>
+      <div className="h-full flex overflow-hidden">
+        {/* Loading Left Sidebar */}
+        <div
+          className="border-r border-border/30 p-6 bg-background/50 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${leftNavWidth}px` }}
+        >
+          {/* Left Resize Handle for Loading State */}
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
+            onMouseDown={() => setIsResizingLeft(true)}
+          >
+            <div className="absolute right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="h-4 w-4 bg-muted/50 rounded animate-pulse" />
+              <div className="h-4 bg-muted/50 rounded animate-pulse w-20" />
+            </div>
+            <div className="space-y-3">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="h-3 w-3 bg-muted/30 rounded animate-pulse" />
+                  <div
+                    className="h-3 bg-muted/30 rounded animate-pulse"
+                    style={{ width: `${60 + Math.random() * 40}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Loading Main Content */}
+        <div className="flex-1 flex items-center justify-center bg-background/20">
+          <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="text-center space-y-2">
+              <h3 className="font-medium text-foreground">Loading Documentation</h3>
+              <p className="text-sm text-muted-foreground">Fetching repository documentation...</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading Right Nav */}
+        <div className="hidden xl:block w-64 bg-background/50 backdrop-blur-sm p-6 flex-shrink-0">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-4 w-4 bg-muted/50 rounded animate-pulse" />
+              <div className="h-4 bg-muted/50 rounded animate-pulse w-24" />
+            </div>
+            <div className="space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-3 bg-muted/30 rounded animate-pulse"
+                  style={{ width: `${50 + Math.random() * 30}%` }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // No documentation generated state
   if (!isDocGenerated) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center space-y-6 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl max-w-md">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-            {isGenerating ? (
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            ) : (
-              <BookOpen className="h-8 w-8 text-primary" />
-            )}
+      <div className="h-full flex overflow-hidden">
+        {/* Empty Left Sidebar */}
+        <div
+          className="border-r border-border/30 p-6 bg-background/30 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${leftNavWidth}px` }}
+        >
+          {/* Left Resize Handle for No Docs State */}
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
+            onMouseDown={() => setIsResizingLeft(true)}
+          >
+            <div className="absolute right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold text-foreground">
-              {isGenerating ? 'Generating Documentation' : 'Generate Documentation'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {isGenerating
-                ? 'Please wait while we create comprehensive documentation for your repository...'
-                : 'Create AI-powered documentation with interactive navigation and detailed analysis.'}
-            </p>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-6 opacity-50">
+              <List className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-muted-foreground">Contents</span>
+            </div>
+            <div className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex items-center gap-2 opacity-30">
+                  <div className="h-3 w-3 bg-muted/40 rounded animate-pulse" />
+                  <div
+                    className="h-3 bg-muted/40 rounded animate-pulse"
+                    style={{ width: `${40 + Math.random() * 40}%` }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
 
-          {isGenerating && (
-            <div className="space-y-2">
-              <div className="text-sm text-muted-foreground">
-                Status: <span className="capitalize font-medium">{currentStatus}</span>
+        {/* Main Generate Section */}
+        <div className="flex-1 flex items-center justify-center bg-background/10">
+          <div className="text-center space-y-8 p-8 rounded-3xl bg-background/90 backdrop-blur-2xl border border-border/50 shadow-xl max-w-lg mx-4">
+            <div className="space-y-4">
+              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-primary/20 to-blue-500/20 flex items-center justify-center relative">
+                {isGenerating ? (
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                ) : (
+                  <BookOpen className="h-10 w-10 text-primary" />
+                )}
+                {!isGenerating && (
+                  <div className="absolute -top-2 -right-2">
+                    <Sparkles className="h-6 w-6 text-yellow-500 animate-pulse" />
+                  </div>
+                )}
               </div>
-              {isCheckingStatus && (
-                <div className="text-xs text-muted-foreground">Checking status...</div>
+
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-foreground">
+                  {isGenerating ? 'Generating Documentation' : 'Generate Documentation'}
+                </h2>
+                <p className="text-muted-foreground leading-relaxed">
+                  {isGenerating
+                    ? 'Creating comprehensive AI-powered documentation for your repository. This process analyzes your codebase structure, dependencies, and generates detailed explanations.'
+                    : 'Transform your codebase into comprehensive, AI-powered documentation with interactive navigation, detailed analysis, and smart cross-references.'}
+                </p>
+              </div>
+            </div>
+
+            {isGenerating && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium text-primary">
+                      {currentStatus === 'running' ? '60%' : '30%'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted/30 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-primary to-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: currentStatus === 'running' ? '60%' : '30%' }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" />
+                  <span className="capitalize font-medium text-primary">{currentStatus}</span>
+                  {isCheckingStatus && (
+                    <span className="text-muted-foreground">• Checking status...</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <X className="h-4 w-4 text-red-500" />
+                  <span className="font-medium text-red-600 dark:text-red-400">
+                    Generation Failed
+                  </span>
+                </div>
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
+
+            {/* Model Selection and Settings */}
+            {!isGenerating && (
+              <div className="space-y-6 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                {!apiKeyValidation.isLoading && !hasValidApiKeys && (
+                  <div className="p-3 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm text-orange-700 dark:text-orange-300">
+                        Add an API key to enable documentation generation
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => apiKeyValidation.setShowApiKeyModal(true)}
+                      className="ml-2"
+                    >
+                      Add API Keys
+                    </Button>
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-primary" />
+                    Generation Settings
+                  </h3>
+
+                  {/* Model Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">AI Provider</Label>
+                      <Select
+                        value={generationSettings.provider}
+                        onValueChange={(provider) => {
+                          const firstModel = availableModels?.providers[provider]?.[0];
+                          if (firstModel) {
+                            setGenerationSettings((prev) => ({
+                              ...prev,
+                              provider,
+                              model: firstModel,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            <div className="flex items-center gap-2">
+                              {generationSettings.provider === 'openai' && (
+                                <Zap className="h-4 w-4" />
+                              )}
+                              {generationSettings.provider === 'anthropic' && (
+                                <Brain className="h-4 w-4" />
+                              )}
+                              {generationSettings.provider === 'gemini' && (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                              {generationSettings.provider === 'groq' && (
+                                <Gauge className="h-4 w-4" />
+                              )}
+                              <span className="capitalize">{generationSettings.provider}</span>
+                            </div>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels &&
+                            (() => {
+                              const userKeys = availableModels.user_has_keys || [];
+                              const providersToShow = (
+                                userKeys.length > 0
+                                  ? userKeys
+                                  : Object.keys(availableModels.providers)
+                              ).filter((p) => (availableModels.providers[p] || []).length > 0);
+                              return providersToShow.map((provider) => (
+                                <SelectItem key={provider} value={provider}>
+                                  <div className="flex items-center gap-2">
+                                    {provider === 'openai' && <Zap className="h-4 w-4" />}
+                                    {provider === 'anthropic' && <Brain className="h-4 w-4" />}
+                                    {provider === 'gemini' && <Sparkles className="h-4 w-4" />}
+                                    {provider === 'groq' && <Gauge className="h-4 w-4" />}
+                                    <span className="capitalize">{provider}</span>
+                                    {availableModels.user_has_keys.includes(provider) && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Your Key
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ));
+                            })()}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Model</Label>
+                      <Select
+                        value={generationSettings.model}
+                        onValueChange={(model) =>
+                          setGenerationSettings((prev) => ({ ...prev, model }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            <Badge variant="outline" className="text-xs">
+                              {generationSettings.model}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels?.providers[generationSettings.provider]?.map((model) => (
+                            <SelectItem key={model} value={model}>
+                              <Badge variant="outline" className="text-xs">
+                                {model}
+                              </Badge>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Quick Settings */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="comprehensive"
+                        checked={generationSettings.comprehensive}
+                        onCheckedChange={(comprehensive) =>
+                          setGenerationSettings((prev) => ({ ...prev, comprehensive }))
+                        }
+                      />
+                      <Label htmlFor="comprehensive" className="text-sm">
+                        Comprehensive Documentation
+                      </Label>
+                    </div>
+
+                    <Popover open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Advanced
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Temperature</Label>
+                            <Slider
+                              value={[generationSettings.temperature]}
+                              onValueChange={(value) =>
+                                setGenerationSettings((prev) => ({
+                                  ...prev,
+                                  temperature: value[0],
+                                }))
+                              }
+                              max={1.5}
+                              min={0}
+                              step={0.1}
+                              className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Focused (0)</span>
+                              <span className="font-medium">{generationSettings.temperature}</span>
+                              <span>Creative (1.5)</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Language</Label>
+                            <Select
+                              value={generationSettings.language}
+                              onValueChange={(language) =>
+                                setGenerationSettings((prev) => ({ ...prev, language }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="en">English</SelectItem>
+                                <SelectItem value="es">Spanish</SelectItem>
+                                <SelectItem value="fr">French</SelectItem>
+                                <SelectItem value="de">German</SelectItem>
+                                <SelectItem value="zh">Chinese</SelectItem>
+                                <SelectItem value="ja">Japanese</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Progress Updates */}
+            {isGenerating && (isStreaming || sseUpdates.length > 0) && (
+              <div className="space-y-4 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  Generation Progress
+                  {isStreaming && (
+                    <Badge variant="secondary" className="text-xs">
+                      Live Updates
+                    </Badge>
+                  )}
+                </h3>
+
+                {/* Current Status */}
+                {(sseMessage || sseStatus) && (
+                  <div className="p-3 bg-primary/10 rounded-lg border-l-4 border-primary">
+                    <div className="font-medium text-sm text-foreground">
+                      Status: {sseStatus || 'running'}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">{sseMessage}</div>
+                  </div>
+                )}
+
+                {/* Progress History */}
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {sseUpdates.slice(-5).map((update, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-2 bg-background/40 rounded-lg"
+                    >
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse mt-2" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground truncate">
+                          {update.message}
+                        </div>
+                        <div className="text-xs text-muted-foreground/60">
+                          {new Date(update.timestamp * 1000).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Error Display */}
+                {sseError && (
+                  <div className="p-3 bg-destructive/10 rounded-lg border-l-4 border-destructive">
+                    <div className="text-sm text-destructive font-medium">Connection Error</div>
+                    <div className="text-xs text-destructive/80 mt-1">{sseError}</div>
+                  </div>
+                )}
+
+                {canCancel && currentTaskId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!session?.jwt_token || !currentTaskId) return;
+                      try {
+                        await cancelWikiGeneration(
+                          extractJwtToken(session?.jwt_token) || '',
+                          currentTaskId,
+                        );
+                        stopStreaming();
+                        setCanCancel(false);
+                        setCurrentTaskId(null);
+                        setIsGenerating(false);
+                      } catch (error) {
+                        console.error('Error cancelling generation:', error);
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Cancel Generation
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={handleGenerateDocumentation}
+                disabled={isGenerating || !availableModels || !hasValidApiKeys}
+                size="lg"
+                className="flex-1 rounded-xl px-8 py-3 text-base font-semibold"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                    {isCheckingStatus ? 'Checking Status...' : 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5 mr-3" />
+                    Generate Documentation
+                  </>
+                )}
+              </Button>
+
+              {isDocGenerated && !isGenerating && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
+                  className="rounded-xl px-6 py-3"
+                  disabled={!hasValidApiKeys}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Regenerate
+                </Button>
               )}
             </div>
-          )}
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          <Button
-            onClick={handleGenerateDocumentation}
-            disabled={isGenerating}
-            className="rounded-xl px-6 py-2"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {isCheckingStatus ? 'Checking...' : 'Generating...'}
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Documentation
-              </>
+            {/* Regenerate Options */}
+            {showRegenerateOptions && isDocGenerated && !isGenerating && (
+              <div className="space-y-3 bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-4">
+                <h4 className="text-sm font-medium text-foreground">Regeneration Options</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateDocumentation}
+                    className="rounded-lg"
+                    disabled={!hasValidApiKeys}
+                  >
+                    <Sparkles className="h-3 w-3 mr-2" />
+                    Full Regeneration
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      /* TODO: Implement partial regeneration */
+                    }}
+                    className="rounded-lg"
+                    disabled
+                  >
+                    <RefreshCw className="h-3 w-3 mr-2" />
+                    Partial Update
+                  </Button>
+                </div>
+              </div>
             )}
-          </Button>
+          </div>
+        </div>
+
+        {/* Empty Right Nav */}
+        <div className="hidden xl:block w-64 bg-background/30 backdrop-blur-sm p-6 flex-shrink-0">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-6 opacity-50">
+              <Hash className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-muted-foreground">On This Page</span>
+            </div>
+            <div className="space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-3 bg-muted/20 rounded animate-pulse opacity-30"
+                  style={{ width: `${30 + Math.random() * 40}%` }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  // No documentation data state
   if (!documentation || !documentation.data) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-4 p-8 rounded-2xl bg-background/80 backdrop-blur-2xl border border-border/50 shadow-xl">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
             <X className="h-6 w-6 text-muted-foreground/50" />
@@ -768,74 +1629,53 @@ export default function Documentation({
     );
   }
 
-  // Main documentation display
+  // Main documentation display - Three column layout with proper scrolling
   return (
-    <div className="flex h-full">
-      {/* Sidebar */}
+    <div className="h-full flex overflow-hidden" ref={resizeRef}>
+      {/* Left Sidebar - File Navigation (Fixed/Sticky) */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-30 w-80 bg-background/95 backdrop-blur-xl border-r border-border/30 transform transition-transform duration-300',
-          'lg:relative lg:translate-x-0 lg:bg-transparent lg:backdrop-blur-none lg:w-80 xl:w-96',
-          'overflow-hidden',
+          'fixed inset-y-0 left-0 z-30 bg-background/95 backdrop-blur-xl border-r border-border/30 transform transition-transform duration-300',
+          'lg:relative lg:translate-x-0 lg:bg-background/50 lg:backdrop-blur-sm',
+          'flex flex-col flex-shrink-0 relative',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
+        style={{ width: `${leftNavWidth}px` }}
       >
-        <div className="flex items-center justify-between p-4 border-b border-border/30 lg:hidden">
-          <h2 className="text-lg font-semibold">Navigation</h2>
+        {/* Left Resize Handle */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group hidden lg:block"
+          onMouseDown={() => setIsResizingLeft(true)}
+        >
+          <div className="absolute right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border/30 lg:p-6 shrink-0">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <span className="hidden lg:inline">Documentation</span>
+            <span className="lg:hidden">Navigation</span>
+          </h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen(false)}
-            className="h-8 w-8 rounded-xl"
+            className="h-8 w-8 rounded-xl lg:hidden"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="p-4 lg:p-6 h-full overflow-y-auto">
-          {documentation?.data?.analysis && Object.keys(documentation.data.analysis).length > 0 && (
-            <div className="mb-6 p-4 rounded-xl bg-muted/30 border border-border/20">
-              <h3 className="font-medium mb-3 flex items-center gap-2">
-                <Code2 className="h-4 w-4" />
-                Analysis
-              </h3>
-              <div className="space-y-2 text-sm">
-                {documentation.data.analysis.domain_type && (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="rounded-lg px-2 py-1 text-xs">
-                      {documentation.data.analysis.domain_type}
-                    </Badge>
-                  </div>
-                )}
-                {documentation.data.analysis.complexity_score && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Complexity:</span>
-                    <span>{documentation.data.analysis.complexity_score}</span>
-                  </div>
-                )}
-                {documentation.data.analysis.languages && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Languages:</span>
-                    <span className="text-right break-words">
-                      {documentation.data.analysis.languages}
-                    </span>
-                  </div>
-                )}
-                {documentation.data.analysis.total_pages && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Pages:</span>
-                    <span>{documentation.data.analysis.total_pages}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+        {/* Sidebar Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          {/* File Tree */}
           {documentation?.data?.folder_structure && (
             <div>
-              <h3 className="font-medium mb-3 flex items-center gap-2 px-2">
-                <BookOpen className="h-4 w-4" />
-                Files
+              <h3 className="font-medium mb-4 flex items-center gap-2 px-2 text-foreground">
+                <List className="h-4 w-4 text-primary" />
+                Contents
               </h3>
               <FileTree
                 nodes={documentation.data.folder_structure}
@@ -849,9 +1689,10 @@ export default function Documentation({
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 min-w-0 lg:ml-0">
-        <div className="lg:hidden sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-border/30 p-4">
+      {/* Main Content Area - Scrollable */}
+      <main className="flex-1 flex flex-col min-w-0 bg-background/10 overflow-hidden">
+        {/* Mobile Menu Button */}
+        <div className="lg:hidden sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-border/30 p-4 shrink-0">
           <Button
             variant="outline"
             size="icon"
@@ -862,78 +1703,190 @@ export default function Documentation({
           </Button>
         </div>
 
-        <div className="p-4 lg:p-6 max-w-none lg:max-w-4xl xl:max-w-5xl mx-auto">
-          {activeContent ? (
-            <div className="space-y-6">
-              <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl p-4 lg:p-6">
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2 break-words">
-                      {activeContent.metadata?.filename || 'Documentation'}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                      {activeContent.metadata?.size && (
-                        <div className="flex items-center gap-1">
-                          <FileText className="h-4 w-4 shrink-0" />
-                          <span>{formatFileSize(activeContent.metadata.size)}</span>
-                        </div>
-                      )}
-                      {activeContent.read_time && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 shrink-0" />
-                          <span>{activeContent.read_time} min read</span>
-                        </div>
-                      )}
-                      {activeContent.word_count && (
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4 shrink-0" />
-                          <span>{activeContent.word_count} words</span>
-                        </div>
-                      )}
+        {/* Content Area - This is the ONLY scrollable section */}
+        <div className="flex-1 overflow-y-auto" ref={contentRef}>
+          <div className="p-4 lg:p-6 xl:p-8 max-w-none">
+            {activeContent ? (
+              <div className="space-y-4">
+                {/* Document Header - Compact */}
+                <div className="bg-background/80 backdrop-blur-xl border border-border/40 rounded-2xl p-4 lg:p-6 shadow-sm">
+                  <div className="space-y-3">
+                    <div>
+                      <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2 break-words leading-tight">
+                        {formatTitle(activeContent.metadata?.filename)}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                        {activeContent.metadata?.size && (
+                          <div className="flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span className="font-medium">
+                              {formatFileSize(activeContent.metadata.size)}
+                            </span>
+                          </div>
+                        )}
+                        {activeContent.read_time && (
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span className="font-medium">{activeContent.read_time} min read</span>
+                          </div>
+                        )}
+                        {activeContent.word_count && (
+                          <div className="flex items-center gap-1.5">
+                            <Eye className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span className="font-medium">{activeContent.word_count} words</span>
+                          </div>
+                        )}
+                        {activeContent.metadata?.modified && (
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium">Last modified:</span>{' '}
+                            {formatDate(activeContent.metadata.modified)}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  {activeContent.metadata?.modified && (
-                    <div className="text-sm text-muted-foreground">
-                      Last modified: {formatDate(activeContent.metadata.modified)}
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl overflow-hidden">
-                <article className="p-4 lg:p-6 xl:p-8 overflow-x-auto">
-                  <MarkdownRenderer
-                    content={activeContent.content || activeContent.preview || ''}
-                    onNavItemClick={handleNavItemClick}
-                  />
-                </article>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-96">
-              <div className="text-center space-y-4">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-muted-foreground/50" />
+                {/* Document Content */}
+                <div className="bg-background/80 backdrop-blur-xl border border-border/40 rounded-2xl overflow-hidden shadow-sm">
+                  <article className="p-6 lg:p-8 xl:p-10">
+                    <MarkdownRenderer
+                      content={activeContent.content || activeContent.preview || ''}
+                      onNavItemClick={handleNavItemClick}
+                      onHeadersExtracted={handleHeadersExtracted}
+                    />
+                  </article>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="font-medium text-foreground">No Content Selected</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Select a document from the sidebar to view its content
-                  </p>
+
+                {/* Bottom spacing for better scroll experience */}
+                <div className="h-16" />
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center min-h-[60vh]">
+                <div className="text-center space-y-6 p-8 rounded-2xl bg-background/80 backdrop-blur-xl border border-border/50 shadow-lg">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 flex items-center justify-center">
+                    <BookOpen className="h-8 w-8 text-muted-foreground/70" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold text-foreground">Select a Document</h3>
+                    <p className="text-muted-foreground max-w-sm">
+                      Choose a file from the navigation panel to view its documentation content.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Mobile overlay */}
+      {/* Right Sidebar - Page Navigation (Resizable & Collapsible) */}
+      {!isRightNavCollapsed ? (
+        <div
+          className="hidden xl:flex xl:flex-col bg-background/40 backdrop-blur-sm flex-shrink-0 relative"
+          style={{ width: `${rightNavWidth}px` }}
+        >
+          {/* Resize Handle */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors group"
+            onMouseDown={() => setIsResizingRight(true)}
+          >
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+
+          {/* Right Sidebar Header */}
+          <div className="flex items-center justify-between p-4 lg:p-6 border-b border-border/20 shrink-0">
+            <h3 className="font-medium flex items-center gap-2 text-foreground text-sm">
+              <Hash className="h-4 w-4 text-primary" />
+              On This Page
+            </h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsRightNavCollapsed(true)}
+              className="h-6 w-6 rounded-lg hover:bg-muted/50"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+
+          {/* Right Sidebar Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+            {headers.length > 0 ? (
+              <nav className="space-y-0.5">
+                {headers.map((header) => (
+                  <button
+                    key={header.id}
+                    onClick={() => handleHeaderClick(header.id)}
+                    className={cn(
+                      'block w-full text-left px-3 py-2 text-sm rounded-lg transition-all duration-200',
+                      'hover:bg-muted/40 hover:text-foreground group',
+                      activeHeaderId === header.id
+                        ? 'bg-primary/8 text-primary font-medium'
+                        : 'text-muted-foreground',
+                    )}
+                    style={{
+                      paddingLeft: `${0.75 + (header.level - 1) * 0.5}rem`,
+                    }}
+                  >
+                    <span className="truncate block group-hover:font-medium transition-all text-xs">
+                      {header.text}
+                    </span>
+                  </button>
+                ))}
+              </nav>
+            ) : activeContent ? (
+              <div className="text-center py-8">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-muted/20 flex items-center justify-center mb-3">
+                  <Hash className="h-5 w-5 text-muted-foreground/50" />
+                </div>
+                <p className="text-xs text-muted-foreground">No headers found in this document.</p>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-muted/20 flex items-center justify-center mb-3">
+                  <Menu className="h-5 w-5 text-muted-foreground/50" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Select a document to see its navigation.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Collapsed Right Nav */
+        <div className="hidden xl:block w-8 bg-background/30 backdrop-blur-sm flex-shrink-0">
+          <div className="sticky top-0 h-full flex items-start justify-center pt-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsRightNavCollapsed(false)}
+              className="h-8 w-8 rounded-lg hover:bg-muted/50 rotate-180"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-background/60 backdrop-blur-sm z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* API Key Modal */}
+      <ApiKeyModal
+        isOpen={apiKeyValidation.showApiKeyModal}
+        onClose={() => apiKeyValidation.setShowApiKeyModal(false)}
+        userHasKeys={apiKeyValidation.userHasKeys}
+        availableProviders={apiKeyValidation.availableProviders}
+      />
     </div>
   );
 }

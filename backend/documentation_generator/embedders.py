@@ -3,14 +3,7 @@ import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 from typing import List
-
-# Use absolute imports to avoid relative import issues
-try:
-    from structures import Document
-except ImportError:
-    # Fallback for when running as part of a package
-    from .structures import Document
-
+from documentation_generator.structures import Document
 
 class SemanticEmbedder:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):

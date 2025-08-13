@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,18 +15,17 @@ import {
   Code2,
   FileText,
   ArrowLeft,
-  ExternalLink,
   CheckCircle,
-  Github,
   Info,
   X,
   Minimize2,
-  Maximize2,
   Menu,
   Lock,
   BookOpen,
   Key,
   Play,
+  Zap,
+  Archive,
 } from 'lucide-react';
 import { CodeViewer } from '@/components/CodeViewer';
 import { cn } from '@/lib/utils';
@@ -34,9 +33,11 @@ import { useResultData } from '@/context/ResultDataContext';
 import { showToast } from '@/components/toaster';
 import { useSession } from 'next-auth/react';
 import { useChatSidebar } from '@/hooks/use-chat-sidebar';
+import ThemeToggle from '@/components/theme-toggle';
 
-export default function ResultsPage() {
+export default function ZipResultsPage() {
   const router = useRouter();
+
   const {
     output,
     error,
@@ -48,9 +49,27 @@ export default function ResultsPage() {
     userKeyPreferences,
   } = useResultData();
   const { data: session } = useSession();
-  const { currentModel } = useChatSidebar(currentRepoId || '', userKeyPreferences, {
-    autoLoad: false,
+
+  const repositoryBranch = useMemo(() => {
+    if (
+      sourceType === 'github' &&
+      sourceData &&
+      typeof sourceData === 'object' &&
+      'branch' in sourceData
+    ) {
+      return (sourceData as { branch?: string }).branch || 'main';
+    }
+    return 'main';
+  }, [sourceType, sourceData]);
+
+  // Only initialize chat sidebar with valid repository identifier for generic results
+  const validRepositoryIdentifier = currentRepoId && !currentRepoId.includes('/') ? currentRepoId : '';
+  // For ZIP-based results, disable chat if no valid repository ID
+  const { currentModel } = useChatSidebar(validRepositoryIdentifier, userKeyPreferences, {
+    repositoryBranch,
+    autoLoad: false, // Disable auto-loading for generic results page
   });
+  void currentModel;
 
   // Set default active tab based on authentication
   const defaultTab = session?.accessToken ? 'graph' : 'structure';
@@ -60,16 +79,19 @@ export default function ResultsPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleChat = () => {
+    // Allow chat if we have output (repository processed) and repo id is present
+    if (!output && !currentRepoId && !isChatOpen) {
+      showToast.error(
+        'Repository not processed yet. Please wait for processing to complete before chatting.',
+      );
+      return;
+    }
     setIsChatOpen(!isChatOpen);
   };
 
   // popup state for full-screen code explorer
   const [isExpanded, setIsExpanded] = useState(false);
-  // popup state for full-screen graph explorer
-  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
-
   const popupRef = useRef<HTMLDivElement>(null);
-  const popupGraphRef = useRef<HTMLDivElement>(null);
 
   // Handle restricted tab clicks
   const handleTabChange = (value: string) => {
@@ -77,17 +99,21 @@ export default function ResultsPage() {
       (value === 'graph' ||
         value === 'explorer' ||
         value === 'documentation' ||
-        value === 'video') &&
+        value === 'video' ||
+        value === 'mcp') &&
       !session?.accessToken
     ) {
-      // Redirect to sign in page for restricted tabs
       router.push('/signin');
       return;
     }
 
-    // Show coming soon message for video tab
     if (value === 'video') {
       showToast.info('🎬 Code walk through Video generation, Coming Soon !!');
+      return;
+    }
+
+    if (value === 'mcp') {
+      showToast.info('⚡ MCP features, Coming Soon !!');
       return;
     }
 
@@ -97,30 +123,22 @@ export default function ResultsPage() {
   // Handle click outside to close expanded view
   useEffect(() => {
     if (!isExpanded) return;
-
     const handleClickOutside = (event: MouseEvent) => {
       if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
         setIsExpanded(false);
       }
     };
-
-    // Add escape key handler
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsExpanded(false);
-      }
+      if (event.key === 'Escape') setIsExpanded(false);
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscKey);
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscKey);
     };
   }, [isExpanded]);
 
-  // Show toast messages for error/outputMessage
   useEffect(() => {
     if (error) showToast.error(error);
   }, [error]);
@@ -129,52 +147,27 @@ export default function ResultsPage() {
     if (outputMessage) showToast.success(outputMessage);
   }, [outputMessage]);
 
-  // Redirect if no output (no results)
+  // Redirect if no output and not loading (fallback)
   useEffect(() => {
     if (!output && !loading) {
       router.replace('/');
     }
   }, [output, loading, router]);
 
-  type GitHubSource = {
-    repo_url: string;
-  };
+  type ZipSource = File & { name: string };
 
-  type ZipSource = {
-    name: string;
-  };
-
-  // Helper to get repository name from sourceData
-  const getRepoName = () => {
+  const getDisplayName = () => {
+    if (sourceType === 'zip' && sourceData instanceof File) {
+      return (sourceData as ZipSource).name;
+    }
     if (
       sourceType === 'github' &&
       sourceData &&
       typeof sourceData === 'object' &&
-      'repo_url' in sourceData &&
-      typeof (sourceData as GitHubSource).repo_url === 'string'
+      'repo_url' in sourceData
     ) {
-      try {
-        const url = new URL((sourceData as GitHubSource).repo_url);
-        const pathParts = url.pathname.split('/').filter(Boolean);
-        if (pathParts.length >= 2) {
-          return `${pathParts[0]}/${pathParts[1]}`;
-        }
-      } catch {
-        // Do nothing
-      }
-      return (sourceData as GitHubSource).repo_url;
+      return (sourceData as { repo_url?: string }).repo_url || 'Repository';
     }
-
-    if (
-      sourceType === 'zip' &&
-      sourceData &&
-      typeof sourceData === 'object' &&
-      'name' in sourceData &&
-      typeof (sourceData as ZipSource).name === 'string'
-    ) {
-      return (sourceData as ZipSource).name;
-    }
-
     return 'Repository';
   };
 
@@ -200,50 +193,85 @@ export default function ResultsPage() {
       <div className="absolute top-0 left-0 right-0 h-32 sm:h-64 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
       {/* Mobile Header */}
-      <div className="lg:hidden sticky top-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border/30 pb-2">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
+      <div className="lg:hidden sticky top-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border/30">
+        <div className="flex items-center justify-between p-3 sm:p-4">
+          {/* Left side - Back button and minimal info */}
+          <div className="flex items-center gap-2 min-w-0">
             <Button
               variant="outline"
               size="icon"
               onClick={() => router.push('/')}
-              className="h-9 w-9 rounded-xl"
+              className="h-9 w-9 rounded-xl shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex items-center gap-2">
-              <Github className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium truncate max-w-[120px]">{getRepoName()}</span>
+            <div className="hidden sm:flex items-center gap-2 min-w-0">
+              {sourceType === 'zip' ? (
+                <Archive className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <Network className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <span className="text-sm font-medium truncate max-w-[140px] md:max-w-[200px]">
+                {getDisplayName()}
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-xl px-3 py-1 text-xs flex items-center gap-1">
-              <CheckCircle className="h-3 w-3" />
-              <span className="hidden xs:inline">Complete</span>
+
+          {/* Right side - Status and menu */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-xl px-2 sm:px-3 py-1 text-xs flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 shrink-0" />
+              <span className="hidden xs:inline">Ready</span>
             </Badge>
             <Button
               variant="outline"
               size="icon"
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="h-9 w-9 rounded-xl"
+              className="h-9 w-9 rounded-xl shrink-0"
             >
               <Menu className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Mobile Menu Dropdown */}
         {showMobileMenu && (
-          <div className="border-t border-border/30 p-4 space-y-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowInfo(!showInfo)}
-              className="w-full justify-start rounded-xl"
-            >
-              <Info className="h-4 w-4 mr-2" />
-              Repository Details
-            </Button>
+          <div className="border-t border-border/30 bg-background/98 backdrop-blur-xl">
+            <div className="p-3 sm:p-4 space-y-3">
+              <div className="sm:hidden flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg">
+                {sourceType === 'zip' ? (
+                  <Archive className="h-4 w-4 text-muted-foreground shrink-0" />
+                ) : (
+                  <Network className="h-4 w-4 text-muted-foreground shrink-0" />
+                )}
+                <span className="text-sm font-medium truncate">{getDisplayName()}</span>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowInfo(!showInfo);
+                  setShowMobileMenu(false);
+                }}
+                className="w-full justify-start rounded-xl"
+              >
+                <Info className="h-4 w-4 mr-2" /> Repository Details
+              </Button>
+
+              {session?.accessToken && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    router.push('/api-keys');
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full justify-start rounded-xl"
+                >
+                  <Key className="h-4 w-4 mr-2" /> API Keys
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -251,7 +279,7 @@ export default function ResultsPage() {
       {/* Desktop Header Elements */}
       <div className="hidden lg:block">
         {/* Back Button */}
-        <div className="fixed top-6 left-6 z-50">
+        <div className="fixed top-4 lg:top-6 left-4 lg:left-6 z-40">
           <Button
             variant="outline"
             size="icon"
@@ -263,14 +291,18 @@ export default function ResultsPage() {
         </div>
 
         {/* Repo Badge */}
-        <div className="fixed top-6 left-20 z-50 flex items-center">
-          <div className="flex items-center gap-2 bg-background/90 backdrop-blur-xl rounded-2xl px-4 py-2 border border-border/60 shadow-md">
-            <Github className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{getRepoName()}</span>
+        <div className="fixed top-4 lg:top-6 left-16 lg:left-20 z-40 flex items-center max-w-[calc(100vw-400px)]">
+          <div className="flex items-center gap-2 bg-background/90 backdrop-blur-xl rounded-2xl px-3 lg:px-4 py-2 border border-border/60 shadow-md max-w-full">
+            {sourceType === 'zip' ? (
+              <Archive className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : (
+              <Network className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+            <span className="text-sm font-medium truncate">{getDisplayName()}</span>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 rounded-full hover:bg-muted/50"
+              className="h-6 w-6 rounded-full hover:bg-muted/50 shrink-0"
               onClick={() => setShowInfo(!showInfo)}
             >
               <Info className="h-3 w-3 text-muted-foreground" />
@@ -278,8 +310,9 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* Status Badge and API Keys Button */}
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+        {/* Top Right Controls: Theme + API Keys */}
+        <div className="fixed top-4 right-4 lg:top-6 lg:right-6 z-40 flex items-center gap-2">
+          <ThemeToggle className="bg-muted/40 backdrop-blur-sm rounded-xl px-3 py-1.5 border border-border/30" />
           {session?.accessToken && (
             <Button
               variant="outline"
@@ -288,19 +321,15 @@ export default function ResultsPage() {
               className="rounded-xl bg-background/90 backdrop-blur-xl border-border/60 shadow-md hover:bg-background hover:shadow-lg transition-all duration-300 gap-2"
             >
               <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">API Keys</span>
+              <span className="hidden xl:inline">API Keys</span>
             </Button>
           )}
-          <Badge className="bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-950/90 dark:text-green-300 dark:border-green-800/60 rounded-2xl px-4 py-2 backdrop-blur-xl shadow-md flex items-center gap-2">
-            <CheckCircle className="h-4 w-4" />
-            <span>Analysis Complete</span>
-          </Badge>
         </div>
       </div>
 
       {/* Info Panel */}
       {showInfo && (
-        <div className="fixed top-4 left-4 right-4 lg:top-20 lg:left-6 lg:right-auto z-50 lg:max-w-md">
+        <div className="fixed top-16 left-4 right-4 lg:top-20 lg:left-6 lg:right-auto z-30 lg:max-w-md">
           <div className="bg-background/95 backdrop-blur-xl rounded-2xl border border-border/60 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium">Repository Details</h3>
@@ -324,11 +353,13 @@ export default function ResultsPage() {
       )}
 
       {/* Main Content */}
-      <main className="max-w-[95vw] mx-auto px-2 sm:px-4 py-2 sm:py-4 lg:py-6">
+      <main className="w-full max-w-[100vw] sm:max-w-[95vw] lg:max-w-[90vw] xl:max-w-[95vw] mx-auto px-1 sm:px-2 md:px-4 py-2 sm:py-4 lg:py-6 lg:pt-20">
+        <div className="lg:hidden h-4"></div>
+
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-8">
           {/* Mobile Tab Navigation */}
           <div className="lg:hidden">
-            <TabsList className="grid w-full grid-cols-5 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
+            <TabsList className="grid w-full grid-cols-6 bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-1 shadow-lg h-12">
               <TabsTrigger
                 value="graph"
                 className={cn(
@@ -374,6 +405,17 @@ export default function ResultsPage() {
                 <span className="hidden xs:inline">Video</span>
               </TabsTrigger>
               <TabsTrigger
+                value="mcp"
+                className={cn(
+                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 opacity-60',
+                  !session?.accessToken && 'opacity-40',
+                )}
+              >
+                {!session?.accessToken && <Lock className="h-3 w-3" />}
+                <Zap className="h-4 w-4" />
+                <span className="hidden xs:inline">MCP</span>
+              </TabsTrigger>
+              <TabsTrigger
                 value="structure"
                 className="rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2"
               >
@@ -384,7 +426,7 @@ export default function ResultsPage() {
           </div>
 
           {/* Desktop Tab Navigation */}
-          <div className="hidden lg:flex justify-center items-center gap-4 relative">
+          <div className="hidden lg:flex justify-center items-center gap-4 relative mb-0">
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-muted/30 -z-10"></div>
             <TabsList className="bg-background backdrop-blur-xl border border-border/60 rounded-2xl p-2 shadow-lg min-h-[60px] relative z-10">
               <TabsTrigger
@@ -435,6 +477,20 @@ export default function ResultsPage() {
                 </Badge>
               </TabsTrigger>
               <TabsTrigger
+                value="mcp"
+                className={cn(
+                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center opacity-60 relative',
+                  !session?.accessToken && 'opacity-40',
+                )}
+              >
+                {!session?.accessToken && <Lock className="h-4 w-4" />}
+                <Zap className="h-5 w-5" />
+                <span>MCP</span>
+                <Badge className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  Soon
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger
                 value="structure"
                 className="rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center"
               >
@@ -445,73 +501,26 @@ export default function ResultsPage() {
           </div>
 
           <div className="relative">
-            {/* Enhanced Structure Tab */}
+            {/* Structure Tab */}
             <TabsContent value="structure" className="mt-0 animate-in fade-in-50 duration-300">
               <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                      <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                        Context Builder
-                      </h2>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                        Select files to build context for the LLM
-                      </p>
+                <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
+                  <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                    <div className="h-full w-full">
+                      <StructureTab />
                     </div>
                   </div>
-                </div>
-                <div className="p-4 sm:p-8">
-                  <StructureTab />
                 </div>
               </div>
             </TabsContent>
 
-            {/* Graph Tab - Only show content if authenticated */}
+            {/* Graph Tab - Only show if authenticated */}
             <TabsContent value="graph" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div className="space-y-2 sm:space-y-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                            <Network className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                                Dependency Graph
-                              </h2>
-                              <Badge variant="outline" className="text-xs">
-                                Beta
-                              </Badge>
-                            </div>
-                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                              Interactive visualization of code relationships. Large graphs may slow
-                              down your browser.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Button
-                          onClick={() => setIsGraphExpanded(true)}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 sm:flex-none rounded-xl border-border/50"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          <span className="hidden xs:inline">Expand</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-1 sm:p-2 min-h-[70vh] lg:min-h-[80vh] h-[500px] sm:h-[600px] lg:h-[700px]">
+                  <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
                     {sourceType && sourceData ? (
-                      <div className="h-full w-full min-h-[70vh] lg:min-h-[80vh] rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
+                      <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-hidden">
                         <ReagraphVisualization
                           setParentActiveTab={setActiveTab}
                           onError={(msg) => showToast.error(msg)}
@@ -526,8 +535,7 @@ export default function ResultsPage() {
                           <div className="space-y-2">
                             <h3 className="font-medium text-foreground">No Graph Data Available</h3>
                             <p className="text-sm text-muted-foreground max-w-sm">
-                              Graph visualization requires processed source data to display
-                              relationships
+                              Graph visualization requires processed source data.
                             </p>
                           </div>
                         </div>
@@ -538,40 +546,12 @@ export default function ResultsPage() {
               ) : null}
             </TabsContent>
 
-            {/* Code Explorer Tab - Only show content if authenticated */}
+            {/* Code Explorer Tab - Only show if authenticated */}
             <TabsContent value="explorer" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  {/* Section Header */}
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                          <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                        </div>
-                        <div>
-                          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                            Code Explorer
-                          </h2>
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            Browse repository structure with syntax highlighting and file navigation
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsExpanded(true)}
-                        className="w-full sm:w-auto rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                      >
-                        <Maximize2 className="h-4 w-4 mr-2" />
-                        Expand View
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Explorer Content */}
-                  <div className="p-2 sm:p-4 h-[500px] sm:h-[600px] lg:h-[700px]">
-                    <div className="h-full w-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                  <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
+                    <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
                       <div className="h-full w-full">
                         <CodeViewer />
                       </div>
@@ -581,56 +561,44 @@ export default function ResultsPage() {
               ) : null}
             </TabsContent>
 
-            {/* Documentation Tab - Only show content if authenticated */}
+            {/* Documentation Tab - Only show if authenticated */}
             <TabsContent value="documentation" className="mt-0 animate-in fade-in-50 duration-300">
               {session?.accessToken ? (
                 <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
-                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                        <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                          Documentation
-                        </h2>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          AI-generated documentation with interactive navigation
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-[500px] sm:h-[600px] lg:h-[700px] overflow-auto rounded-xl">
-                    {currentRepoId && sourceData && sourceType ? (
-                      <div className="h-full w-full overflow-auto">
-                        <DocumentationTab
-                          currentRepoId={currentRepoId}
-                          sourceData={
-                            typeof sourceData === 'object' &&
-                            sourceData !== null &&
-                            'repo_url' in sourceData
-                              ? { repo_url: (sourceData as { repo_url?: string }).repo_url }
-                              : {}
-                          }
-                          sourceType={sourceType}
-                          selectedModel={(currentModel as { provider?: string }).provider}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center space-y-4 p-8">
-                          <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
-                            <BookOpen className="h-6 w-6 text-muted-foreground/50" />
-                          </div>
-                          <div className="space-y-2">
-                            <h3 className="font-medium text-foreground">No Repository Data</h3>
-                            <p className="text-sm text-muted-foreground max-w-sm">
-                              Documentation requires repository information to generate content
-                            </p>
+                  <div className="p-1 sm:p-2 md:p-4 h-[400px] sm:h-[500px] md:h-[600px] lg:h-[800px]">
+                    <div className="h-full w-full rounded-lg sm:rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                      {currentRepoId && sourceData ? (
+                        <div className="h-full w-full overflow-auto">
+                          <DocumentationTab
+                            currentRepoId={currentRepoId}
+                            sourceData={
+                              sourceType === 'github' &&
+                              sourceData &&
+                              typeof sourceData === 'object' &&
+                              'repo_url' in sourceData
+                                ? { repo_url: (sourceData as { repo_url?: string }).repo_url }
+                                : { repo_url: '' }
+                            }
+                            sourceType={sourceType || 'zip'}
+                            userKeyPreferences={userKeyPreferences}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center space-y-4 p-8">
+                            <div className="w-12 h-12 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
+                              <BookOpen className="h-6 w-6 text-muted-foreground/50" />
+                            </div>
+                            <div className="space-y-2">
+                              <h3 className="font-medium text-foreground">No Repository Data</h3>
+                              <p className="text-sm text-muted-foreground max-w-sm">
+                                Documentation requires repository information to generate content
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -678,20 +646,59 @@ export default function ResultsPage() {
                         </h3>
                         <p className="text-sm text-muted-foreground leading-relaxed">
                           We&apos;re working on an exciting new feature that will generate video
-                          explanations of your codebase, including code walkthroughs, architecture
-                          overviews, and interactive tutorials.
+                          explanations of your codebase.
                         </p>
                       </div>
-                      <div className="bg-orange-50/80 dark:bg-orange-950/30 rounded-xl p-4 border border-orange-200/60 dark:border-orange-800/60">
-                        <h4 className="font-medium text-orange-800 dark:text-orange-200 mb-2">
-                          What to expect:
-                        </h4>
-                        <ul className="text-xs text-orange-700 dark:text-orange-300 space-y-1 text-left">
-                          <li>• AI-narrated code explanations</li>
-                          <li>• Visual architecture diagrams</li>
-                          <li>• Step-by-step feature walkthroughs</li>
-                          <li>• Interactive code tutorials</li>
-                        </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </TabsContent>
+
+            {/* MCP Tab - Coming Soon */}
+            <TabsContent value="mcp" className="mt-0 animate-in fade-in-50 duration-300">
+              {session?.accessToken ? (
+                <div className="bg-background/60 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+                  <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-orange-500/10">
+                        <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                            MCP Analysis
+                          </h2>
+                          <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 rounded-xl px-2 py-1 text-xs font-medium">
+                            Coming Soon
+                          </Badge>
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          AI-powered analysis of your codebase.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-[500px] sm:h-[600px] lg:h-[700px] flex items-center justify-center">
+                    <div className="text-center space-y-6 p-8 max-w-md">
+                      <div className="relative">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
+                          <Zap className="h-10 w-10 sm:h-12 sm:w-12 text-orange-500" />
+                        </div>
+                        <div className="absolute -top-2 -right-2">
+                          <Badge className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                            Soon
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <h3 className="text-lg sm:text-xl font-semibold text-foreground">
+                          MCP Analysis Coming Soon
+                        </h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          We&apos;re working on an exciting new feature that will analyze your
+                          codebase.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -702,127 +709,52 @@ export default function ResultsPage() {
         </Tabs>
       </main>
 
-      {currentRepoId && (
+      {session?.accessToken && currentRepoId && (
         <>
-          <FloatingChatButton onClick={toggleChat} isOpen={isChatOpen} unreadCount={0} />
+          <FloatingChatButton
+            onClick={toggleChat}
+            isOpen={isChatOpen}
+            unreadCount={0}
+            isLoading={!currentRepoId && loading}
+          />
           <ChatSidebar
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
-            repositoryId={currentRepoId}
-            repositoryName={getRepoName()}
+            repositoryIdentifier={validRepositoryIdentifier}
+            repositoryName={getDisplayName()}
+            repositoryBranch={repositoryBranch}
             userKeyPreferences={userKeyPreferences}
           />
         </>
       )}
 
-      {/* Expanded Views - Only render if authenticated */}
-      {session?.accessToken && (
-        <>
-          {/* Expanded View Popup */}
-          {isExpanded && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
-              <div
-                ref={popupRef}
-                className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
-              >
-                {/* Popup Header */}
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                        <Code2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                            Code Explorer
-                          </h2>
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            {getRepoName()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsExpanded(false)}
-                      className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                    >
-                      <Minimize2 className="h-4 w-4 mr-2" />
-                      <span className="hidden sm:inline">Minimize</span>
-                    </Button>
-                  </div>
-                </div>
-                {/* Popup Content */}
-                <div className="flex-1 p-3 sm:p-6 overflow-hidden">
-                  <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
-                    <div className="h-full w-full">
-                      <CodeViewer />
-                    </div>
-                  </div>
+      {/* Expanded View Popup - Explorer */}
+      {session?.accessToken && isExpanded && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
+          <div
+            ref={popupRef}
+            className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
+          >
+            <div className="flex-1 p-3 sm:p-6 overflow-hidden">
+              <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
+                <div className="h-full w-full">
+                  <CodeViewer />
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Expanded Graph View Popup */}
-          {isGraphExpanded && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-md p-2 sm:p-8">
-              <div
-                ref={popupGraphRef}
-                className="w-full h-full sm:w-[90vw] sm:h-[85vh] bg-background rounded-2xl sm:rounded-3xl border border-border/50 shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-300"
+            <div className="px-4 pb-4 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpanded(false)}
+                className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
               >
-                {/* Popup Header */}
-                <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-primary/10">
-                        <Network className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-                            Dependency Graph
-                          </h2>
-                          <Badge variant="outline" className="text-xs">
-                            Beta
-                          </Badge>
-                        </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          Interactive visualization of code relationships. Large graphs may slow
-                          down your browser.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsGraphExpanded(false)}
-                        className="rounded-xl border-border/50 hover:bg-muted/50 transition-colors duration-200"
-                      >
-                        <Minimize2 className="h-4 w-4 mr-2" />
-                        <span className="hidden sm:inline">Minimize</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                {/* Popup Content */}
-                <div className="flex-1 p-3 sm:p-6 overflow-hidden">
-                  <div className="h-full rounded-xl sm:rounded-2xl bg-muted/20 border border-border/30 overflow-auto">
-                    <div className="h-full w-full">
-                      <ReagraphVisualization
-                        setParentActiveTab={setActiveTab}
-                        onError={(msg) => showToast.error(msg)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <Minimize2 className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Minimize</span>
+              </Button>
             </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );

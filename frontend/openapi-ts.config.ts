@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Get the API base URL from environment variables
-const apiBaseUrl = process.env.API_SERVER_BASE_URL || 'http://backend:8003';
+const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8003';
 
 // Check if we're in a build environment or runtime environment
 const isRuntimeGeneration = process.env.NODE_ENV === 'production';
@@ -17,7 +17,7 @@ if (isRuntimeGeneration) {
   input = `${apiBaseUrl}/openapi.json`;
 } else {
   // During development, use localhost or provided URL
-  const devApiUrl = process.env.API_SERVER_BASE_URL || 'http://localhost:8003';
+  const devApiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
   input = `${devApiUrl}/openapi.json`;
 }
 

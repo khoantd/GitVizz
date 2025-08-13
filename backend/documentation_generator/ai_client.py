@@ -1,241 +1,114 @@
-import time
-import json
-import requests
-import re
-from typing import Callable, Optional
-from typing import List
+from typing import Callable, Optional, List
+import asyncio
+from utils.llm_utils import llm_service
+from documentation_generator.structures import Document, WikiStructure, WikiPage, WikiSection, RepositoryAnalysis
 
+# LLM client using llm_utils service
+class LLMClient:
+    """AI client for documentation generation using llm_service (supports OpenAI, Anthropic, Gemini, Groq)."""
 
-# Use absolute imports to avoid relative import issues when running directly
-try:
-    from structures import Document, WikiStructure, WikiPage, WikiSection, RepositoryAnalysis
-except ImportError:
-    # Fallback for when running as part of a package
-    from .structures import Document, WikiStructure, WikiPage, WikiSection, RepositoryAnalysis
-
-try:
-    import litellm
-    LITELLM_AVAILABLE = True
-except ImportError:
-    LITELLM_AVAILABLE = False
-
-#need multiple clients as user wants, gemini, groq, or openai etc. etc. 
-class GeminiAIClient:
-    """AI client for dynamic content generation using Gemini models"""
-
-    def __init__(self, api_key: str, base_url: str = "https://generativelanguage.googleapis.com/v1beta"):
+    def __init__(
+        self,
+        api_key: str = None,
+        provider: str = "openai",
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        user=None,
+        use_user_key: bool = False
+    ):
         self.api_key = api_key
-        self.base_url = base_url
-        self.use_litellm = True  # Always use LiteLLM for Gemini
+        self.provider = provider.lower()
+        self.temperature = temperature
+        self.user = user
+        self.use_user_key = use_user_key
 
-        # Available Gemini models (for LiteLLM)
-        self.models = [
-            "gemini/gemini-2.0-flash"
-        ]
-        self.current_model_index = 0
-        self.default_model = "gemini/gemini-2.0-flash"
+        # Default model per provider
+        self.default_models = {
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-3-5-sonnet-20241022",
+            "gemini": "gemini-2.0-flash",
+            "groq": "llama-3.3-70b-versatile"
+        }
+        self.default_model = model or self.default_models.get(self.provider, "gpt-4o-mini")
 
-        if LITELLM_AVAILABLE:
-            litellm.set_verbose = False
-            litellm.api_key = api_key
+        # Validate provider
+        available_models = llm_service.get_available_models()
+        if self.provider not in available_models:
+            raise ValueError(f"Provider '{self.provider}' not supported. Available: {list(available_models.keys())}")
 
-        # Session for fallback (not used for Gemini anymore)
-        self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        })
-
-    def generate_content(self, prompt: str, model: str = None,
-                        temperature: float = 0.7, max_tokens: int = 4000,
-                        progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using Gemini models via LiteLLM"""
-        if not LITELLM_AVAILABLE:
-            raise ImportError("LiteLLM is required for Gemini model usage.")
-        return self._generate_with_litellm(
+    def generate_content(
+        self,
+        prompt: str,
+        model: str = None,
+        temperature: float = None,
+        max_tokens: int = 4000,
+        progress_callback: Callable[[str], None] = None,
+    ) -> str:
+        """Generate content using llm_service for the configured provider."""
+        return self._run_async(self._generate_content_async(
             prompt,
             model=model,
-            temperature=temperature,
+            temperature=self.temperature if temperature is None else temperature,
             max_tokens=max_tokens,
-            progress_callback=progress_callback
-        )
-
-    def _generate_with_litellm(self, prompt: str, model: str = None,
-                            temperature: float = 0.7, max_tokens: int = 4000,
-                            progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using LiteLLM for Gemini models with robust error handling"""
-        max_retries = 3
-        retry_delays = [15, 30, 45]
-        
-        for attempt in range(max_retries):
-            try:
-                if progress_callback:
-                    progress_callback(f"  AI request (attempt {attempt + 1}/{max_retries})")
-
-                model_name = model or self.default_model
-                timeout_seconds = 120
-                start_time = time.time()
-
-                # Try streaming first
-                try:
-                    response = litellm.completion(
-                        model=model_name,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        stream=False,
-                        api_key=self.api_key,
-                        timeout=timeout_seconds
-                    )
-                    
-                    content = response.choices[0].message.content
-
-                    # content = ""
-                    # for chunk in response:
-                    #     if time.time() - start_time > timeout_seconds:
-                    #         raise TimeoutError(f"Generation timeout after {timeout_seconds} seconds")
-                        
-                    #     # Handle streaming chunks with null checks
-                    #     if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
-                    #         if chunk.choices[0].delta.content is not None:
-                    #             content += chunk.choices[0].delta.content
-                    #     elif hasattr(chunk.choices[0], "message") and hasattr(chunk.choices[0].message, "content"):
-                    #         if chunk.choices[0].message.content is not None:
-                    #             content += chunk.choices[0].message.content
-
-                    if progress_callback:
-                        progress_callback(f"  Generated ({len(content)} chars)")
-
-                    return content
-
-                except (RuntimeError, json.JSONDecodeError) as streaming_error:
-                    if "Error parsing chunk" in str(streaming_error):
-                        if progress_callback:
-                            progress_callback(f"  Streaming failed, trying non-streaming...")
-                        
-                        # Fallback to non-streaming
-                        response = litellm.completion(
-                            model=model_name,
-                            messages=[{"role": "user", "content": prompt}],
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                            stream=False,  # Non-streaming
-                            api_key=self.api_key,
-                            timeout=timeout_seconds
-                        )
-                        
-                        content = response.choices[0].message.content
-                        if progress_callback:
-                            progress_callback(f"  Generated ({len(content)} chars)")
-                        
-                        return content
-                    else:
-                        raise streaming_error
-
-            except Exception as e:
-                elapsed = time.time() - start_time
-                error_msg = str(e).lower()
-                
-                if ("rate_limit" in error_msg or "429" in error_msg or elapsed >= timeout_seconds):
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delays[attempt]
-                        if progress_callback:
-                            progress_callback(f"  Rate limited. Waiting {wait_time}s...")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise TimeoutError(f"Failed after {max_retries} attempts: {str(e)}")
-                else:
-                    raise Exception(f"AI generation failed: {str(e)}")
-        
-        raise Exception("Should not reach here")
+            progress_callback=progress_callback,
+        ))
     
-    def _generate_with_requests(self, prompt: str, model: str = None,
-                               temperature: float = 0.7, max_tokens: int = 4000,
-                               progress_callback: Callable[[str], None] = None) -> str:
-        """Generate content using direct requests with timeout"""
-
-        if progress_callback:
-            progress_callback("ing fallback method...")
-
-        model_name = "models/gemini-2.0-flash-exp"
-        timeout_seconds = 90 
-
-        if progress_callback:
-            progress_callback(f"  Connecting to Gemini AI with {model_name} (timeout: {timeout_seconds}s)...")
-
-        start_time = time.time()
-
+    def _run_async(self, coro):
+        """Helper to run async functions in sync context"""
         try:
-            payload = {
-                "model": model or model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": True
-            }
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        return loop.run_until_complete(coro)
 
-            response = self.session.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                stream=True,
-                timeout=timeout_seconds
+    async def _generate_content_async(
+        self,
+        prompt: str,
+        model: str = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4000,
+        progress_callback: Callable[[str], None] = None,
+    ) -> str:
+        """Generate content using llm_service with robust error handling."""
+        try:
+            if progress_callback:
+                progress_callback(f"  Generating content with {self.provider}...")
+
+            # Prepare messages
+            messages = [{"role": "user", "content": prompt}]
+            
+            # Use the model parameter or fall back to instance model
+            use_model = model or self.default_model
+
+            # Generate using llm_service
+            response = await llm_service.generate(
+                messages=messages,
+                model=use_model,
+                provider=self.provider,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=False,
+                user=self.user,
+                use_user_key=self.use_user_key
             )
 
-            if not response.ok:
-                error_msg = f"Gemini API error: {response.status_code} - {response.text}"
-                if "rate_limit" in response.text.lower():
-                    if progress_callback:
-                        progress_callback(f"  Rate limited, moving to next page...")
-                    raise TimeoutError(f"Rate limit reached: {error_msg}")
-                else:
-                    raise Exception(error_msg)
-
-            content = ""
-            if progress_callback:
-                progress_callback("  Generating content...")
-
-            # Process streaming response with timeout check
-            for line in response.iter_lines():
-                # Check timeout
-                if time.time() - start_time > timeout_seconds:
-                    if progress_callback:
-                        progress_callback(f"  Timeout after {timeout_seconds}s, moving to next page...")
-                    raise TimeoutError(f"Generation timeout after {timeout_seconds} seconds")
-
-                if line:
-                    line_str = line.decode('utf-8')
-                    if line_str.startswith('data: '):
-                        data_str = line_str[6:]
-                        if data_str.strip() == '[DONE]':
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            if 'choices' in data and len(data['choices']) > 0:
-                                delta = data['choices'][0].get('delta', {})
-                                if 'content' in delta:
-                                    chunk = delta['content']
-                                    content += chunk
-                                    if progress_callback and len(content) % 100 == 0:
-                                        progress_callback(f"  Generated {len(content)} characters...")
-                        except json.JSONDecodeError:
-                            continue
-
-            if progress_callback:
-                progress_callback(f"Content generation complete ({len(content)} characters)")
-
-            return content.strip()
-
-        except (TimeoutError, Exception) as e:
-            elapsed = time.time() - start_time
-            if "rate_limit" in str(e).lower() or "429" in str(e) or elapsed >= timeout_seconds:
+            if response.success and response.content:
                 if progress_callback:
-                    progress_callback(f"  Request timeout/rate limit after {elapsed:.1f}s, moving on...")
-                raise TimeoutError(f"Generation timeout or rate limit after {elapsed:.1f} seconds")
+                    progress_callback(f"  Generated {len(response.content)} characters")
+                return response.content
             else:
-                if progress_callback:
-                    progress_callback(f" Error: {str(e)}")
-                raise e
+                error_msg = response.error or "Unknown error in content generation"
+                raise Exception(f"Content generation failed: {error_msg}")
+
+        except Exception as e:
+            error_msg = str(e)
+            if progress_callback:
+                progress_callback(f"  Error: {error_msg}")
+            raise Exception(f"AI generation failed: {error_msg}")
+    
+
 
     def generate_wiki_structure(self, repo_analysis: 'RepositoryAnalysis',
                             file_tree: str, readme_content: str,
@@ -244,15 +117,17 @@ class GeminiAIClient:
                             progress_callback: Callable[[str], None] = None) -> WikiStructure:
         """Generate wiki structure using AI - RETURN WikiStructure not string"""
         
-        # Generate structure XML
-        structure_xml = self._generate_structure_xml(repo_analysis, file_tree, readme_content, repo_info, language, progress_callback)
+        # Generate structure XML using async method
+        structure_xml = self._run_async(
+            self._generate_structure_xml_async(repo_analysis, file_tree, readme_content, repo_info, language, progress_callback)
+        )
         
         # Parse and return WikiStructure
         return self._parse_wiki_structure(structure_xml)
 
 
     # _generate_structure_xml with comprehensive doc prompt version:
-    def _generate_structure_xml(self, repo_analysis, file_tree, readme_content, repo_info, language, progress_callback) -> str:
+    async def _generate_structure_xml_async(self, repo_analysis, file_tree, readme_content, repo_info, language, progress_callback) -> str:
         """Generate comprehensive structure XML - FULL VERSION"""
         
         if repo_info is None:
@@ -387,7 +262,7 @@ class GeminiAIClient:
     5. DO NOT wrap in markdown code blocks
     6. Start directly with <wiki_structure> and end with </wiki_structure>"""
 
-        return self.generate_content(
+        return await self._generate_content_async(
             full_prompt,
             temperature=0.3,
             max_tokens=4000,
@@ -395,10 +270,31 @@ class GeminiAIClient:
         )
 
 
-    def generate_page_content(self, page: 'WikiPage', relevant_docs: List[Document], language: str) -> str:
-        """Generate comprehensive page content using AI with prompts similar to page.tsx"""
+    def generate_page_content(
+        self,
+        page: 'WikiPage',
+        repo_analysis: 'RepositoryAnalysis',
+        documents: List[Document],
+        language: str = "en",
+        progress_callback: Callable[[str], None] = None,
+    ) -> 'WikiPage':
+        """Generate comprehensive page content using AI and return updated WikiPage."""
+        return self._run_async(self._generate_page_content_async(
+            page, repo_analysis, documents, language, progress_callback
+        ))
+    
+    async def _generate_page_content_async(
+        self,
+        page: 'WikiPage',
+        repo_analysis: 'RepositoryAnalysis',
+        documents: List[Document],
+        language: str = "en",
+        progress_callback: Callable[[str], None] = None,
+    ) -> 'WikiPage':
+        """Generate comprehensive page content using AI - async version."""
         
         # Get file paths from relevant documents
+        relevant_docs = documents or []
         file_paths = [doc.meta_data.get('file_path', 'unknown') for doc in relevant_docs[:10]]
 
         # Create comprehensive prompt exactly like page.tsx (lines 353-556)
@@ -479,11 +375,14 @@ class GeminiAIClient:
     - Structure the document logically for easy understanding by other developers.
     """
 
-        return self.generate_content(
+        content = await self._generate_content_async(
             prompt,
-            temperature=0.3,
-            max_tokens=4000
+            temperature=self.temperature,
+            max_tokens=6000,
+            progress_callback=progress_callback,
         )
+        page.content = content
+        return page
     
     def _validate_wiki_structure(self, structure: WikiStructure) -> WikiStructure:
         """Validate and fix common issues in parsed wiki structure"""
@@ -531,9 +430,16 @@ class GeminiAIClient:
     def generate_ai_title(self, page_id: str, context: str, repo_info: dict = None) -> str:
         """Generate an AI-powered, context-aware title for a documentation page"""
         try:
-            repo_name = repo_info.get('repo', 'Unknown Repository') if repo_info else 'Unknown Repository'
-            
-            title_prompt = f"""Generate a professional, descriptive title for a documentation page.
+            return self._run_async(self._generate_ai_title_async(page_id, context, repo_info))
+        except Exception as e:
+            print(f"Warning: Could not generate AI title, using fallback: {e}")
+            return f"📋 {page_id.replace('_', ' ').replace('-', ' ').title()}"
+    
+    async def _generate_ai_title_async(self, page_id: str, context: str, repo_info: dict = None) -> str:
+        """Generate an AI-powered title - async version"""
+        repo_name = repo_info.get('repo', 'Unknown Repository') if repo_info else 'Unknown Repository'
+        
+        title_prompt = f"""Generate a professional, descriptive title for a documentation page.
 
 Repository: {repo_name}
 Page ID: {page_id}
@@ -548,19 +454,15 @@ Requirements:
 
 Return ONLY the title, nothing else."""
 
-            response = self.generate_content(title_prompt, temperature=0.3, max_tokens=50)
-            # Clean up the response
-            title = response.strip().strip('"').strip("'")
-            
-            # Fallback if AI response is invalid
-            if not title or len(title) > 100:
-                title = f"📋 {page_id.replace('_', ' ').replace('-', ' ').title()}"
-            
-            return title
-            
-        except Exception as e:
-            print(f"Warning: Could not generate AI title, using fallback: {e}")
-            return f"📋 {page_id.replace('_', ' ').replace('-', ' ').title()}"
+        response = await self._generate_content_async(title_prompt, temperature=0.3, max_tokens=50)
+        # Clean up the response
+        title = response.strip().strip('"').strip("'")
+        
+        # Fallback if AI response is invalid
+        if not title or len(title) > 100:
+            title = f"📋 {page_id.replace('_', ' ').replace('-', ' ').title()}"
+        
+        return title
 
     def _parse_wiki_structure(self, ai_response: str) -> WikiStructure:
         """Parse AI response into WikiStructure object - EXACT SAME AS original"""

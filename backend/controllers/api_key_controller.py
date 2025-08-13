@@ -1,35 +1,38 @@
 """
-Standalone API key controller for verification functionality
+Enhanced API key controller integrated with LLM service
+Handles API key verification, saving, and management for users
 """
 from fastapi import HTTPException, Form
 from typing import Annotated, Optional
-from utils.api_key_verifier import api_key_verifier
+from utils.llm_utils import llm_service
+from utils.jwt_utils import get_current_user
+from models.chat import UserApiKey
+from beanie import BeanieObjectId
+from datetime import datetime, timezone
+
 
 
 class ApiKeyController:
-    """Controller for API key verification without complex dependencies"""
+    """Enhanced controller for API key verification and management"""
 
     async def verify_api_key(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
-        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
+        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key to verify")]
     ) -> dict:
         """Verify API key without saving it"""
         try:
-            # For now, skip JWT validation to avoid model import issues
-            # TODO: Add proper JWT validation once Pydantic issues are resolved
-            
             # Validate provider
-            valid_providers = ["openai", "anthropic", "gemini"]
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
             if provider not in valid_providers:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
                 )
             
-            # Verify the API key
-            is_valid = api_key_verifier.verify_api_key(provider, api_key)
+            # Verify the API key using llm_service
+            is_valid = llm_service.verify_api_key(provider, api_key)
             
             response = {
                 "success": True,
@@ -38,16 +41,237 @@ class ApiKeyController:
                 "message": "API key is valid" if is_valid else "API key is invalid"
             }
             
-            # Optionally get available models if key is valid
+            # Get available models if key is valid
             if is_valid:
                 try:
-                    available_models = api_key_verifier.get_valid_models_for_provider(provider, api_key)
-                    response["available_models"] = available_models[:10]  # Limit to first 10 models
+                    # Get models from llm_service configuration
+                    all_models = llm_service.get_available_models()
+                    provider_models = all_models.get(provider, [])
+                    response["available_models"] = provider_models[:15]  # Return up to 15 models
+                    
+                    # Get model configurations for additional info
+                    model_configs = []
+                    for model in provider_models[:10]:  # Detailed info for first 10
+                        config = llm_service.get_model_config(provider, model)
+                        if config:
+                            model_configs.append({
+                                "name": model,
+                                "max_tokens": config.max_tokens,
+                                "max_output_tokens": config.max_output_tokens,
+                                "supports_function_calling": config.supports_function_calling,
+                                "supports_vision": config.supports_vision,
+                                "is_reasoning_model": config.is_reasoning_model,
+                                "knowledge_cutoff": config.knowledge_cutoff
+                            })
+                    
+                    response["model_configs"] = model_configs
+                    
                 except Exception as e:
-                    print(f"Could not fetch models for {provider}: {e}")
+                    print(f"Could not fetch model configs for {provider}: {e}")
                     response["available_models"] = []
+                    response["model_configs"] = []
             
             return response
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def save_user_api_key(
+        self,
+        token: Annotated[str, Form(description="JWT authentication token")],
+        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
+        api_key: Annotated[str, Form(description="API key to save")],
+        key_name: Annotated[Optional[str], Form(description="Optional friendly name for the key")] = None,
+        verify_key: Annotated[bool, Form(description="Whether to verify key before saving")] = True
+    ) -> dict:
+        """Save encrypted user API key"""
+        try:
+            # Authenticate user
+            user = await get_current_user(token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            # Validate provider
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
+            if provider not in valid_providers:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
+                )
+            
+            # Save API key using llm_service
+            saved_key = await llm_service.save_user_api_key(
+                user=user,
+                provider=provider,
+                api_key=api_key,
+                verify=verify_key
+            )
+            
+            # Update key_name if provided
+            if key_name and saved_key:
+                saved_key.key_name = key_name
+                await saved_key.save()
+            
+            return {
+                "success": True,
+                "message": "API key saved successfully",
+                "provider": provider,
+                "key_name": key_name,
+                "created_at": saved_key.created_at.isoformat() if saved_key else None,
+                "is_active": True
+            }
+            
+        except ValueError as e:
+            # Handle verification errors
+            raise HTTPException(status_code=400, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_user_api_keys(
+        self,
+        token: Annotated[str, Form(description="JWT authentication token")]
+    ) -> dict:
+        """Get list of user's saved API keys (without exposing the actual keys)"""
+        try:
+            # Authenticate user
+            user = await get_current_user(token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            # Get user's API keys
+            user_keys = await UserApiKey.find(
+                UserApiKey.user.id == BeanieObjectId(user.id),
+                UserApiKey.is_active == True
+            ).to_list()
+            
+            keys_info = []
+            for key in user_keys:
+                keys_info.append({
+                    "id": str(key.id),
+                    "provider": key.provider,
+                    "key_name": key.key_name,
+                    "created_at": key.created_at.isoformat(),
+                    "updated_at": key.updated_at.isoformat(),
+                    "is_active": key.is_active
+                })
+            
+            return {
+                "success": True,
+                "keys": keys_info,
+                "total_keys": len(keys_info)
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def delete_user_api_key(
+        self,
+        token: Annotated[str, Form(description="JWT authentication token")],
+        provider: Annotated[str, Form(description="Provider name to delete key for")],
+        key_id: Annotated[Optional[str], Form(description="Specific key ID to delete")] = None
+    ) -> dict:
+        """Delete user's API key for a specific provider"""
+        try:
+            # Authenticate user
+            user = await get_current_user(token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            # Find and delete the key
+            query = {
+                "user.id": BeanieObjectId(user.id),
+                "provider": provider,
+                "is_active": True
+            }
+            
+            if key_id:
+                query["_id"] = BeanieObjectId(key_id)
+            
+            user_key = await UserApiKey.find_one(query)
+            if not user_key:
+                raise HTTPException(status_code=404, detail="API key not found")
+            
+            # Soft delete by setting is_active to False
+            user_key.is_active = False
+            user_key.updated_at = datetime.now(timezone.utc)
+            await user_key.save()
+            
+            return {
+                "success": True,
+                "message": f"API key for {provider} deleted successfully",
+                "provider": provider,
+                "deleted_at": user_key.updated_at.isoformat()
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_available_models(
+        self,
+        token: Annotated[str, Form(description="JWT authentication token")],
+        provider: Annotated[Optional[str], Form(description="Specific provider to get models for")] = None
+    ) -> dict:
+        """Get available models for all providers or a specific provider"""
+        try:
+            # Get user for authentication (optional for this endpoint)
+            try:
+                user = await get_current_user(token) if token and token != "anonymous" else None
+            except Exception:
+                user = None  # Allow anonymous access to model list
+            
+            # Get available models from llm_service
+            all_models = llm_service.get_available_models()
+            
+            if provider:
+                if provider not in all_models:
+                    raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
+                models_data = {provider: all_models[provider]}
+            else:
+                models_data = all_models
+            
+            # Check which providers user has keys for
+            user_has_keys = []
+            if user:
+                for prov in models_data.keys():
+                    user_key = await llm_service.get_user_api_key(user, prov)
+                    if user_key:
+                        user_has_keys.append(prov)
+            
+            # Get detailed model configurations
+            detailed_models = {}
+            for prov, models in models_data.items():
+                detailed_models[prov] = []
+                for model in models:
+                    config = llm_service.get_model_config(prov, model)
+                    if config:
+                        detailed_models[prov].append({
+                            "name": model,
+                            "max_tokens": config.max_tokens,
+                            "max_output_tokens": config.max_output_tokens,
+                            "supports_function_calling": config.supports_function_calling,
+                            "supports_vision": config.supports_vision,
+                            "is_reasoning_model": config.is_reasoning_model,
+                            "knowledge_cutoff": config.knowledge_cutoff,
+                            "cost_per_1M_input": config.cost_per_1M_input,
+                            "cost_per_1M_output": config.cost_per_1M_output
+                        })
+            
+            return {
+                "success": True,
+                "providers": list(models_data.keys()),
+                "models": models_data,
+                "detailed_models": detailed_models,
+                "user_has_keys": user_has_keys,
+                "total_models": sum(len(models) for models in models_data.values())
+            }
             
         except HTTPException:
             raise

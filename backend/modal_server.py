@@ -51,6 +51,7 @@ app = modal.App("omniparse-code", image=image)
     # secrets=[modal.Secret.from_dotenv()],
     volumes={"/data": vol},
     min_containers=1,
+    max_containers=10,
 )
 @modal.asgi_app()
 def serve_omniparse_backend():

@@ -24,6 +24,7 @@ import { showToast } from '@/components/toaster';
 import { useResultData } from '@/context/ResultDataContext';
 import { fetchGithubRepo } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
+import { extractJwtToken } from '@/utils/token-utils';
 
 interface Repository {
   id: number;
@@ -238,7 +239,7 @@ export default function RepositoriesPage() {
         repo_url: html_url,
         access_token: session?.accessToken || undefined,
         branch: branch || 'main',
-        jwt_token: session?.jwt_token || undefined,
+        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -252,7 +253,8 @@ export default function RepositoriesPage() {
         const parts = url.pathname.split('/').filter(Boolean);
         const owner = parts[0];
         const name = parts[1];
-        router.push(`/results/${owner}/${name}?id=${repo_id}`);
+        const finalBranch = branch || 'main';
+        router.push(`/results/${owner}/${name}/${finalBranch}`);
       } catch {
         router.push('/results');
       }

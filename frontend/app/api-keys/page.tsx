@@ -30,13 +30,27 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  Trash2,
+  Calendar,
+  Info,
+  Brain,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { showToast } from '@/components/toaster';
-import { saveApiKey, getAvailableModels, verifyApiKey } from '@/utils/api';
+import {
+  saveApiKey,
+  getAvailableModels,
+  verifyApiKey,
+  getUserApiKeys,
+  deleteUserApiKey,
+  getDetailedAvailableModels,
+} from '@/utils/api';
 import type { AvailableModelsResponse } from '@/api-client/types.gen';
 import { useResultData } from '@/context/ResultDataContext';
+import { extractJwtToken } from '@/utils/token-utils';
 
 export default function ApiKeysPage() {
   const router = useRouter();
@@ -57,21 +71,44 @@ export default function ApiKeysPage() {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availableModels, setAvailableModels] = useState<AvailableModelsResponse | null>(null);
+  const [detailedModels, setDetailedModels] = useState<any>(null);
+  const [userApiKeys, setUserApiKeys] = useState<any[]>([]);
   const [provider, setProvider] = useState<string>('gemini');
+  const [isDeletingKey, setIsDeletingKey] = useState<string | null>(null);
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 
-  // Fetch available models on mount
+  // Fetch available models and user API keys on mount
   useEffect(() => {
     const fetchAndSetModels = async () => {
       if (!session?.jwt_token) return;
       try {
         setIsLoading(true);
-        const models = await getAvailableModels(session.jwt_token);
+        const token = extractJwtToken(session?.jwt_token) || '';
+
+        // Fetch basic models first
+        const models = await getAvailableModels(token);
         setAvailableModels(models);
 
-        // Initialize preferences if they don't exist
-        if (Object.keys(userKeyPreferences).length === 0) {
+        // Try to fetch enhanced data, fallback gracefully if not available
+        try {
+          const [detailedModelsData, userKeysData] = await Promise.all([
+            getDetailedAvailableModels(token),
+            getUserApiKeys(token),
+          ]);
+
+          setDetailedModels(detailedModelsData);
+          setUserApiKeys(userKeysData.keys || []);
+        } catch {
+          console.log('Enhanced API endpoints not available, using basic functionality');
+          // Set empty fallback data
+          setDetailedModels(null);
+          setUserApiKeys([]);
+        }
+
+        // Initialize preferences if they don't exist (only set once)
+        if (Object.keys(userKeyPreferences).length === 0 && models.user_has_keys?.length > 0) {
           const initialPreferences: Record<string, boolean> = {};
-          models.user_has_keys?.forEach((key) => {
+          models.user_has_keys.forEach((key) => {
             initialPreferences[key] = true;
           });
           setUserKeyPreferences(initialPreferences);
@@ -83,7 +120,7 @@ export default function ApiKeysPage() {
       }
     };
     fetchAndSetModels();
-  }, [session?.jwt_token]); // Dependencies are important
+  }, [session?.jwt_token]); // Only depend on session token to avoid infinite loops
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -109,7 +146,7 @@ export default function ApiKeysPage() {
 
     try {
       const result = await verifyApiKey({
-        token: session.jwt_token,
+        token: extractJwtToken(session?.jwt_token) || '',
         provider,
         api_key: apiKey.trim(),
       });
@@ -140,10 +177,16 @@ export default function ApiKeysPage() {
   const handleSaveKey = async () => {
     if (!apiKey.trim() || !session?.jwt_token) return;
 
+    // Require verification before saving
+    if (!verificationResult || !verificationResult.isValid) {
+      showToast.error('Please verify your API key before saving it.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await saveApiKey({
-        token: session.jwt_token,
+        token: extractJwtToken(session?.jwt_token) || '',
         provider,
         api_key: apiKey.trim(),
         key_name: keyName.trim() || undefined,
@@ -156,9 +199,23 @@ export default function ApiKeysPage() {
         `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully!`,
       );
 
-      // Refetch models to update the UI with the new key status
-      const models = await getAvailableModels(session.jwt_token);
+      // Refetch all data to update the UI with the new key status
+      const token = extractJwtToken(session?.jwt_token) || '';
+      const models = await getAvailableModels(token);
       setAvailableModels(models);
+
+      // Try to refresh enhanced data
+      try {
+        const [detailedModelsData, userKeysData] = await Promise.all([
+          getDetailedAvailableModels(token),
+          getUserApiKeys(token),
+        ]);
+
+        setDetailedModels(detailedModelsData);
+        setUserApiKeys(userKeysData.keys || []);
+      } catch {
+        console.log('Enhanced endpoints not available, skipping enhanced refresh');
+      }
 
       // Ensure the new key is enabled by default in preferences
       handleToggleUserKey(provider, true);
@@ -177,41 +234,126 @@ export default function ApiKeysPage() {
     addKeyCardRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleDeleteKey = async (providerName: string, keyId?: string) => {
+    if (!session?.jwt_token) return;
+
+    setIsDeletingKey(providerName);
+    try {
+      await deleteUserApiKey(extractJwtToken(session?.jwt_token) || '', providerName, keyId);
+
+      showToast.success(
+        `${providerName.charAt(0).toUpperCase() + providerName.slice(1)} API key deleted successfully!`,
+      );
+
+      // Refetch all data to update the UI
+      const token = extractJwtToken(session?.jwt_token) || '';
+      const models = await getAvailableModels(token);
+      setAvailableModels(models);
+
+      // Try to refresh enhanced data
+      try {
+        const [detailedModelsData, userKeysData] = await Promise.all([
+          getDetailedAvailableModels(token),
+          getUserApiKeys(token),
+        ]);
+
+        setDetailedModels(detailedModelsData);
+        setUserApiKeys(userKeysData.keys || []);
+      } catch {
+        console.log('Enhanced endpoints not available, skipping enhanced refresh');
+      }
+
+      // Update preferences to disable the deleted key
+      handleToggleUserKey(providerName, false);
+    } catch (error) {
+      showToast.error(
+        `Failed to delete API key: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setIsDeletingKey(null);
+    }
+  };
+
   const getProviderInfo = (p: string) => {
     const info = {
       openai: {
-        icon: '🤖',
         url: 'https://platform.openai.com/api-keys',
         instruction: 'Create an API key from your OpenAI dashboard.',
+        description: 'Leading AI models including GPT-4, GPT-5, and o1 reasoning models',
+        color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
       },
       anthropic: {
-        icon: '🧠',
         url: 'https://console.anthropic.com/',
         instruction: 'Generate an API key from Anthropic Console.',
+        description: 'Claude 4, Claude Opus, and advanced reasoning capabilities',
+        color: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
       },
       gemini: {
-        icon: '💎',
         url: 'https://makersuite.google.com/app/apikey',
         instruction: 'Get your API key from Google AI Studio.',
+        description: "Google's Gemini 2.5 Pro, Flash, and multimodal models",
+        color: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
       },
       groq: {
-        icon: '⚡️',
         url: 'https://console.groq.com/keys',
         instruction: 'Create an API key from Groq Console.',
-      },
-      xai: {
-        icon: '🚀',
-        url: 'https://console.x.ai/',
-        instruction: 'Generate an API key from xAI Console.',
+        description: 'Ultra-fast inference with Llama and Mixtral models',
+        color: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
       },
     };
     return (
       info[p as keyof typeof info] || {
-        icon: '🔑',
         url: '#',
         instruction: "Check the provider's documentation for API key instructions.",
+        description: 'AI model provider',
+        color: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
       }
     );
+  };
+
+  const getUserKeyForProvider = (providerName: string) => {
+    return userApiKeys.find((key) => key.provider === providerName);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getModelStats = (providerName: string) => {
+    const models = availableModels?.providers[providerName] || [];
+    const detailedProviderModels = detailedModels?.detailed_models?.[providerName] || [];
+
+    interface DetailedModel {
+      name: string;
+      is_reasoning_model?: boolean;
+      supports_vision?: boolean;
+      supports_function_calling?: boolean;
+      max_tokens?: number;
+      cost_per_1M_input?: number;
+    }
+
+    const reasoningModels = detailedProviderModels.filter(
+      (m: DetailedModel) => m.is_reasoning_model,
+    ).length;
+    const visionModels = detailedProviderModels.filter(
+      (m: DetailedModel) => m.supports_vision,
+    ).length;
+    const functionModels = detailedProviderModels.filter(
+      (m: DetailedModel) => m.supports_function_calling,
+    ).length;
+
+    return {
+      total: models.length,
+      reasoning: reasoningModels,
+      vision: visionModels,
+      functions: functionModels,
+    };
   };
 
   // --- Loading and Auth States ---
@@ -258,7 +400,7 @@ export default function ApiKeysPage() {
     label: key.charAt(0).toUpperCase() + key.slice(1),
     description: `${models.length} models available`,
     hasUserKey: availableModels.user_has_keys?.includes(key) ?? false,
-    icon: getProviderInfo(key).icon,
+    // icon: getProviderInfo(key).icon,
   }));
 
   const providerInfo = getProviderInfo(provider);
@@ -291,6 +433,8 @@ export default function ApiKeysPage() {
 
       {/* Main Content */}
       <main className="container mx-auto p-4 md:p-6 lg:p-8 max-w-4xl space-y-8">
+        {/* Overview Stats */}
+
         {/* Add New Key Form */}
         <Card ref={addKeyCardRef}>
           <CardHeader>
@@ -303,7 +447,7 @@ export default function ApiKeysPage() {
               provider will overwrite it.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-2">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="provider">AI Provider</Label>
@@ -315,7 +459,7 @@ export default function ApiKeysPage() {
                     {allProviders.map((p) => (
                       <SelectItem key={p.value} value={p.value}>
                         <div className="flex items-center gap-3">
-                          <span className="text-xl">{p.icon}</span>
+                          {/* <span className="text-xl">{p.icon}</span> */}
                           <span className="font-medium">{p.label}</span>
                           {p.hasUserKey && <CheckCircle className="h-4 w-4 text-green-500" />}
                         </div>
@@ -460,58 +604,191 @@ export default function ApiKeysPage() {
               Manage your connected keys below. Keys you provide have higher rate limits.
             </p>
           </div>
-          {allProviders.map((p) => (
-            <Card
-              key={p.value}
-              className={cn(
-                'transition-all',
-                p.hasUserKey ? 'bg-green-50/30 dark:bg-green-900/10' : 'bg-muted/30',
-              )}
-            >
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">{p.icon}</span>
-                  <div>
-                    <h3 className="font-semibold">{p.label}</h3>
-                    <p className="text-sm text-muted-foreground">{p.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {p.hasUserKey ? (
-                    <>
-                      <Badge
-                        variant="secondary"
-                        className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800/60"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" /> Connected
-                      </Badge>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`switch-${p.value}`} className="text-sm font-medium">
-                          Use My Key
-                        </Label>
-                        <Switch
-                          id={`switch-${p.value}`}
-                          checked={userKeyPreferences[p.value] ?? true}
-                          onCheckedChange={(checked) => handleToggleUserKey(p.value, checked)}
-                        />
+          {allProviders.map((p) => {
+            const providerInfo = getProviderInfo(p.value);
+            const userKey = getUserKeyForProvider(p.value);
+            const modelStats = getModelStats(p.value);
+            const isExpanded = expandedProvider === p.value;
+
+            return (
+              <Card
+                key={p.value}
+                className={cn(
+                  'transition-all duration-200 overflow-hidden py-2',
+                  p.hasUserKey
+                    ? 'bg-gradient-to-r from-green-50/50 to-transparent dark:from-green-900/20 dark:to-transparent border-green-200/50 dark:border-green-800/30'
+                    : 'bg-gradient-to-r from-muted/30 to-transparent hover:from-muted/50',
+                )}
+              >
+                {/* Main Provider Info */}
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold">{p.label}</h3>
+                          {p.hasUserKey && (
+                            <Badge className={cn('text-xs', providerInfo.color)}>
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Connected
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {providerInfo.description}
+                        </p>
+
+                        {/* Model Statistics */}
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <Badge variant="outline" className="text-xs">
+                            {modelStats.total} models
+                          </Badge>
+                          {modelStats.reasoning > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              <Brain className="h-3 w-3 mr-1" />
+                              {modelStats.reasoning} reasoning
+                            </Badge>
+                          )}
+                          {modelStats.vision > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              <Eye className="h-3 w-3 mr-1" />
+                              {modelStats.vision} vision
+                            </Badge>
+                          )}
+                          {modelStats.functions > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              <Eye className="h-3 w-3 mr-1" />
+                              {modelStats.functions} functions
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* User Key Information */}
+                        {userKey && (
+                          <div className="bg-background/60 rounded-lg p-3 mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {userKey.key_name || 'Personal API Key'}
+                                </p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Added {formatDate(userKey.created_at)}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteKey(p.value)}
+                                disabled={isDeletingKey === p.value}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                {isDeletingKey === p.value ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <Badge variant="outline">Not Connected</Badge>
-                      <Button
-                        variant="secondary"
-                        onClick={() => handleSelectProviderToAdd(p.value)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Key
-                      </Button>
-                    </>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-3 items-end">
+                      {p.hasUserKey ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`switch-${p.value}`} className="text-sm font-medium">
+                              Use My Key
+                            </Label>
+                            <Switch
+                              id={`switch-${p.value}`}
+                              checked={userKeyPreferences[p.value] ?? true}
+                              onCheckedChange={(checked) => handleToggleUserKey(p.value, checked)}
+                            />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExpandedProvider(isExpanded ? null : p.value)}
+                            className="flex items-center gap-2"
+                          >
+                            <Info className="h-4 w-4" />
+                            Details
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="default"
+                          onClick={() => handleSelectProviderToAdd(p.value)}
+                          className="flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Key
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded Details */}
+                  {isExpanded && detailedModels?.detailed_models?.[p.value] && (
+                    <div className="mt-4 pt-4 border-t border-border/30">
+                      <h4 className="font-medium mb-3">Available Models</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
+                        {detailedModels.detailed_models[p.value].slice(0, 12).map((model: any) => (
+                          <div
+                            key={model.name}
+                            className="bg-background/80 rounded-lg p-3 border border-border/20"
+                          >
+                            <p className="font-medium text-sm mb-1">{model.name}</p>
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {model.is_reasoning_model && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Brain className="h-2 w-2 mr-1" />
+                                  Reasoning
+                                </Badge>
+                              )}
+                              {model.supports_vision && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Eye className="h-2 w-2 mr-1" />
+                                  Vision
+                                </Badge>
+                              )}
+                              {model.supports_function_calling && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Eye className="h-2 w-2 mr-1" />
+                                  Functions
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground space-y-1">
+                              <p>Max tokens: {model.max_tokens?.toLocaleString() || 'N/A'}</p>
+                              {model.cost_per_1M_input > 0 && (
+                                <p>Cost: ${model.cost_per_1M_input}/1M in</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {detailedModels.detailed_models[p.value].length > 12 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          +{detailedModels.detailed_models[p.value].length - 12} more models
+                          available
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         {/* Security Notice */}

@@ -3,7 +3,7 @@
 import type {
   GetConversationHistoryApiBackendChatConversationsConversationIdPostResponse,
   GetChatSessionApiBackendChatSessionsChatIdPostResponse,
-  SaveUserApiKeyApiBackendChatKeysSavePostResponse,
+  GetIndexedRepositoriesApiIndexedReposPostResponse,
 } from './types.gen';
 
 const messageResponseSchemaResponseTransformer = (data: any) => {
@@ -46,16 +46,22 @@ export const getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer =
   return data;
 };
 
-const apiKeyResponseSchemaResponseTransformer = (data: any) => {
-  if (data.created_at) {
-    data.created_at = new Date(data.created_at);
-  }
+const indexedRepositorySchemaResponseTransformer = (data: any) => {
+  data.created_at = new Date(data.created_at);
+  data.updated_at = new Date(data.updated_at);
   return data;
 };
 
-export const saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer = async (
+const indexedRepositoriesResponseSchemaResponseTransformer = (data: any) => {
+  data.repositories = data.repositories.map((item: any) => {
+    return indexedRepositorySchemaResponseTransformer(item);
+  });
+  return data;
+};
+
+export const getIndexedRepositoriesApiIndexedReposPostResponseTransformer = async (
   data: any,
-): Promise<SaveUserApiKeyApiBackendChatKeysSavePostResponse> => {
-  data = apiKeyResponseSchemaResponseTransformer(data);
+): Promise<GetIndexedRepositoriesApiIndexedReposPostResponse> => {
+  data = indexedRepositoriesResponseSchemaResponseTransformer(data);
   return data;
 };

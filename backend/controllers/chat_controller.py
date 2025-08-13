@@ -1,24 +1,20 @@
 import json
 import os
-from fastapi import HTTPException, Form, Depends
+from fastapi import HTTPException, Form
 from typing import Optional, AsyncGenerator, Annotated
 import uuid
 import time
-from datetime import datetime, timedelta
-import re
+from datetime import datetime, timedelta, timezone
 import logging
 from beanie import BeanieObjectId
-
-# Set up logging
-logger = logging.getLogger(__name__)
-
 from models.chat import ChatSession, Conversation, UserApiKey
 from models.repository import Repository
 from models.user import User
 from utils.llm_utils import llm_service
 from utils.file_utils import file_manager
 from utils.jwt_utils import get_current_user
-from services.graph_search_service import graph_search_service
+from utils.repo_utils import extract_zip_contents, smart_filter_files, format_repo_contents, cleanup_temp_files
+from utils.repo_utils import find_user_repository
 from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
     ChatSessionResponse, ApiKeyResponse,
@@ -26,6 +22,8 @@ from schemas.chat_schemas import (
     ContextSearchResponse, MessageResponse, StreamChatResponse, ChatSessionListItem, ChatSessionListResponse
 )
 
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class ChatController:
     """Controller for handling chat-related operations"""
@@ -34,28 +32,27 @@ class ChatController:
         self, 
         user: User, 
         repository_id: str,
+        repository_branch: Optional[str] = None,
         chat_id: Optional[str] = None
     ) -> ChatSession:
         """Get existing chat session or create a new one"""
         
-        # Verify repository exists and user has access
-        repository = await Repository.find_one(
-            Repository.id == BeanieObjectId(repository_id),
-            Repository.user.id == user.id
-        )
-        
-        if not repository:
+        # Validate repository_id
+        if not repository_id or repository_id.strip() == "":
             raise HTTPException(
-                status_code=404, 
-                detail="Repository not found or access denied"
+                status_code=400, 
+                detail="Repository ID is required for chat sessions"
             )
+        
+        # Find repository using utility function
+        repository = await find_user_repository(repository_id, user, repository_branch)
         
         if chat_id:
             # Try to find existing chat session with fetch_links to get full repository
             chat_session = await ChatSession.find_one(
                 ChatSession.chat_id == chat_id,
                 ChatSession.user.id == BeanieObjectId(user.id),
-                ChatSession.repository.id == BeanieObjectId(repository_id),
+                ChatSession.repository.id == repository.id,
                 fetch_links=True  # This ensures repository is fully loaded
             )
             if chat_session:
@@ -75,113 +72,6 @@ class ChatController:
         await chat_session.save()
         return chat_session
     
-    async def get_repository_context(
-        self, 
-        repository: Repository, 
-        include_full: bool = False,
-        search_query: Optional[str] = None,
-        user_query: Optional[str] = None,
-        max_context_tokens: int = 4000,
-        scope_preference: str = "moderate"
-    ) -> tuple[str, Optional[dict]]:
-        """Get repository context for the conversation using smart graph search"""
-        logger.info("🗨️ Getting repository context for chat...")
-        logger.info(f"   Include full: {include_full} (type: {type(include_full)})")
-        logger.info(f"   Search query: '{search_query[:50] if search_query else 'None'}{'...' if search_query and len(search_query) > 50 else ''}'")
-        logger.info(f"   User query: '{user_query[:50] if user_query else 'None'}{'...' if user_query and len(user_query) > 50 else ''}'")
-        logger.info(f"   Max tokens: {max_context_tokens}")
-        logger.info(f"   Scope: {scope_preference}")
-        
-        # Check if graph data files exist
-        if hasattr(repository, 'file_paths') and hasattr(repository.file_paths, 'json_file'):
-            graph_file_exists = os.path.exists(repository.file_paths.json_file) if repository.file_paths.json_file else False
-            logger.info(f"   Graph data file exists: {graph_file_exists} ({repository.file_paths.json_file})")
-        else:
-            logger.warning("   Repository doesn't have graph file paths configured")
-        
-        try:
-            # Ensure we have a full Repository object, not just a Link
-            if hasattr(repository, 'id') and not hasattr(repository, 'file_paths'):
-                # It's a Link object, fetch the full repository
-                repository = await Repository.get(repository.id)
-                if not repository:
-                    return "Repository not found.", None
-            
-            # Decision logic for smart context vs full content
-            should_use_smart_context = (
-                not include_full and  # Don't force full context
-                (user_query or search_query) and  # Have a query to analyze
-                hasattr(repository.file_paths, 'json_file') and  # Graph data configured
-                repository.file_paths.json_file and  # Graph file path exists
-                os.path.exists(repository.file_paths.json_file)  # Graph file actually exists
-            )
-            
-            logger.info(f"🤔 Smart context decision:")
-            logger.info(f"   - include_full: {include_full}")
-            logger.info(f"   - has user_query: {bool(user_query)}")
-            logger.info(f"   - has search_query: {bool(search_query)}")
-            logger.info(f"   - graph file configured: {hasattr(repository.file_paths, 'json_file') and bool(repository.file_paths.json_file)}")
-            logger.info(f"   - graph file exists: {os.path.exists(repository.file_paths.json_file) if hasattr(repository.file_paths, 'json_file') and repository.file_paths.json_file else False}")
-            logger.info(f"   - DECISION: {'SMART CONTEXT' if should_use_smart_context else 'FULL CONTENT'}")
-            
-            if not should_use_smart_context:
-                reason = "forced full context" if include_full else "no query or missing graph data"
-                logger.info(f"📄 Using full repository content ({reason})")
-                full_content = await file_manager.load_text_content(repository.file_paths.text)
-                if full_content:
-                    logger.info(f"✅ Loaded full content: {len(full_content)} characters, ~{len(full_content.split())} tokens")
-                    return full_content, None
-                logger.warning("❌ Repository content not available")
-                return "Repository content not available.", None
-            
-            # Use smart graph search for context
-            logger.info("🧠 Using smart graph search for context...")
-            try:
-                # Use search_query if available, otherwise fall back to user_query
-                query_for_search = search_query or user_query
-                logger.info(f"   Using query for search: '{query_for_search[:100]}{'...' if len(query_for_search) > 100 else ''}'")
-                
-                smart_context_result = await graph_search_service.build_smart_context(
-                    repository=repository,
-                    user_query=query_for_search,
-                    max_context_tokens=max_context_tokens,
-                    scope_preference=scope_preference
-                )
-                
-                # Return both context and metadata
-                context_metadata = {
-                    "query_analysis": smart_context_result.metadata.query_analysis.model_dump(),
-                    "nodes_selected": smart_context_result.metadata.nodes_selected,
-                    "total_nodes_available": smart_context_result.metadata.total_nodes_available,
-                    "context_completeness": smart_context_result.metadata.context_completeness,
-                    "token_usage_estimate": smart_context_result.metadata.token_usage_estimate,
-                    "selection_strategy": smart_context_result.metadata.selection_strategy,
-                    "processing_time_ms": smart_context_result.metadata.processing_time_ms,
-                    "context_nodes": [node.model_dump() for node in smart_context_result.context_nodes]
-                }
-                
-                logger.info(f"✅ Smart context generated successfully!")
-                logger.info(f"   Strategy: {smart_context_result.metadata.selection_strategy}")
-                logger.info(f"   Nodes: {smart_context_result.metadata.nodes_selected}")
-                logger.info(f"   Tokens: {smart_context_result.metadata.token_usage_estimate}")
-                logger.info(f"   Processing time: {smart_context_result.metadata.processing_time_ms}ms")
-                
-                return smart_context_result.context_text, context_metadata
-                
-            except Exception as graph_error:
-                logger.error(f"❌ Error in smart graph search: {graph_error}")
-                logger.info("🔄 Falling back to full repository content...")
-                # Fallback to original behavior if graph search fails
-                full_content = await file_manager.load_text_content(repository.file_paths.text)
-                if full_content:
-                    logger.info(f"✅ Fallback successful: {len(full_content)} characters")
-                    return full_content, None
-                logger.warning("❌ Fallback failed - no content available")
-                return "Repository content not available.", None
-            
-        except Exception as e:
-            logger.error(f"❌ Critical error loading repository context: {e}")
-            return "Error loading repository context.", None
     
     def generate_conversation_title(self, message: str) -> str:
         """Generate a meaningful and unique title for a conversation based on the user's query"""
@@ -195,12 +85,167 @@ class ChatController:
         # Add a short unique suffix using a portion of a UUID
         unique_suffix = str(uuid.uuid4())[:8]
         return f"{base_title} [{unique_suffix}]"
+
+    async def get_repository_context(
+        self, 
+        repository: Repository, 
+        context_search_query: Optional[str] = None,
+        user_query: Optional[str] = None,
+        max_context_tokens: int = 8000,
+        scope_preference: str = "moderate"
+    ) -> tuple[str, dict]:
+        """
+        Get repository context for LLM processing by processing the locally stored ZIP file
+        
+        Args:
+            repository: Repository object with file_paths containing ZIP location
+            include_full_context: Whether to include full repository content
+            context_search_query: Specific search query for context retrieval
+            user_query: User's query for context
+            max_context_tokens: Maximum tokens for context
+            scope_preference: Context scope preference
+            
+        Returns:
+            Tuple of (context_text, context_metadata)
+        """
+        temp_dirs_to_cleanup = []
+        
+        try:
+            # First try to load from cached text file if it exists
+            if repository.file_paths and repository.file_paths.text:
+                try:
+                    cached_content = await file_manager.load_text_content(repository.file_paths.text)
+                    if cached_content:
+                        logger.info(f"Using cached text content for repository {repository.repo_name}")
+                        context_metadata = {
+                            "source": "cached_text",
+                            "repository_id": str(repository.id),
+                            "repository_name": repository.repo_name,
+                            "content_length": len(cached_content),
+                            "scope": scope_preference,
+                            "search_query": context_search_query
+                        }
+                        
+                        # Truncate if too long (rough token estimation: 1 token ≈ 4 characters)
+                        estimated_tokens = len(cached_content) // 4
+                        if estimated_tokens > max_context_tokens:
+                            char_limit = max_context_tokens * 4
+                            cached_content = cached_content[:char_limit] + "\n\n... (content truncated due to length)"
+                            context_metadata["truncated"] = True
+                            context_metadata["truncated_at_tokens"] = max_context_tokens
+                        
+                        return cached_content, context_metadata
+                except Exception as e:
+                    logger.warning(f"Failed to load cached text content: {e}, falling back to ZIP processing")
+            
+            # If no cached text or failed to load, process the ZIP file
+            if not repository.file_paths or not repository.file_paths.zip:
+                return "", {
+                    "source": "error", 
+                    "error": "No ZIP file path available in repository",
+                    "repository_id": str(repository.id),
+                    "repository_name": repository.repo_name
+                }
+            
+            zip_file_path = repository.file_paths.zip
+            logger.info(f"Processing ZIP file for repository context: {zip_file_path}")
+            
+            # Check if ZIP file exists
+            if not os.path.exists(zip_file_path):
+                return "", {
+                    "source": "error",
+                    "error": f"ZIP file not found at path: {zip_file_path}",
+                    "repository_id": str(repository.id),
+                    "repository_name": repository.repo_name
+                }
+            
+            # Extract ZIP contents
+            extracted_files, temp_extract_dir = extract_zip_contents(zip_file_path)
+            temp_dirs_to_cleanup.append(temp_extract_dir)
+            
+            if not extracted_files:
+                return "", {
+                    "source": "error",
+                    "error": "No files found in ZIP archive",
+                    "repository_id": str(repository.id),
+                    "repository_name": repository.repo_name
+                }
+            
+            # Filter files to include only relevant source code files
+            filtered_files = smart_filter_files(extracted_files, temp_extract_dir)
+            
+            if not filtered_files:
+                return "", {
+                    "source": "error",
+                    "error": "No relevant source files found after filtering",
+                    "repository_id": str(repository.id),
+                    "repository_name": repository.repo_name
+                }
+            
+            # Format repository contents into LLM-friendly text
+            context_text = format_repo_contents(filtered_files)
+            
+            context_metadata = {
+                "source": "zip_processed",
+                "repository_id": str(repository.id),
+                "repository_name": repository.repo_name,
+                "content_length": len(context_text),
+                "scope": scope_preference,
+                "search_query": context_search_query,
+                "files_processed": len(filtered_files),
+                "zip_path": zip_file_path
+            }
+            
+            # Truncate if too long (rough token estimation: 1 token ≈ 4 characters)
+            estimated_tokens = len(context_text) // 4
+            if estimated_tokens > max_context_tokens:
+                char_limit = max_context_tokens * 4
+                context_text = context_text[:char_limit] + "\n\n... (content truncated due to length)"
+                context_metadata["truncated"] = True
+                context_metadata["truncated_at_tokens"] = max_context_tokens
+            
+            logger.info(f"Successfully processed repository context: {len(filtered_files)} files, {len(context_text)} characters")
+            return context_text, context_metadata
+            
+        except Exception as e:
+            logger.error(f"Error processing repository context: {e}")
+            return "", {
+                "source": "error",
+                "error": str(e),
+                "repository_id": str(repository.id),
+                "repository_name": repository.repo_name
+            }
+        finally:
+            # Clean up temporary directories
+            if temp_dirs_to_cleanup:
+                cleanup_temp_files(temp_dirs_to_cleanup)
+
+    async def get_api_key_for_request(self, user: User, provider: str, use_user: bool = False) -> Optional[str]:
+        """
+        Get API key for the request, handling both user and system keys
+        
+        Args:
+            user: User object
+            provider: LLM provider (openai, anthropic, gemini, groq)
+            use_user: Whether to use user's API key
+            
+        Returns:
+            API key string or None if not available
+        """
+        try:
+            return await llm_service.get_api_key(provider, user, use_user)
+        except ValueError:
+            # No user API key found
+            return None
+        except Exception as e:
+            logger.error(f"Error getting API key for {provider}: {e}")
+            return None
     
     async def process_chat_message(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
-        repository_id: Annotated[str, Form(description="Repository ID to chat about")],
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
@@ -208,7 +253,6 @@ class ChatController:
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
         context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
         scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
     ) -> ChatResponse:
@@ -225,7 +269,8 @@ class ChatController:
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
                 user, 
-                repository_id,
+                repository_identifier,
+                None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
             
@@ -255,56 +300,99 @@ class ChatController:
             # Add user message to conversation
             conversation.add_message("user", message)
             
-            # Get repository context
+            # Get repository context with intelligent selection
             context, context_metadata = await self.get_repository_context(
                 chat_session.repository,
-                include_full_context,
                 context_search_query,
                 user_query=message,
-                max_context_tokens=max_tokens or 4000,
+                max_context_tokens=max_tokens or 8000,
                 scope_preference=scope_preference
             )
             
-            # Prepare messages for LLM
-            messages = [
-                {"role": msg.role, "content": msg.content} 
-                for msg in conversation.messages[-10:]  # Last 10 messages for context
-            ]
+            # Prepare messages for LLM with intelligent context window management
+            recent_messages = conversation.messages[-20:]  # Get more recent context
+            messages = []
+            total_chars = 0
+            max_context_chars = 8000  # Roughly 2000 tokens
             
-            # Generate AI response
-            llm_response = await llm_service.generate_response(
-                user=user,
-                use_user=use_user,
-                chat_session=chat_session,
-                messages=messages,
-                context=context,
-                provider=provider,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=False  # Non-streaming response
-            )
+            # Include messages from newest to oldest until we hit context limit
+            for msg in reversed(recent_messages):
+                msg_content = f"{msg.role}: {msg.content}"
+                if total_chars + len(msg_content) > max_context_chars and messages:
+                    break
+                messages.insert(0, {"role": msg.role, "content": msg.content})
+                total_chars += len(msg_content)
             
-            if not llm_response["success"]:
+            # Generate AI response using the new LLM service
+            try:
+                # Prepare system prompt with repository context
+                system_prompt = f"""You are an AI assistant specialized in code analysis and repository exploration. You have access to the complete codebase and can help with:
+- Code explanation and documentation
+- Architecture understanding
+- Bug identification and debugging
+- Implementation suggestions
+- Best practices recommendations
+
+Repository: {chat_session.repository.repo_name}
+Branch: {chat_session.repository.branch}
+
+Repository Context:
+{context}
+
+Provide detailed, accurate responses based on the repository content. Reference specific files and line numbers when relevant."""
+
+                llm_response = await llm_service.generate(
+                    messages=messages,
+                    model=model,
+                    provider=provider,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=False,
+                    user=user,
+                    use_user_key=use_user
+                )
+                
+                if not llm_response.success:
+                    # Check if it's an API key error
+                    error_type = "server_error"
+                    if "api key" in llm_response.error.lower() or "no user api key found" in llm_response.error.lower():
+                        error_type = "no_api_key"
+                    
+                    return ChatResponse(
+                        success=False,
+                        error=llm_response.error,
+                        error_type=error_type,
+                        chat_id=chat_session.chat_id,
+                        conversation_id=conversation_id
+                    )
+                
+            except Exception as e:
+                # Handle API key errors specifically
+                error_type = "server_error"
+                error_message = str(e)
+                if "no user api key found" in error_message.lower() or "invalid api key" in error_message.lower():
+                    error_type = "no_api_key"
+                
                 return ChatResponse(
                     success=False,
-                    error=llm_response["error"],
-                    error_type=llm_response["error_type"],
+                    error=error_message,
+                    error_type=error_type,
                     chat_id=chat_session.chat_id,
                     conversation_id=conversation_id
                 )
             
             # Add AI response to conversation
-            ai_message = conversation.add_message(
+            conversation.add_message(
                 "assistant", 
-                llm_response["content"],
+                llm_response.content,
                 context_used=context[:500] + "..." if len(context) > 500 else context,
-                metadata=llm_response.get("usage", {})
+                metadata=llm_response.usage or {}
             )
             
             # Update conversation metadata
-            if llm_response.get("usage"):
-                conversation.total_tokens_used += llm_response["usage"].get("total_tokens", 0)
+            if llm_response.usage:
+                conversation.total_tokens_used += llm_response.usage.get("total_tokens", 0)
             
             await conversation.save()
             
@@ -315,19 +403,19 @@ class ChatController:
             daily_usage = {
                 "requests_used": chat_session.daily_requests_count,
                 "requests_limit": 50 if not chat_session.use_own_key else -1,
-                "reset_date": (datetime.utcnow() + timedelta(days=1)).date().isoformat()
+                "reset_date": (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
             }
             
             return ChatResponse(
                 success=True,
                 chat_id=chat_session.chat_id,
                 conversation_id=conversation_id,
-                ai_response=llm_response["content"],
+                ai_response=llm_response.content,
                 context_used=context[:500] + "..." if len(context) > 500 else context,
                 context_metadata=context_metadata,
-                usage=llm_response.get("usage"),
-                model_used=llm_response.get("model_used"),
-                provider=llm_response.get("provider"),
+                usage=llm_response.usage,
+                model_used=llm_response.model,
+                provider=llm_response.provider,
                 response_time=response_time,
                 daily_usage=daily_usage
             )
@@ -345,7 +433,7 @@ class ChatController:
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
         message: Annotated[str, Form(description="User's message/question")],
-        repository_id: Annotated[str, Form(description="Repository ID to chat about")],
+        repository_id: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
@@ -353,12 +441,27 @@ class ChatController:
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
-        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
-        scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
+        context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart"
     ) -> AsyncGenerator[str, None]:
         """Process a chat message with streaming response - yields JSON strings"""
         try:
+            # Validate required parameters early
+            if not repository_id or repository_id.strip() == "":
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error="Repository identifier is required for chat",
+                    error_type="validation_error"
+                ).model_dump()) + "\n"
+                return
+            
+            if not message or message.strip() == "":
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error="Message cannot be empty",
+                    error_type="validation_error"
+                ).model_dump()) + "\n"
+                return
+            
             # Authenticate user
             user = await get_current_user(token)
             if not user:
@@ -373,38 +476,57 @@ class ChatController:
             chat_session = await self.get_or_create_chat_session(
                 user, 
                 repository_id,
+                None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
             
             # Generate conversation ID if not provided
             conversation_id = conversation_id or str(uuid.uuid4())
             
-            # EARLY API KEY VALIDATION - Check if user has valid API key when use_user=True
-            if use_user:
-                try:
-                    api_key = await llm_service.get_api_key_for_request(user, provider, use_user=True)
-                    if not api_key:
-                        yield json.dumps(StreamChatResponse(
-                            event="error",
-                            error=f"No valid API key found for {provider}. Please add your API key or disable 'use own key' option.",
-                            error_type="no_api_key",
-                            provider=provider,
-                            model=model,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
-                        ).model_dump()) + "\n"
-                        return
-                except Exception as e:
+            # EARLY API KEY VALIDATION - Using improved LangChain service
+            try:
+                from utils.langchain_llm_service import langchain_service
+                
+                # Check if provider is available and test API key access
+                available_providers = langchain_service.get_available_providers()
+                if provider not in available_providers:
                     yield json.dumps(StreamChatResponse(
                         event="error",
-                        error=str(e),
-                        error_type="invalid_api_key",
+                        error=f"Provider {provider} not available. Available: {', '.join(available_providers)}. Install required packages.",
+                        error_type="provider_unavailable",
                         provider=provider,
                         model=model,
                         chat_id=chat_session.chat_id,
                         conversation_id=conversation_id
                     ).model_dump()) + "\n"
                     return
+                
+                # Test API key access early
+                try:
+                    await langchain_service.get_api_key_with_fallback(provider, user, use_user)
+                except ValueError as e:
+                    yield json.dumps(StreamChatResponse(
+                        event="error",
+                        error=str(e),
+                        error_type="no_api_key",
+                        provider=provider,
+                        model=model,
+                        chat_id=chat_session.chat_id,
+                        conversation_id=conversation_id
+                    ).model_dump()) + "\n"
+                    return
+                    
+            except Exception as e:
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error=f"Service initialization error: {str(e)}",
+                    error_type="service_error",
+                    provider=provider,
+                    model=model,
+                    chat_id=chat_session.chat_id,
+                    conversation_id=conversation_id
+                ).model_dump()) + "\n"
+                return
             
             # Get or create conversation - fetch with links to ensure repository is loaded
             conversation = await Conversation.find_one(
@@ -434,104 +556,158 @@ class ChatController:
             # Add user message to conversation
             conversation.add_message("user", message)
             
-            # Get repository context - use the repository from chat_session which we know is fully loaded
-            context, context_metadata = await self.get_repository_context(
+            # Get repository context based on the selected mode
+            context, context_metadata = await self.get_repository_context_by_mode(
                 chat_session.repository,
-                include_full_context,
-                context_search_query,
+                context_mode,
                 user_query=message,
-                max_context_tokens=max_tokens or 4000,
-                scope_preference=scope_preference
+                max_context_tokens=max_tokens or 8000
             )
             
-            # Prepare messages for LLM
-            messages = [
-                {"role": msg.role, "content": msg.content} 
-                for msg in conversation.messages[-10:]  # Last 10 messages for context
-            ]
+            # Prepare messages for LLM with intelligent context window management
+            recent_messages = conversation.messages[-20:]  # Get more recent context
+            messages = []
+            total_chars = 0
+            max_context_chars = 8000  # Roughly 2000 tokens
             
-            # Generate streaming response
-            response_generator = await llm_service.generate_response(
-                user=user,
-                use_user=use_user,
-                chat_session=chat_session,
-                messages=messages,
-                context=context,
-                provider=provider,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True  # Streaming response
-            )
+            # Include messages from newest to oldest until we hit context limit
+            for msg in reversed(recent_messages):
+                msg_content = f"{msg.role}: {msg.content}"
+                if total_chars + len(msg_content) > max_context_chars and messages:
+                    break
+                messages.insert(0, {"role": msg.role, "content": msg.content})
+                total_chars += len(msg_content)
             
-            # Handle response based on type
-            if hasattr(response_generator, '__aiter__'):
-                # It's an async generator
-                response_content = ""
-                final_usage = None
+            # Generate streaming response using the new LangGraph service
+            try:
+                from utils.langgraph_chat_service import langgraph_chat_service
                 
-                async for chunk in response_generator:
-                    if chunk.get("type") == "token":
-                        token_content = chunk.get("token", "")
-                        response_content += token_content
-                        
-                        # Yield token event with all required fields
+                # Use LangGraph for advanced chat orchestration
+                response_generator = langgraph_chat_service.stream_chat_response(
+                    user_query=message,
+                    repository_id=repository_id,
+                    user=user,
+                    model=model,
+                    provider=provider,
+                    thread_id=f"{chat_session.chat_id}_{conversation_id}",
+                    repository_context=context,
+                    context_metadata=context_metadata
+                )
+            except Exception as e:
+                # Handle API key and quota errors specifically
+                error_type = "server_error"
+                error_message = str(e)
+                if "no user api key found" in error_message.lower() or "invalid api key" in error_message.lower():
+                    error_type = "no_api_key"
+                elif "quota" in error_message.lower() or "rate limit" in error_message.lower():
+                    error_type = "quota_exceeded"
+                elif "invalid model" in error_message.lower():
+                    error_type = "invalid_model"
+                
+                yield json.dumps(StreamChatResponse(
+                    event="error",
+                    error=error_message,
+                    error_type=error_type,
+                    provider=provider,
+                    model=model,
+                    chat_id=chat_session.chat_id,
+                    conversation_id=conversation_id
+                ).model_dump()) + "\n"
+                return
+            
+            # Handle LangGraph streaming response
+            response_content = ""
+            final_usage = {}
+            
+            async for json_chunk in response_generator:
+                try:
+                    # Parse the JSON chunk
+                    chunk_data = json.loads(json_chunk.strip())
+                    event_type = chunk_data.get("event")
+                    
+                    if event_type == "progress":
+                        # Yield progress events
                         yield json.dumps(StreamChatResponse(
-                            event="token",
-                            token=token_content,
-                            provider=chunk.get("provider", provider),
-                            model=chunk.get("model", model),
+                            event="progress",
+                            progress_step=chunk_data.get("step"),
+                            provider=provider,
+                            model=model,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id
                         ).model_dump()) + "\n"
                         
-                    elif chunk.get("type") == "complete":
-                        final_usage = chunk.get("usage", {})
+                    elif event_type == "reasoning":
+                        # Yield reasoning traces for o1/o3 models
+                        yield json.dumps(StreamChatResponse(
+                            event="reasoning",
+                            reasoning=chunk_data.get("reasoning"),
+                            provider=provider,
+                            model=model,
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
+                        ).model_dump()) + "\n"
                         
-                        # Add AI response to conversation
+                    elif event_type == "token":
+                        token_content = chunk_data.get("token", "")
+                        response_content += token_content
+                        
+                        # Yield token event
+                        yield json.dumps(StreamChatResponse(
+                            event="token",
+                            token=token_content,
+                            provider=provider,
+                            model=model,
+                            chat_id=chat_session.chat_id,
+                            conversation_id=conversation_id
+                        ).model_dump()) + "\n"
+                        
+                    elif event_type == "complete":
+                        # Save conversation and yield completion
                         conversation.add_message(
-                            "assistant", 
+                            "assistant",
                             response_content,
                             context_used=context[:500] + "..." if len(context) > 500 else context,
                             metadata=final_usage
                         )
                         
-                        # Update conversation metadata
                         if final_usage:
                             conversation.total_tokens_used += final_usage.get("total_tokens", 0)
                         
                         await conversation.save()
                         
-                        # Yield complete event with all required fields
                         yield json.dumps(StreamChatResponse(
                             event="complete",
-                            provider=chunk.get("provider", provider),
-                            model=chunk.get("model", model),
+                            provider=provider,
+                            model=model,
                             usage=final_usage,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id,
                             context_metadata=context_metadata
                         ).model_dump()) + "\n"
                         
-                    elif chunk.get("type") == "error":
+                    elif event_type == "error":
                         yield json.dumps(StreamChatResponse(
                             event="error",
-                            error=chunk.get("error", "Unknown error"),
-                            error_type=chunk.get("error_type", "unknown"),
-                            provider=chunk.get("provider", provider),
-                            model=chunk.get("model", model),
+                            error=chunk_data.get("error", "Unknown error"),
+                            error_type="server_error",
+                            provider=provider,
+                            model=model,
                             chat_id=chat_session.chat_id,
                             conversation_id=conversation_id
                         ).model_dump()) + "\n"
                         break
                         
-            else:
-                # It's a regular response (error case)
-                if not response_generator.get("success", False):
+                except json.JSONDecodeError:
+                    # Skip malformed JSON
+                    continue
+                except Exception as chunk_error:
+                    # Handle individual chunk errors
                     yield json.dumps(StreamChatResponse(
                         event="error",
-                        error=response_generator.get("error", "Unknown error"),
-                        error_type=response_generator.get("error_type", "unknown"),
+                        error=f"Chunk processing error: {str(chunk_error)}",
+                        error_type="processing_error",
+                        provider=provider,
+                        model=model,
                         chat_id=chat_session.chat_id,
                         conversation_id=conversation_id
                     ).model_dump()) + "\n"
@@ -550,7 +726,7 @@ class ChatController:
                     error_response.chat_id = chat_session.chat_id
                 if 'conversation_id' in locals():
                     error_response.conversation_id = conversation_id
-            except:
+            except Exception:
                 pass
                 
             yield json.dumps(error_response.model_dump()) + "\n"
@@ -558,7 +734,7 @@ class ChatController:
     async def list_user_chat_sessions(
         self,
         jwt_token: Annotated[str, Form(description="JWT authentication token")],
-        repo_id: Annotated[str, Form(description="Repository ID")]
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
     ) -> ChatSessionListResponse:
         try:
             user = await get_current_user(jwt_token)
@@ -567,11 +743,22 @@ class ChatController:
             
             user_object_id = BeanieObjectId(user.id)
             
-            # Get all chat sessions
+            # Find repository using utility function
+            try:
+                repository = await find_user_repository(repository_identifier, user)
+            except HTTPException:
+                # Repository not found, return empty list
+                return ChatSessionListResponse(
+                    success=True,
+                    sessions=[],
+                    total_sessions=0
+                )
+            
+            # Get all chat sessions for this repository
             chat_sessions = await ChatSession.find(
                 ChatSession.user.id == user_object_id,
                 ChatSession.is_active == True,
-                ChatSession.repository.id == BeanieObjectId(repo_id)
+                ChatSession.repository.id == repository.id
             ).sort(-ChatSession.updated_at).to_list()
 
             # For each chat session, find the most recent conversation (if any)
@@ -813,9 +1000,12 @@ class ChatController:
                 user,
                 provider,
                 api_key,
-                key_name,
-                verify_key
+                verify=verify_key
             )
+            # Set key_name if provided (the new service doesn't use key_name parameter)
+            if key_name and hasattr(user_key, 'key_name'):
+                user_key.key_name = key_name
+                await user_key.save()
             
             return ApiKeyResponse(
                 success=True,
@@ -832,15 +1022,36 @@ class ChatController:
                 provider=provider
             )
     
+    # Cache for model data to prevent repeated calls
+    _models_cache = None
+    _models_cache_time = None
+    _cache_duration = 300  # 5 minutes
+    
     async def get_available_models(
         self,
         token: Annotated[str, Form(description="JWT authentication token")]
     ) -> AvailableModelsResponse:
-        """Get available models with user's key status"""
+        """Get available models with user's key status (cached)"""
         try:
             user = await get_current_user(token)
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
+            
+            # Check cache first
+            current_time = time.time()
+            if (self._models_cache is not None and 
+                self._models_cache_time is not None and 
+                current_time - self._models_cache_time < self._cache_duration):
+                
+                # Update user-specific data in cached response
+                user_keys = await UserApiKey.find(
+                    UserApiKey.user.id == BeanieObjectId(user.id),
+                    UserApiKey.is_active == True
+                ).to_list()
+                
+                cached_response = self._models_cache
+                cached_response.user_has_keys = [key.provider for key in user_keys]
+                return cached_response
             
             # Get user's keys
             user_keys = await UserApiKey.find(
@@ -850,22 +1061,25 @@ class ChatController:
             
             user_has_keys = [key.provider for key in user_keys]
             
-            # Get available models
-            models = llm_service.get_available_models()
+            # Get available models from LangChain service
+            from utils.langchain_llm_service import langchain_service
+            models = langchain_service.get_available_models()
             
-            # Get current limits based on user's tier
-            # (In a real app, you'd get this from user profile)
-            current_limits = {
-                "free": 10,
-                "premium": 50,
-                "unlimited": -1
-            }
-            
-            return AvailableModelsResponse(
+            response = AvailableModelsResponse(
                 providers=models,
-                current_limits=current_limits,
+                current_limits={},  # Remove limits
                 user_has_keys=user_has_keys
             )
+            
+            # Cache the response (without user-specific data)
+            self._models_cache = AvailableModelsResponse(
+                providers=models,
+                current_limits={},  # Remove limits
+                user_has_keys=[]  # Will be updated per request
+            )
+            self._models_cache_time = current_time
+            
+            return response
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -912,7 +1126,7 @@ class ChatController:
                 updated_fields["default_temperature"] = default_temperature
                 
             if updated_fields:
-                chat_session.updated_at = datetime.utcnow()
+                chat_session.updated_at = datetime.now(timezone.utc)
                 await chat_session.save()
             
             return ChatSettingsResponse(
@@ -930,7 +1144,7 @@ class ChatController:
     async def search_context(
         self,
         token: Annotated[str, Form(description="JWT authentication token")],
-        repository_id: Annotated[str, Form(description="Repository ID to search")],
+        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         query: Annotated[str, Form(description="Search query")],
         max_results: Annotated[int, Form(description="Maximum number of results (1-20)", ge=1, le=20)] = 5
     ) -> ContextSearchResponse:
@@ -940,13 +1154,7 @@ class ChatController:
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid JWT token")
             
-            repository = await Repository.find_one(
-                Repository.id == BeanieObjectId(repository_id),
-                Repository.user.id == user.id
-            )
-            
-            if not repository:
-                raise HTTPException(status_code=404, detail="Repository not found")
+            repository = await find_user_repository(repository_identifier, user)
             
             # Load repository content
             content = await file_manager.load_text_content(repository.file_paths.text)
@@ -983,13 +1191,180 @@ class ChatController:
                 query_used=query
             )
             
-        except Exception as e:
+        except Exception:
             return ContextSearchResponse(
                 success=False,
                 results=[],
                 total_found=0,
                 query_used=query
             )
+
+    async def get_repository_context_by_mode(
+        self,
+        repository,
+        context_mode: str,
+        user_query: str,
+        max_context_tokens: int = 8000
+    ) -> tuple[str, dict]:
+        """Get repository context based on the selected mode"""
+        
+        if context_mode == "full":
+            # Full context mode - include entire repository
+            return await self.get_full_repository_context(
+                repository,
+                max_context_tokens
+            )
+        elif context_mode == "smart":
+            # Smart context mode - use AI-powered retrieval (existing logic)
+            return await self.get_repository_context(
+                repository,
+                context_search_query=user_query,
+                user_query=user_query,
+                max_context_tokens=max_context_tokens,
+                scope_preference="moderate"
+            )
+        elif context_mode == "agentic":
+            # Agentic context mode - multi-step reasoning (not implemented yet)
+            # For now, fallback to smart mode with comprehensive scope
+            return await self.get_repository_context(
+                repository,
+                context_search_query=user_query,
+                user_query=user_query,
+                max_context_tokens=max_context_tokens,
+                scope_preference="comprehensive"
+            )
+        else:
+            # Default to smart mode
+            return await self.get_repository_context(
+                repository,
+                context_search_query=user_query,
+                user_query=user_query,
+                max_context_tokens=max_context_tokens,
+                scope_preference="moderate"
+            )
+
+    async def get_full_repository_context(
+        self,
+        repository,
+        max_context_tokens: int = 8000
+    ) -> tuple[str, dict]:
+        """Get full repository context by extracting and including all files from ZIP"""
+        temp_dirs_to_cleanup = []
+        
+        try:
+            # Check if we have a ZIP file to extract from
+            if not repository.file_paths or not repository.file_paths.zip:
+                return "No ZIP file available for full context extraction.", {"context_type": "full", "files_included": 0}
+            
+            zip_file_path = repository.file_paths.zip
+            
+            # Check if ZIP file exists
+            if not os.path.exists(zip_file_path):
+                return f"ZIP file not found at path: {zip_file_path}", {"context_type": "full", "files_included": 0}
+            
+            # Extract ZIP contents using repo_utils function
+            extracted_files, temp_extract_dir = extract_zip_contents(zip_file_path)
+            temp_dirs_to_cleanup.append(temp_extract_dir)
+            
+            if not extracted_files:
+                return "No files found in ZIP archive.", {"context_type": "full", "files_included": 0}
+            
+            # Filter files to include only relevant source code files
+            filtered_files = smart_filter_files(extracted_files, temp_extract_dir)
+            
+            if not filtered_files:
+                return "No relevant source files found after filtering.", {"context_type": "full", "files_included": 0}
+            
+            # Estimate tokens per character (rough approximation)
+            char_to_token_ratio = 4
+            max_chars = max_context_tokens * char_to_token_ratio
+            
+            context_parts = []
+            files_included = 0
+            current_chars = 0
+            
+            # Sort files by importance (e.g., README files first, then main source files)
+            def get_file_priority(file_info):
+                file_path = file_info["path"].lower()
+                if "readme" in file_path:
+                    return 0
+                elif file_path.endswith(('.py', '.js', '.ts', '.java', '.cpp', '.c', '.go', '.rs')):
+                    return 1
+                elif file_path.endswith(('.json', '.yaml', '.yml', '.xml')):
+                    return 2
+                elif file_path.endswith(('.md', '.txt', '.rst')):
+                    return 3
+                else:
+                    return 4
+            
+            sorted_files = sorted(filtered_files, key=get_file_priority)
+            
+            # Process files until we hit the token limit
+            for file_info in sorted_files:
+                try:
+                    file_path = file_info["path"]
+                    full_path = file_info["full_path"]
+                    
+                    # Read file content
+                    try:
+                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # Try with different encoding for binary files
+                        with open(full_path, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                    
+                    # Create file section
+                    file_section = f"\n=== File: {file_path} ===\n{content}\n"
+                    
+                    # Check if adding this file would exceed token limit
+                    if current_chars + len(file_section) > max_chars and context_parts:
+                        # Truncate the current file if needed
+                        remaining_chars = max_chars - current_chars
+                        if remaining_chars > 200:  # Only include if we have reasonable space
+                            truncated_content = content[:remaining_chars-100] + "\n... (truncated due to length)"
+                            file_section = f"\n=== File: {file_path} ===\n{truncated_content}\n"
+                            context_parts.append(file_section)
+                            files_included += 1
+                        break
+                    
+                    context_parts.append(file_section)
+                    files_included += 1
+                    current_chars += len(file_section)
+                    
+                except Exception as e:
+                    logger.warning(f"Could not read file {file_path}: {e}")
+                    # Add a placeholder for files that couldn't be read
+                    file_section = f"\n=== File: {file_path} ===\n[Could not read file: {e}]\n"
+                    if current_chars + len(file_section) <= max_chars:
+                        context_parts.append(file_section)
+                        files_included += 1
+                        current_chars += len(file_section)
+                    continue
+            
+            context = "".join(context_parts)
+            if not context:
+                context = "No file content could be extracted from the repository."
+            
+            metadata = {
+                "context_type": "full",
+                "files_included": files_included,
+                "total_files_available": len(filtered_files),
+                "estimated_tokens": current_chars // char_to_token_ratio,
+                "zip_path": zip_file_path,
+                "extraction_successful": True
+            }
+            
+            logger.info(f"Full context extracted: {files_included} files, {current_chars} characters, ~{current_chars // char_to_token_ratio} tokens")
+            return context, metadata
+            
+        except Exception as e:
+            logger.error(f"Error getting full repository context: {e}")
+            return f"Error loading repository context: {str(e)}", {"context_type": "full", "error": str(e)}
+        finally:
+            # Clean up temporary directories
+            if temp_dirs_to_cleanup:
+                cleanup_temp_files(temp_dirs_to_cleanup)
 
 
 # Global instance

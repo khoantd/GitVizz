@@ -1,18 +1,9 @@
 from typing import List, Dict, Any
 import os
 from pathlib import Path
-
-
-# Use absolute imports to avoid relative import issues
-try:
-    from structures import Document, RepositoryAnalysis
-    from embedders import SemanticEmbedder
-    from utils import download_repo, read_documents, chunk_documents, setup_repository_from_zip
-except ImportError:
-    # Fallback for when running as part of a package
-    from .structures import Document, RepositoryAnalysis
-    from .embedders import SemanticEmbedder
-    from .utils import download_repo, read_documents, chunk_documents, setup_repository_from_zip
+from documentation_generator.structures import Document, RepositoryAnalysis
+from documentation_generator.embedders import SemanticEmbedder
+from documentation_generator.utils import download_repo, read_documents, chunk_documents, setup_repository_from_zip
 
 class DocumentParser:
     """Document parsing and processing"""

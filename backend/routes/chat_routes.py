@@ -111,9 +111,18 @@ async def stream_chat_response(
     model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
     temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
     max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-    include_full_context: Annotated[bool, Form(description="Include full repository content as context")] = False,
-    context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None
+    context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart",
+    repository_branch: Annotated[Optional[str], Form(description="Repository branch for more precise matching")] = None
 ):
+    print(f"repo identifier: {repository_id}")
+    print(f"use user: {use_user}")
+    print(f"chat id: {chat_id}")
+    print(f"conversation id: {conversation_id}")
+    print(f"provider: {provider}")
+    print(f"model: {model}")
+    print(f"temperature: {temperature}")
+    print(f"max tokens: {max_tokens}")
+    print(f"context mode: {context_mode}")
     return StreamingResponse(
         chat_controller.process_streaming_chat(
             token=token,
@@ -126,8 +135,7 @@ async def stream_chat_response(
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
-            include_full_context=include_full_context,
-            context_search_query=context_search_query
+            context_mode=context_mode,
         ),
         media_type="application/x-ndjson"
     )
@@ -191,9 +199,9 @@ async def get_conversation_history(
 )
 async def list_user_chat_sessions(
     jwt_token: Annotated[str, Form(description="JWT authentication token")],
-    repo_id: Annotated[str,Form(description="Repository ID")]
+    repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
 ):
-    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repo_id=repo_id)
+    return await chat_controller.list_user_chat_sessions(jwt_token=jwt_token, repository_identifier=repository_identifier)
 
 # Chat session endpoint
 @router.post(

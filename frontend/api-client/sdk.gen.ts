@@ -23,6 +23,9 @@ import type {
   LoginUserApiBackendAuthLoginPostData,
   LoginUserApiBackendAuthLoginPostResponses,
   LoginUserApiBackendAuthLoginPostErrors,
+  RefreshTokenApiBackendAuthRefreshPostData,
+  RefreshTokenApiBackendAuthRefreshPostResponses,
+  RefreshTokenApiBackendAuthRefreshPostErrors,
   ProcessChatMessageApiBackendChatChatPostData,
   ProcessChatMessageApiBackendChatChatPostResponses,
   ProcessChatMessageApiBackendChatChatPostErrors,
@@ -53,6 +56,12 @@ import type {
   SearchContextApiBackendChatContextSearchPostData,
   SearchContextApiBackendChatContextSearchPostResponses,
   SearchContextApiBackendChatContextSearchPostErrors,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses,
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses,
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
   GenerateWikiApiDocumentationGenerateWikiPostData,
   GenerateWikiApiDocumentationGenerateWikiPostResponses,
   GenerateWikiApiDocumentationGenerateWikiPostErrors,
@@ -65,12 +74,31 @@ import type {
   ListRepositoryDocsApiDocumentationRepositoryDocsPostData,
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses,
   ListRepositoryDocsApiDocumentationRepositoryDocsPostErrors,
+  GetIndexedRepositoriesApiIndexedReposPostData,
+  GetIndexedRepositoriesApiIndexedReposPostResponses,
+  GetIndexedRepositoriesApiIndexedReposPostErrors,
+  GetUserApiKeysApiBackendChatKeysListPostData,
+  GetUserApiKeysApiBackendChatKeysListPostResponses,
+  GetUserApiKeysApiBackendChatKeysListPostErrors,
+  DeleteUserApiKeyApiBackendChatKeysDeletePostData,
+  DeleteUserApiKeyApiBackendChatKeysDeletePostResponses,
+  DeleteUserApiKeyApiBackendChatKeysDeletePostErrors,
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetData,
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses,
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors,
+  GetAvailableModelsApiBackendChatModelsAvailablePostData,
+  GetAvailableModelsApiBackendChatModelsAvailablePostResponses,
+  GetAvailableModelsApiBackendChatModelsAvailablePostErrors,
+  HealthCheckApiBackendChatHealthGetData,
+  HealthCheckApiBackendChatHealthGetResponses,
+  ServiceInfoApiBackendChatInfoGetData,
+  ServiceInfoApiBackendChatInfoGetResponses,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
   getConversationHistoryApiBackendChatConversationsConversationIdPostResponseTransformer,
   getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer,
-  saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
+  getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
 } from './transformers.gen';
 
 export type Options<
@@ -196,6 +224,27 @@ export const loginUserApiBackendAuthLoginPost = <ThrowOnError extends boolean = 
     ThrowOnError
   >({
     url: '/api/backend-auth/login',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Refresh access token
+ * Accepts a refresh token and returns a new access token.
+ */
+export const refreshTokenApiBackendAuthRefreshPost = <ThrowOnError extends boolean = false>(
+  options: Options<RefreshTokenApiBackendAuthRefreshPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RefreshTokenApiBackendAuthRefreshPostResponses,
+    RefreshTokenApiBackendAuthRefreshPostErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-auth/refresh',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -352,7 +401,7 @@ export const verifyUserApiKeyApiBackendChatKeysVerifyPost = <ThrowOnError extend
 
 /**
  * Save user API key
- * Save or update an encrypted API key for a specific provider with verification
+ * Save an encrypted API key for the authenticated user
  */
 export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends boolean = false>(
   options: Options<SaveUserApiKeyApiBackendChatKeysSavePostData, ThrowOnError>,
@@ -363,7 +412,6 @@ export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends bo
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
-    responseTransformer: saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
     url: '/api/backend-chat/keys/save',
     ...options,
     headers: {
@@ -431,6 +479,52 @@ export const searchContextApiBackendChatContextSearchPost = <ThrowOnError extend
   >({
     ...urlSearchParamsBodySerializer,
     url: '/api/backend-chat/context/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stream wiki generation progress
+ * Server-Sent Events endpoint for real-time wiki generation progress updates.
+ */
+export const streamWikiProgressApiDocumentationProgressStreamTaskIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses,
+    StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors,
+    ThrowOnError
+  >({
+    url: '/api/documentation/progress-stream/{task_id}',
+    ...options,
+  });
+};
+
+/**
+ * Cancel wiki generation
+ * Cancel an ongoing wiki generation task.
+ */
+export const cancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData,
+    ThrowOnError
+  >,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses,
+    CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/documentation/cancel-generation/{task_id}',
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -528,5 +622,157 @@ export const listRepositoryDocsApiDocumentationRepositoryDocsPost = <
       'Content-Type': 'application/x-www-form-urlencoded',
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Get user's indexed repositories
+ * Retrieve all repositories that have been previously indexed/analyzed by the authenticated user.
+ * Returns clean, minimal repository data for frontend display including:
+ * - Repository name and branch
+ * - Source (GitHub or ZIP)
+ * - Creation/update timestamps
+ * - File sizes
+ * - User tier information
+ *
+ * Requires authentication via JWT token in request body.
+ */
+export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends boolean = false>(
+  options: Options<GetIndexedRepositoriesApiIndexedReposPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetIndexedRepositoriesApiIndexedReposPostResponses,
+    GetIndexedRepositoriesApiIndexedReposPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    responseTransformer: getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
+    url: '/api/indexed-repos/',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get user API keys
+ * Get list of user's saved API keys (without exposing actual keys)
+ */
+export const getUserApiKeysApiBackendChatKeysListPost = <ThrowOnError extends boolean = false>(
+  options: Options<GetUserApiKeysApiBackendChatKeysListPostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetUserApiKeysApiBackendChatKeysListPostResponses,
+    GetUserApiKeysApiBackendChatKeysListPostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/keys/list',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete user API key
+ * Delete user's API key for a specific provider
+ */
+export const deleteUserApiKeyApiBackendChatKeysDeletePost = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteUserApiKeyApiBackendChatKeysDeletePostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteUserApiKeyApiBackendChatKeysDeletePostResponses,
+    DeleteUserApiKeyApiBackendChatKeysDeletePostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/keys/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get available models (GET)
+ * Get available models for all providers (GET method for easier frontend integration)
+ */
+export const getAvailableModelsGetApiBackendChatModelsAvailableGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetAvailableModelsGetApiBackendChatModelsAvailableGetData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses,
+    GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/models/available',
+    ...options,
+  });
+};
+
+/**
+ * Get available models
+ * Get available models for all providers or a specific provider
+ */
+export const getAvailableModelsApiBackendChatModelsAvailablePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetAvailableModelsApiBackendChatModelsAvailablePostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAvailableModelsApiBackendChatModelsAvailablePostResponses,
+    GetAvailableModelsApiBackendChatModelsAvailablePostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    url: '/api/backend-chat/models/available',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Health check
+ * Simple health check for API key service
+ */
+export const healthCheckApiBackendChatHealthGet = <ThrowOnError extends boolean = false>(
+  options?: Options<HealthCheckApiBackendChatHealthGetData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    HealthCheckApiBackendChatHealthGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/health',
+    ...options,
+  });
+};
+
+/**
+ * Service information
+ * Get information about the API key service capabilities
+ */
+export const serviceInfoApiBackendChatInfoGet = <ThrowOnError extends boolean = false>(
+  options?: Options<ServiceInfoApiBackendChatInfoGetData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    ServiceInfoApiBackendChatInfoGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/info',
+    ...options,
   });
 };

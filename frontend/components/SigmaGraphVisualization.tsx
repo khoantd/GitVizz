@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { generateGraphFromGithub, generateGraphFromZip } from '@/utils/api';
+import { extractJwtToken } from '@/utils/token-utils';
 import type {
   GraphResponse,
   GraphNode as ApiGraphNode,
@@ -127,10 +128,13 @@ export default function SigmaGraphVisualization({
         if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
           response = await generateGraphFromGithubWithAuth({
             ...sourceData,
-            jwt_token: session?.jwt_token || '',
+            jwt_token: extractJwtToken(session?.jwt_token) || '',
           });
         } else if (sourceType === 'zip' && sourceData instanceof File) {
-          response = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
+          response = await generateGraphFromZipWithAuth(
+            sourceData,
+            extractJwtToken(session?.jwt_token) || '',
+          );
         } else {
           throw new Error('Invalid source type or data');
         }
@@ -292,17 +296,47 @@ export default function SigmaGraphVisualization({
   if (innerData.nodes.length === 0) return null;
 
   return (
-    <SigmaGraphInner 
-      data={innerData} 
-      onNodeClick={handleNodeClick} 
+    <SigmaGraphInner
+      data={innerData}
+      onNodeClick={handleNodeClick}
       focusedNodeId={activeNodeId}
       nodeCategories={{
-        modules: { color: '#3b82f6', icon: () => null, label: 'Modules', description: 'Module files' },
-        directory: { color: '#f59e0b', icon: () => null, label: 'Directory', description: 'Directory structures' },
-        class: { color: '#10b981', icon: () => null, label: 'Class', description: 'Class definitions' },
-        function: { color: '#8b5cf6', icon: () => null, label: 'Function', description: 'Function definitions' },
-        variable: { color: '#ef4444', icon: () => null, label: 'Variable', description: 'Variable declarations' },
-        other: { color: '#90A4AE', icon: () => null, label: 'Other', description: 'Other elements' },
+        modules: {
+          color: '#3b82f6',
+          icon: () => null,
+          label: 'Modules',
+          description: 'Module files',
+        },
+        directory: {
+          color: '#f59e0b',
+          icon: () => null,
+          label: 'Directory',
+          description: 'Directory structures',
+        },
+        class: {
+          color: '#10b981',
+          icon: () => null,
+          label: 'Class',
+          description: 'Class definitions',
+        },
+        function: {
+          color: '#8b5cf6',
+          icon: () => null,
+          label: 'Function',
+          description: 'Function definitions',
+        },
+        variable: {
+          color: '#ef4444',
+          icon: () => null,
+          label: 'Variable',
+          description: 'Variable declarations',
+        },
+        other: {
+          color: '#90A4AE',
+          icon: () => null,
+          label: 'Other',
+          description: 'Other elements',
+        },
       }}
     />
   );

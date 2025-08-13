@@ -56,6 +56,38 @@ export type AvailableModelsResponse = {
 };
 
 /**
+ * Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post
+ */
+export type BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost = {
+  /**
+   * Jwt Token
+   * Authentication jwt_token for the request
+   */
+  jwt_token: string;
+};
+
+/**
+ * Body_delete_user_api_key_api_backend_chat_keys_delete_post
+ */
+export type BodyDeleteUserApiKeyApiBackendChatKeysDeletePost = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Provider name to delete key for
+   */
+  provider: string;
+  /**
+   * Key Id
+   * Specific key ID to delete
+   */
+  key_id?: string | null;
+};
+
+/**
  * Body_generate_graph_endpoint_api_repo_generate_graph_post
  */
 export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
@@ -66,7 +98,7 @@ export type BodyGenerateGraphEndpointApiRepoGenerateGraphPost = {
   repo_url?: string | null;
   /**
    * Branch
-   * Branch for GitHub repo URL.
+   * Branch for GitHub repo URL. If not specified, uses the repository's default branch.
    */
   branch?: string | null;
   /**
@@ -97,7 +129,7 @@ export type BodyGenerateStructureEndpointApiRepoGenerateStructurePost = {
   repo_url?: string | null;
   /**
    * Branch
-   * Branch for GitHub repo URL.
+   * Branch for GitHub repo URL. If not specified, uses the repository's default branch.
    */
   branch?: string | null;
   /**
@@ -189,7 +221,7 @@ export type BodyGenerateTextEndpointApiRepoGenerateTextPost = {
   repo_url?: string | null;
   /**
    * Branch
-   * Branch to use if repo_url is a GitHub repository link.
+   * Branch to use if repo_url is a GitHub repository link. If not specified, uses the repository's default branch.
    */
   branch?: string | null;
   /**
@@ -235,9 +267,35 @@ export type BodyGenerateWikiApiDocumentationGenerateWikiPost = {
   comprehensive?: boolean | null;
   /**
    * Provider Name
-   * Provider name for the documentation generation
+   * Provider name for the documentation generation (openai, anthropic, gemini)
    */
   provider_name?: string | null;
+  /**
+   * Model Name
+   * Specific model name to use for generation
+   */
+  model_name?: string | null;
+  /**
+   * Temperature
+   * Temperature for AI generation (0.0-1.5)
+   */
+  temperature?: number | null;
+};
+
+/**
+ * Body_get_available_models_api_backend_chat_models_available_post
+ */
+export type BodyGetAvailableModelsApiBackendChatModelsAvailablePost = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Specific provider to get models for
+   */
+  provider?: string | null;
 };
 
 /**
@@ -266,6 +324,38 @@ export type BodyGetChatSessionApiBackendChatSessionsChatIdPost = {
  * Body_get_conversation_history_api_backend_chat_conversations__conversation_id__post
  */
 export type BodyGetConversationHistoryApiBackendChatConversationsConversationIdPost = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+};
+
+/**
+ * Body_get_indexed_repositories_api_indexed_repos__post
+ */
+export type BodyGetIndexedRepositoriesApiIndexedReposPost = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Limit
+   * Maximum number of repositories to return
+   */
+  limit?: number;
+  /**
+   * Offset
+   * Number of repositories to skip
+   */
+  offset?: number;
+};
+
+/**
+ * Body_get_user_api_keys_api_backend_chat_keys_list_post
+ */
+export type BodyGetUserApiKeysApiBackendChatKeysListPost = {
   /**
    * Token
    * JWT authentication token
@@ -331,10 +421,10 @@ export type BodyListUserChatSessionsApiBackendChatSessionsPost = {
    */
   jwt_token: string;
   /**
-   * Repo Id
-   * Repository ID
+   * Repository Identifier
+   * Repository identifier in format owner/repo/branch
    */
-  repo_id: string;
+  repository_identifier: string;
 };
 
 /**
@@ -401,37 +491,6 @@ export type BodyProcessChatMessageApiBackendChatChatPost = {
    * Specific search query for context retrieval
    */
   context_search_query?: string | null;
-};
-
-/**
- * Body_save_user_api_key_api_backend_chat_keys_save_post
- */
-export type BodySaveUserApiKeyApiBackendChatKeysSavePost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
-   * Provider
-   * Provider name (openai, anthropic, gemini)
-   */
-  provider: string;
-  /**
-   * Api Key
-   * API key
-   */
-  api_key: string;
-  /**
-   * Key Name
-   * Friendly name for the key
-   */
-  key_name?: string | null;
-  /**
-   * Verify Key
-   * Whether to verify the key before saving
-   */
-  verify_key?: boolean;
 };
 
 /**
@@ -515,15 +574,15 @@ export type BodyStreamChatResponseApiBackendChatChatStreamPost = {
    */
   max_tokens?: number | null;
   /**
-   * Include Full Context
-   * Include full repository content as context
+   * Context Mode
+   * Context mode: full, smart, or agentic
    */
-  include_full_context?: boolean;
+  context_mode?: string;
   /**
-   * Context Search Query
-   * Specific search query for context retrieval
+   * Repository Branch
+   * Repository branch for more precise matching
    */
-  context_search_query?: string | null;
+  repository_branch?: string | null;
 };
 
 /**
@@ -560,27 +619,6 @@ export type BodyUpdateChatSettingsApiBackendChatSettingsPost = {
    * Default temperature (0.0-2.0)
    */
   default_temperature?: number | null;
-};
-
-/**
- * Body_verify_user_api_key_api_backend_chat_keys_verify_post
- */
-export type BodyVerifyUserApiKeyApiBackendChatKeysVerifyPost = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
-   * Provider
-   * Provider name (openai, anthropic, gemini)
-   */
-  provider: string;
-  /**
-   * Api Key
-   * API key to verify
-   */
-  api_key: string;
 };
 
 /**
@@ -632,12 +670,16 @@ export type ChatResponse = {
    * Model Used
    */
   model_used?: string | null;
-  provider?: ModelProvider | null;
+  /**
+   * Provider
+   */
+  provider?: string | null;
   /**
    * Response Time
    * Response time in seconds
    */
   response_time?: number | null;
+  daily_usage?: DailyUsage | null;
 };
 
 /**
@@ -858,6 +900,25 @@ export type ConversationHistoryResponse = {
 };
 
 /**
+ * DailyUsage
+ * Daily usage tracking
+ */
+export type DailyUsage = {
+  /**
+   * Requests Used
+   */
+  requests_used: number;
+  /**
+   * Requests Limit
+   */
+  requests_limit: number;
+  /**
+   * Reset Date
+   */
+  reset_date: string;
+};
+
+/**
  * DocumentationFile
  */
 export type DocumentationFile = {
@@ -1007,6 +1068,66 @@ export type HttpValidationError = {
 };
 
 /**
+ * IndexedRepositoriesResponse
+ */
+export type IndexedRepositoriesResponse = {
+  /**
+   * Repositories
+   */
+  repositories: Array<IndexedRepository>;
+  /**
+   * Total Count
+   */
+  total_count: number;
+  /**
+   * User Tier
+   */
+  user_tier: string;
+};
+
+/**
+ * IndexedRepository
+ */
+export type IndexedRepository = {
+  /**
+   * Repo Id
+   */
+  repo_id: string;
+  /**
+   * Repo Name
+   */
+  repo_name: string;
+  /**
+   * Branch
+   */
+  branch: string;
+  /**
+   * Source
+   */
+  source: string;
+  /**
+   * Github Url
+   */
+  github_url?: string | null;
+  /**
+   * Commit Sha
+   */
+  commit_sha?: string | null;
+  /**
+   * Created At
+   */
+  created_at: Date;
+  /**
+   * Updated At
+   */
+  updated_at: Date;
+  /**
+   * File Size Mb
+   */
+  file_size_mb?: number | null;
+};
+
+/**
  * IsWikiGeneratedResponse
  */
 export type IsWikiGeneratedResponse = {
@@ -1058,6 +1179,14 @@ export type LoginResponse = {
    * Token Type
    */
   token_type?: string;
+  /**
+   * Refresh Token
+   */
+  refresh_token?: string | null;
+  /**
+   * Refresh Expires In
+   */
+  refresh_expires_in?: number | null;
 };
 
 /**
@@ -1093,7 +1222,7 @@ export type MessageResponse = {
  * ModelProvider
  * Supported LLM providers
  */
-export type ModelProvider = 'openai' | 'anthropic' | 'gemini';
+export type ModelProvider = 'openai' | 'anthropic' | 'gemini' | 'groq';
 
 /**
  * ModelProvider
@@ -1103,6 +1232,7 @@ export const ModelProvider = {
   OPENAI: 'openai',
   ANTHROPIC: 'anthropic',
   GEMINI: 'gemini',
+  GROQ: 'groq',
 } as const;
 
 /**
@@ -1117,6 +1247,34 @@ export type NavigationData = {
    * Total Pages
    */
   total_pages: number;
+};
+
+/**
+ * RefreshTokenRequest
+ */
+export type RefreshTokenRequest = {
+  /**
+   * Refresh Token
+   */
+  refresh_token: string;
+};
+
+/**
+ * RefreshTokenResponse
+ */
+export type RefreshTokenResponse = {
+  /**
+   * Access Token
+   */
+  access_token: string;
+  /**
+   * Expires In
+   */
+  expires_in: number;
+  /**
+   * Token Type
+   */
+  token_type?: string;
 };
 
 /**
@@ -1342,6 +1500,110 @@ export type WikiGenerationResponse = {
   } | null;
 };
 
+/**
+ * Body_save_user_api_key_api_backend_chat_keys_save_post
+ */
+export type FastapiCompatBodySaveUserApiKeyApiBackendChatKeysSavePost1 = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Provider name (openai, anthropic, gemini)
+   */
+  provider: string;
+  /**
+   * Api Key
+   * API key
+   */
+  api_key: string;
+  /**
+   * Key Name
+   * Friendly name for the key
+   */
+  key_name?: string | null;
+  /**
+   * Verify Key
+   * Whether to verify the key before saving
+   */
+  verify_key?: boolean;
+};
+
+/**
+ * Body_save_user_api_key_api_backend_chat_keys_save_post
+ */
+export type FastapiCompatBodySaveUserApiKeyApiBackendChatKeysSavePost2 = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Provider name (openai, anthropic, gemini, groq)
+   */
+  provider: string;
+  /**
+   * Api Key
+   * API key to save
+   */
+  api_key: string;
+  /**
+   * Key Name
+   * Optional friendly name for the key
+   */
+  key_name?: string | null;
+  /**
+   * Verify Key
+   * Whether to verify key before saving
+   */
+  verify_key?: boolean;
+};
+
+/**
+ * Body_verify_user_api_key_api_backend_chat_keys_verify_post
+ */
+export type FastapiCompatBodyVerifyUserApiKeyApiBackendChatKeysVerifyPost1 = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Provider name (openai, anthropic, gemini)
+   */
+  provider: string;
+  /**
+   * Api Key
+   * API key to verify
+   */
+  api_key: string;
+};
+
+/**
+ * Body_verify_user_api_key_api_backend_chat_keys_verify_post
+ */
+export type FastapiCompatBodyVerifyUserApiKeyApiBackendChatKeysVerifyPost2 = {
+  /**
+   * Token
+   * JWT authentication token
+   */
+  token: string;
+  /**
+   * Provider
+   * Provider name (openai, anthropic, gemini, groq)
+   */
+  provider: string;
+  /**
+   * Api Key
+   * API key to verify
+   */
+  api_key: string;
+};
+
 export type GenerateTextEndpointApiRepoGenerateTextPostData = {
   body?: BodyGenerateTextEndpointApiRepoGenerateTextPost;
   path?: never;
@@ -1553,6 +1815,45 @@ export type LoginUserApiBackendAuthLoginPostResponses = {
 export type LoginUserApiBackendAuthLoginPostResponse =
   LoginUserApiBackendAuthLoginPostResponses[keyof LoginUserApiBackendAuthLoginPostResponses];
 
+export type RefreshTokenApiBackendAuthRefreshPostData = {
+  body: RefreshTokenRequest;
+  path?: never;
+  query?: never;
+  url: '/api/backend-auth/refresh';
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostErrors = {
+  /**
+   * Unauthorized. Refresh token is invalid or expired.
+   */
+  401: ErrorResponse;
+  /**
+   * User not found.
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error.
+   */
+  500: ErrorResponse;
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostError =
+  RefreshTokenApiBackendAuthRefreshPostErrors[keyof RefreshTokenApiBackendAuthRefreshPostErrors];
+
+export type RefreshTokenApiBackendAuthRefreshPostResponses = {
+  /**
+   * Token refresh successful. Returns new access token.
+   */
+  200: RefreshTokenResponse;
+};
+
+export type RefreshTokenApiBackendAuthRefreshPostResponse =
+  RefreshTokenApiBackendAuthRefreshPostResponses[keyof RefreshTokenApiBackendAuthRefreshPostResponses];
+
 export type ProcessChatMessageApiBackendChatChatPostData = {
   body: BodyProcessChatMessageApiBackendChatChatPost;
   path?: never;
@@ -1760,7 +2061,7 @@ export type GetChatSessionApiBackendChatSessionsChatIdPostResponse =
   GetChatSessionApiBackendChatSessionsChatIdPostResponses[keyof GetChatSessionApiBackendChatSessionsChatIdPostResponses];
 
 export type VerifyUserApiKeyApiBackendChatKeysVerifyPostData = {
-  body: BodyVerifyUserApiKeyApiBackendChatKeysVerifyPost;
+  body: FastapiCompatBodyVerifyUserApiKeyApiBackendChatKeysVerifyPost2;
   path?: never;
   query?: never;
   url: '/api/backend-chat/keys/verify';
@@ -1768,21 +2069,9 @@ export type VerifyUserApiKeyApiBackendChatKeysVerifyPostData = {
 
 export type VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors = {
   /**
-   * Invalid provider specified
-   */
-  400: ErrorResponse;
-  /**
-   * Unauthorized - Invalid JWT token
-   */
-  401: ErrorResponse;
-  /**
    * Validation Error
    */
   422: HttpValidationError;
-  /**
-   * Internal server error
-   */
-  500: ErrorResponse;
 };
 
 export type VerifyUserApiKeyApiBackendChatKeysVerifyPostError =
@@ -1790,19 +2079,13 @@ export type VerifyUserApiKeyApiBackendChatKeysVerifyPostError =
 
 export type VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses = {
   /**
-   * Response Verify User Api Key Api Backend Chat Keys Verify Post
-   * API key verification result
+   * Successful Response
    */
-  200: {
-    [key: string]: unknown;
-  };
+  200: unknown;
 };
 
-export type VerifyUserApiKeyApiBackendChatKeysVerifyPostResponse =
-  VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses[keyof VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses];
-
 export type SaveUserApiKeyApiBackendChatKeysSavePostData = {
-  body: BodySaveUserApiKeyApiBackendChatKeysSavePost;
+  body: FastapiCompatBodySaveUserApiKeyApiBackendChatKeysSavePost2;
   path?: never;
   query?: never;
   url: '/api/backend-chat/keys/save';
@@ -1810,21 +2093,9 @@ export type SaveUserApiKeyApiBackendChatKeysSavePostData = {
 
 export type SaveUserApiKeyApiBackendChatKeysSavePostErrors = {
   /**
-   * Invalid provider or API key specified
-   */
-  400: ErrorResponse;
-  /**
-   * Unauthorized - Invalid JWT token
-   */
-  401: ErrorResponse;
-  /**
    * Validation Error
    */
   422: HttpValidationError;
-  /**
-   * Internal server error
-   */
-  500: ErrorResponse;
 };
 
 export type SaveUserApiKeyApiBackendChatKeysSavePostError =
@@ -1832,13 +2103,10 @@ export type SaveUserApiKeyApiBackendChatKeysSavePostError =
 
 export type SaveUserApiKeyApiBackendChatKeysSavePostResponses = {
   /**
-   * API key saved successfully
+   * Successful Response
    */
-  200: ApiKeyResponse;
+  200: unknown;
 };
-
-export type SaveUserApiKeyApiBackendChatKeysSavePostResponse =
-  SaveUserApiKeyApiBackendChatKeysSavePostResponses[keyof SaveUserApiKeyApiBackendChatKeysSavePostResponses];
 
 export type GetAvailableModelsApiBackendChatModelsPostData = {
   body: BodyGetAvailableModelsApiBackendChatModelsPost;
@@ -1952,6 +2220,64 @@ export type SearchContextApiBackendChatContextSearchPostResponses = {
 
 export type SearchContextApiBackendChatContextSearchPostResponse =
   SearchContextApiBackendChatContextSearchPostResponses[keyof SearchContextApiBackendChatContextSearchPostResponses];
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetData = {
+  body?: never;
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string;
+  };
+  query?: never;
+  url: '/api/documentation/progress-stream/{task_id}';
+};
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetError =
+  StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors[keyof StreamWikiProgressApiDocumentationProgressStreamTaskIdGetErrors];
+
+export type StreamWikiProgressApiDocumentationProgressStreamTaskIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostData = {
+  body: BodyCancelWikiGenerationApiDocumentationCancelGenerationTaskIdPost;
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string;
+  };
+  query?: never;
+  url: '/api/documentation/cancel-generation/{task_id}';
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostError =
+  CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors[keyof CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostErrors];
+
+export type CancelWikiGenerationApiDocumentationCancelGenerationTaskIdPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type GenerateWikiApiDocumentationGenerateWikiPostData = {
   body: BodyGenerateWikiApiDocumentationGenerateWikiPost;
@@ -2080,6 +2406,174 @@ export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses = {
 
 export type ListRepositoryDocsApiDocumentationRepositoryDocsPostResponse =
   ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses[keyof ListRepositoryDocsApiDocumentationRepositoryDocsPostResponses];
+
+export type GetIndexedRepositoriesApiIndexedReposPostData = {
+  body: BodyGetIndexedRepositoriesApiIndexedReposPost;
+  path?: never;
+  query?: never;
+  url: '/api/indexed-repos/';
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostErrors = {
+  /**
+   * Authentication required - missing or invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Server error while fetching repositories
+   */
+  500: ErrorResponse;
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostError =
+  GetIndexedRepositoriesApiIndexedReposPostErrors[keyof GetIndexedRepositoriesApiIndexedReposPostErrors];
+
+export type GetIndexedRepositoriesApiIndexedReposPostResponses = {
+  /**
+   * Successfully retrieved indexed repositories
+   */
+  200: IndexedRepositoriesResponse;
+};
+
+export type GetIndexedRepositoriesApiIndexedReposPostResponse =
+  GetIndexedRepositoriesApiIndexedReposPostResponses[keyof GetIndexedRepositoriesApiIndexedReposPostResponses];
+
+export type GetUserApiKeysApiBackendChatKeysListPostData = {
+  body: BodyGetUserApiKeysApiBackendChatKeysListPost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/keys/list';
+};
+
+export type GetUserApiKeysApiBackendChatKeysListPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetUserApiKeysApiBackendChatKeysListPostError =
+  GetUserApiKeysApiBackendChatKeysListPostErrors[keyof GetUserApiKeysApiBackendChatKeysListPostErrors];
+
+export type GetUserApiKeysApiBackendChatKeysListPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type DeleteUserApiKeyApiBackendChatKeysDeletePostData = {
+  body: BodyDeleteUserApiKeyApiBackendChatKeysDeletePost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/keys/delete';
+};
+
+export type DeleteUserApiKeyApiBackendChatKeysDeletePostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteUserApiKeyApiBackendChatKeysDeletePostError =
+  DeleteUserApiKeyApiBackendChatKeysDeletePostErrors[keyof DeleteUserApiKeyApiBackendChatKeysDeletePostErrors];
+
+export type DeleteUserApiKeyApiBackendChatKeysDeletePostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetAvailableModelsGetApiBackendChatModelsAvailableGetData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Token
+     */
+    token?: string | null;
+    /**
+     * Provider
+     */
+    provider?: string | null;
+  };
+  url: '/api/backend-chat/models/available';
+};
+
+export type GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetAvailableModelsGetApiBackendChatModelsAvailableGetError =
+  GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors[keyof GetAvailableModelsGetApiBackendChatModelsAvailableGetErrors];
+
+export type GetAvailableModelsGetApiBackendChatModelsAvailableGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetAvailableModelsApiBackendChatModelsAvailablePostData = {
+  body: BodyGetAvailableModelsApiBackendChatModelsAvailablePost;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/models/available';
+};
+
+export type GetAvailableModelsApiBackendChatModelsAvailablePostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetAvailableModelsApiBackendChatModelsAvailablePostError =
+  GetAvailableModelsApiBackendChatModelsAvailablePostErrors[keyof GetAvailableModelsApiBackendChatModelsAvailablePostErrors];
+
+export type GetAvailableModelsApiBackendChatModelsAvailablePostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type HealthCheckApiBackendChatHealthGetData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/health';
+};
+
+export type HealthCheckApiBackendChatHealthGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ServiceInfoApiBackendChatInfoGetData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/info';
+};
+
+export type ServiceInfoApiBackendChatInfoGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ClientOptions = {
   baseUrl: 'http://localhost:8003' | (string & {});

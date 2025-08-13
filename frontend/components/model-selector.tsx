@@ -13,7 +13,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, Settings, Zap, Brain, Sparkles } from 'lucide-react';
+import { RefreshCw, Settings, Zap, Brain, Sparkles, Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
@@ -36,10 +36,24 @@ export function ModelSelector({
   onModelChange,
   onRefresh,
 }: ModelSelectorProps) {
-  const safeProvider =
-    currentModel.provider ?? Object.keys(availableModels.providers)[0] ?? 'openai';
+  // Show only providers for which the user has added keys; if none, show all
+  const providersToShow = (
+    availableModels.user_has_keys?.length
+      ? availableModels.user_has_keys
+      : Object.keys(availableModels.providers)
+  ).filter((p) => (availableModels.providers[p] || []).length > 0);
+
+  const initialProvider =
+    currentModel.provider && providersToShow.includes(currentModel.provider)
+      ? currentModel.provider
+      : providersToShow[0] || 'openai';
+
+  const safeProvider = initialProvider;
   const safeModel =
-    currentModel.model ?? availableModels.providers[safeProvider]?.[0] ?? 'gpt-3.5-turbo';
+    currentModel.model &&
+    (availableModels.providers[safeProvider] || []).includes(currentModel.model)
+      ? currentModel.model
+      : (availableModels.providers[safeProvider]?.[0] ?? 'gpt-3.5-turbo');
   const [temperature, setTemperature] = useState(currentModel.temperature ?? 0.7);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -51,6 +65,8 @@ export function ModelSelector({
         return <Brain className="h-4 w-4" />;
       case 'gemini':
         return <Sparkles className="h-4 w-4" />;
+      case 'groq':
+        return <Gauge className="h-4 w-4" />;
       default:
         return <Zap className="h-4 w-4" />;
     }
@@ -64,6 +80,8 @@ export function ModelSelector({
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
       case 'gemini':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'groq':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
@@ -133,7 +151,7 @@ export function ModelSelector({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {Object.keys(availableModels.providers).map((provider) => (
+            {providersToShow.map((provider) => (
               <SelectItem key={provider} value={provider}>
                 <div className="flex items-center gap-2">
                   {getProviderIcon(provider)}

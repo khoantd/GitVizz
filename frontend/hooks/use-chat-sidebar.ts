@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   getConversationHistory,
   getAvailableModels,
@@ -9,11 +10,14 @@ import {
   type AvailableModelsResponse,
   type ChatSessionListItem,
 } from '@/utils/api';
+import { useApiWithAuth } from '@/hooks/useApiWithAuth';
+import { extractJwtToken } from '@/utils/token-utils';
 import {
   createStreamingChatRequest,
   parseStreamingResponse,
   type StreamingChatRequest,
 } from '@/lib/streaming-chat';
+import type { DailyUsage } from '@/api-client/types.gen';
 import { showToast } from '@/components/toaster';
 
 interface ContextSettings {
@@ -50,12 +54,18 @@ interface ModelApiState {
 type ModelState = Partial<ModelApiState>;
 
 export function useChatSidebar(
-  repositoryId: string,
+  repositoryIdentifier: string,
   userKeyPreferences: Record<string, boolean>,
-  options?: { autoLoad?: boolean },
+  options?: { autoLoad?: boolean; repositoryBranch?: string },
 ) {
   const { data: session } = useSession();
+  const router = useRouter();
   const { autoLoad = true } = options ?? {};
+
+  // Wrap API calls with auth handling
+  const getUserChatSessionsWithAuth = useApiWithAuth(getUserChatSessions);
+  const getConversationHistoryWithAuth = useApiWithAuth(getConversationHistory);
+  const getAvailableModelsWithAuth = useApiWithAuth(getAvailableModels);
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
     isLoading: false,
@@ -92,7 +102,19 @@ export function useChatSidebar(
   useEffect(() => {
     if (!autoLoad) return;
     if (!session?.jwt_token) return;
-    if (!repositoryId) return;
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '') {
+      console.log('Skipping chat initialization: No repository identifier provided');
+      return;
+    }
+
+    // Validate repository identifier format (should be owner/repo/branch)
+    if (!repositoryIdentifier.includes('/')) {
+      console.warn(
+        'Repository identifier should be in owner/repo/branch format:',
+        repositoryIdentifier,
+      );
+      return;
+    }
 
     // Models: only load once per token
     if (lastModelsTokenRef.current !== session.jwt_token) {
@@ -101,18 +123,18 @@ export function useChatSidebar(
     }
 
     // History: only load once per token+repository pair
-    const historyKey = `${session.jwt_token}:${repositoryId}`;
+    const historyKey = `${session.jwt_token}:${repositoryIdentifier}`;
     if (lastHistoryKeyRef.current !== historyKey) {
       lastHistoryKeyRef.current = historyKey;
       void loadChatHistory();
     }
-  }, [autoLoad, session?.jwt_token, repositoryId]);
+  }, [autoLoad, session?.jwt_token, repositoryIdentifier]);
 
   const loadAvailableModels = async () => {
     if (!session?.jwt_token) return;
 
     try {
-      const models = await getAvailableModels(session.jwt_token);
+      const models = await getAvailableModelsWithAuth(extractJwtToken(session.jwt_token));
       setAvailableModels(models);
 
       // Set default model if current one is not available
@@ -139,13 +161,16 @@ export function useChatSidebar(
 
   const loadChatHistory = async () => {
     if (!session?.jwt_token) return;
-    if (!repositoryId) return;
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '') return;
     if (isFetchingHistoryRef.current) return;
 
     isFetchingHistoryRef.current = true;
     setIsLoadingHistory(true);
     try {
-      const chatSessions = await getUserChatSessions(session.jwt_token, repositoryId);
+      const chatSessions = await getUserChatSessionsWithAuth(
+        extractJwtToken(session.jwt_token),
+        repositoryIdentifier,
+      );
       if (chatSessions.success) {
         setChatHistory(chatSessions.sessions);
       } else {
@@ -161,8 +186,21 @@ export function useChatSidebar(
     }
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (
+    content: string,
+  ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
+
+    // Check if repository identifier is valid - should be in owner/repo/branch format
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || !repositoryIdentifier.includes('/')) {
+      console.error(
+        'Cannot send message: Repository identifier is invalid:',
+        repositoryIdentifier,
+      );
+      throw new Error(
+        'Repository not processed yet. Please wait for repository processing to complete before starting a chat.',
+      );
+    }
 
     const userMessage: Message = {
       role: 'user',
@@ -192,18 +230,17 @@ export function useChatSidebar(
       }
 
       const streamingRequest: StreamingChatRequest = {
-        token: session.jwt_token,
+        token: extractJwtToken(session.jwt_token),
         message: content,
-        repository_id: repositoryId,
+        repository_id: repositoryIdentifier,
+        repository_branch: options?.repositoryBranch,
         use_user: modelState.provider ? (useUserKeys[modelState.provider] ?? false) : false,
         chat_id: chatState.currentChatId,
         conversation_id: chatState.currentConversationId,
         provider: modelState.provider,
         model: modelState.model,
         temperature: temperature,
-        include_full_context: contextSettings.includeFullContext,
-        context_search_query: content, // Send user message as context search query for smart search
-        scope_preference: contextSettings.scope,
+        context_mode: contextSettings.includeFullContext ? 'full' : 'smart',
         max_tokens: contextSettings.maxTokens,
       };
 
@@ -215,6 +252,7 @@ export function useChatSidebar(
       let hasStartedResponse = false;
       let metadataReceived = false;
       let hasReceivedTokens = false;
+      let dailyUsage: DailyUsage | null = null;
 
       // Add placeholder assistant message immediately
       setChatState((prev) => ({
@@ -279,6 +317,11 @@ export function useChatSidebar(
           } else if (chunk.type === 'complete') {
             console.log('Stream completed successfully');
 
+            // Capture daily usage data
+            if (chunk.daily_usage) {
+              dailyUsage = chunk.daily_usage;
+            }
+
             // Update the final assistant message with context metadata if available
             if (chunk.context_metadata) {
               setChatState((prev) => {
@@ -302,7 +345,24 @@ export function useChatSidebar(
             break;
           } else if (chunk.type === 'error') {
             const errorMessage = chunk.message || 'Streaming error occurred';
-            console.error('Streaming error:', errorMessage);
+            const errorType = chunk.error_type || 'unknown';
+            console.error('Streaming error:', errorMessage, 'Type:', errorType);
+
+            // Handle API key errors by redirecting to API keys page
+            if (errorType === 'no_api_key' || errorType === 'invalid_api_key') {
+              showToast.error('API key required. Redirecting to API keys page...');
+              setTimeout(() => {
+                router.push('/api-keys');
+              }, 2000);
+              throw new Error('API key required. Please add your API key to continue.');
+            }
+
+            // Handle repository not found errors
+            if (errorType === 'server_error' && errorMessage.includes('not found')) {
+              throw new Error(
+                'Repository not processed yet. Please process the repository first before chatting.',
+              );
+            }
 
             // Check for specific error types
             if (
@@ -346,12 +406,21 @@ export function useChatSidebar(
       console.log('Message sent successfully, refreshing chat history');
       // Refresh chat history after successful message
       await loadChatHistory();
+
+      // Return daily usage data if available
+      return dailyUsage ? { daily_usage: dailyUsage } : undefined;
     } catch (error) {
       console.error('Chat error:', error);
 
       let errorMessage = 'Failed to send message';
       if (error instanceof Error) {
         errorMessage = error.message;
+
+        // Check if it's an API key error and redirect if needed
+        if (errorMessage.toLowerCase().includes('api key required')) {
+          // The redirect is already handled in the streaming error handler
+          // Just show the error message here
+        }
       }
 
       showToast.error(errorMessage);
@@ -371,7 +440,10 @@ export function useChatSidebar(
     setChatState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const conversation = await getConversationHistory(session.jwt_token, conversationId);
+      const conversation = await getConversationHistoryWithAuth(
+        extractJwtToken(session.jwt_token),
+        conversationId,
+      );
 
       const messages: Message[] = conversation.messages.map((msg) => ({
         role: msg.role,

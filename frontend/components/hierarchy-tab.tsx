@@ -72,6 +72,7 @@ interface HierarchyNodeComponentProps {
   onToggleFocus?: (nodeId: string) => void;
   focusedNodeId?: string;
   level: number;
+  hideChildren?: boolean; // New prop to hide children display
 }
 
 function HierarchyNodeComponent({
@@ -83,6 +84,7 @@ function HierarchyNodeComponent({
   onToggleFocus,
   focusedNodeId,
   level,
+  hideChildren = false,
 }: HierarchyNodeComponentProps) {
   const [showFullCode, setShowFullCode] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -272,8 +274,7 @@ function HierarchyNodeComponent({
                         padding: '10px 12px',
                         fontSize: '12px',
                         background: 'transparent',
-                        minWidth: '280px',
-                        maxWidth: '380px',
+                        width: '100%',
                       }}
                       wrapLines
                       showLineNumbers
@@ -320,11 +321,11 @@ function HierarchyNodeComponent({
         </div>
 
         {/* Children */}
-        {hasChildren && (
+        {hasChildren && !hideChildren && (
           <CollapsibleContent className="space-y-2">
-            {node.children.map((child) => (
+            {node.children.map((child, index) => (
               <HierarchyNodeComponent
-                key={child.id}
+                key={`${node.id}-child-${child.id}-${index}`}
                 node={child}
                 tree={tree}
                 onToggleExpansion={onToggleExpansion}
@@ -390,9 +391,14 @@ export function HierarchyTab({
     setTree((prevTree) => collapseAll(prevTree));
   }, []);
 
-  const handleExpandToDepth = useCallback((depth: number) => {
-    setTree((prevTree) => expandToDepth(prevTree, depth));
-  }, []);
+  const handleExpandToDepth = useCallback(
+    (depth: number) => {
+      setTree((prevTree) => expandToDepth(prevTree, depth));
+      setCurrentDepth(depth);
+      onDepthChange(depth);
+    },
+    [onDepthChange],
+  );
 
   if (!selectedNode) {
     return (
@@ -492,7 +498,7 @@ export function HierarchyTab({
         {/* Quick Depth Buttons */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground flex-shrink-0">Quick expand:</span>
-          {[1, 2, 3].map((depth) => (
+          {[1, 2, 3, 4, 5].map((depth) => (
             <Button
               key={depth}
               variant={currentDepth >= depth ? 'default' : 'outline'}
@@ -509,18 +515,104 @@ export function HierarchyTab({
       {/* Hierarchy Tree - Scrollable */}
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
-          <div className="p-3 sm:p-4">
+          <div className="p-3 sm:p-4 space-y-4">
             {tree.totalNodes > 0 ? (
-              <HierarchyNodeComponent
-                node={tree.rootNode}
-                tree={tree}
-                onToggleExpansion={handleToggleExpansion}
-                onOpenFile={onOpenFile}
-                onSelectGraphNode={onSelectGraphNode}
-                onToggleFocus={onToggleFocus}
-                focusedNodeId={focusedNodeId}
-                level={0}
-              />
+              <>
+                {/* Current Node - Always on Top */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-2">
+                    <div className="w-1 h-4 bg-primary rounded-full" />
+                    <h4 className="text-sm font-semibold text-foreground">Current Node</h4>
+                  </div>
+                  <HierarchyNodeComponent
+                    node={tree.rootNode}
+                    tree={tree}
+                    onToggleExpansion={handleToggleExpansion}
+                    onOpenFile={onOpenFile}
+                    onSelectGraphNode={onSelectGraphNode}
+                    onToggleFocus={onToggleFocus}
+                    focusedNodeId={focusedNodeId}
+                    level={0}
+                    hideChildren={true}
+                  />
+                </div>
+
+                {/* Parents Section - Collapsible */}
+                {tree.rootNode.parents && tree.rootNode.parents.length > 0 && (
+                  <Collapsible defaultOpen={true}>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between text-sm font-medium p-3 h-auto"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-4 bg-orange-500 rounded-full" />
+                          <span>Called By (Parents)</span>
+                          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
+                            {tree.rootNode.parents.length}
+                          </Badge>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <div className="space-y-2">
+                        {tree.rootNode.parents.map((parent, index) => (
+                          <HierarchyNodeComponent
+                            key={`parent-${parent.id}-${index}`}
+                            node={parent}
+                            tree={tree}
+                            onToggleExpansion={handleToggleExpansion}
+                            onOpenFile={onOpenFile}
+                            onSelectGraphNode={onSelectGraphNode}
+                            onToggleFocus={onToggleFocus}
+                            focusedNodeId={focusedNodeId}
+                            level={0}
+                          />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {/* Children Section - Collapsible */}
+                {tree.rootNode.children && tree.rootNode.children.length > 0 && (
+                  <Collapsible defaultOpen={true}>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between text-sm font-medium p-3 h-auto"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-4 bg-green-500 rounded-full" />
+                          <span>Calls (Children)</span>
+                          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
+                            {tree.rootNode.children.length}
+                          </Badge>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <div className="space-y-2">
+                        {tree.rootNode.children.map((child, index) => (
+                          <HierarchyNodeComponent
+                            key={`child-${child.id}-${index}`}
+                            node={child}
+                            tree={tree}
+                            onToggleExpansion={handleToggleExpansion}
+                            onOpenFile={onOpenFile}
+                            onSelectGraphNode={onSelectGraphNode}
+                            onToggleFocus={onToggleFocus}
+                            focusedNodeId={focusedNodeId}
+                            level={1}
+                          />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </>
             ) : (
               <div className="text-center py-6 sm:py-8">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl bg-muted/30 flex items-center justify-center mb-3 sm:mb-4">
