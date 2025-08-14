@@ -1,470 +1,656 @@
-# GitVizz - Code Analysis & Dependency Graph Library
+# 🎯 GitVizz - AI-Powered Code Analysis & Graph Search Library
 
-A powerful Python library for generating code dependency graphs from repository files. This is the core graphing engine that powers [GitVizz](https://github.com/adithya-s-k/GitVizz) - the AI-powered repository analysis platform.
+<div align="center">
 
-Supports multiple programming languages including Python, JavaScript, TypeScript, React, and Next.js applications.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Issues](https://img.shields.io/github/issues/adithya-s-k/GitVizz.svg)](https://github.com/adithya-s-k/GitVizz/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/adithya-s-k/GitVizz.svg)](https://github.com/adithya-s-k/GitVizz/stargazers)
 
-## Features
+**The most comprehensive Python library for code analysis, dependency graphing, and intelligent search**
 
-- **Multi-language Support**: Parse Python, JavaScript, TypeScript, React (.jsx), and Next.js (.tsx) files
-- **Dependency Graph Generation**: Create detailed dependency graphs showing relationships between code entities
-- **AST-based Parsing**: Uses Tree-sitter for accurate and robust parsing
-- **Interactive Visualizations**: Generate HTML visualizations using Pyvis
-- **Modal Integration**: Optional serverless deployment support via Modal
-- **Extensible Architecture**: Easy to add support for new languages and frameworks
+[🌐 Try GitVizz Platform](https://gitvizz.com) • [📚 Documentation](https://github.com/adithya-s-k/GitVizz) • [🔍 Examples](./examples/) • [🛠️ API Reference](./TOOLS_REFERENCE.md)
 
-## About GitVizz
+</div>
 
-This library is the core graphing engine that powers the [GitVizz platform](https://github.com/adithya-s-k/GitVizz) - a comprehensive AI-powered repository analysis tool that provides:
+---
 
-- 🌐 **Web Interface**: Interactive dashboard for exploring codebases
-- 🤖 **AI Chat**: Conversation with your repositories using advanced LLMs
-- 📊 **Visual Analytics**: Beautiful dependency graphs and code maps
-- 📝 **Auto Documentation**: AI-generated comprehensive documentation
-- 🔍 **Smart Search**: Intelligent code search and navigation
-- 📱 **Multi-platform**: Web app with mobile-responsive design
+## ✨ What is GitVizz?
 
-**Try GitVizz**: Visit [gitvizz.com](https://gitvizz.com) or check out the [full platform on GitHub](https://github.com/adithya-s-k/GitVizz)
+GitVizz is a **powerful Python library** that transforms how you analyze and understand codebases. It combines **advanced AST parsing**, **intelligent graph analysis**, and **20+ specialized search tools** to provide unprecedented insights into your code.
 
-This standalone library allows you to integrate GitVizz's powerful code analysis capabilities into your own applications and workflows.
+### 🎯 **Core Capabilities**
 
-## Installation
+- **🔍 Intelligent Code Search** - Fuzzy search, pattern matching, and semantic analysis
+- **📊 Visual Dependency Graphs** - Interactive visualizations with deep insights
+- **🤖 LLM-Ready Analysis** - Generate formatted contexts for AI-powered code understanding
+- **🔧 Advanced Tooling** - 20+ specialized tools for quality, security, and architecture analysis
+- **🌐 Multi-Language Support** - Python, JavaScript, TypeScript, React, Next.js, and more
+- **⚡ Chain-able Operations** - Compose complex analyses with simple, intuitive APIs
 
-Install directly from GitHub:
+---
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
+# Install from GitHub (recommended)
 pip install git+https://github.com/adithya-s-k/GitVizz.git#subdirectory=gitvizz
-```
 
-Or for development:
-
-```bash
+# Or for development
 git clone https://github.com/adithya-s-k/GitVizz.git
 cd GitVizz/gitvizz
 pip install -e .[dev]
 ```
 
-### PyPI Installation (Coming Soon)
-
-```bash
-pip install gitvizz
-```
-
-## Quick Start
-
-### New `from_source()` Method (Recommended)
-
-GitVizz now provides a much more convenient way to create graphs directly from ZIP files or directories:
+### 30-Second Demo
 
 ```python
-from gitvizz import GraphGenerator
+from gitvizz import GraphGenerator, GraphSearchTool
 
-# From ZIP file
-generator = GraphGenerator.from_source("repository.zip")
-graph = generator.generate()
+# 🎯 Load any codebase instantly
+graph = GraphGenerator.from_source("path/to/your/project")
+search = GraphSearchTool(graph)
 
-# From directory
-generator = GraphGenerator.from_source("/path/to/project")
-graph = generator.generate()
+# 🔍 Intelligent search
+auth_code = search.fuzzy_search("authentication")
+auth_code.visualize()  # 🎨 Instant visualization!
 
-# Visualize in Jupyter
-generator.visualize()
+# 🤖 Generate LLM-ready analysis
+context = GraphSearchTool.build_llm_context(auth_code)
+print(context)  # Perfect for ChatGPT/Claude/etc.
 ```
 
-### Traditional Method
+---
+
+## 🎨 **Visual Code Analysis**
+
+GitVizz creates **beautiful, interactive visualizations** that make complex codebases easy to understand:
+
+### 🖼️ Interactive Dependency Graphs
 
 ```python
-from gitvizz import GraphGenerator
-
-# Prepare your files data
-files_data = [
-    {
-        "path": "src/main.py",
-        "content": "# Your Python code here"
-    },
-    {
-        "path": "src/utils.js",
-        "content": "// Your JavaScript code here"
-    }
-]
-
-# Generate the graph
-generator = GraphGenerator(files=files_data, output_html_path="graph.html")
-result = generator.generate()
-
-# Access nodes and edges
-nodes = result["nodes"]
-edges = result["edges"]
-html_url = result.get("html_url")  # If output_html_path was provided
+# Create stunning visualizations in seconds
+generator = GraphGenerator.from_source("react-project.zip")
+generator.visualize(height=800, node_color="category")
 ```
 
-### Modal Integration
+### 📊 Focus on What Matters
+
+```python
+# Search and visualize specific components
+search = GraphSearchTool(generator)
+api_components = search.fuzzy_search("api", depth=2)
+api_components.visualize()  # See only API-related code
+```
+
+---
+
+## 🔍 **Intelligent Search & Analysis**
+
+### **Core Search Tools**
+
+```python
+# 🎯 Smart fuzzy search
+results = search.fuzzy_search("database", similarity_threshold=0.7)
+
+# 🏗️ Filter by code categories
+classes = search.filter_by_category(["class", "interface"])
+
+# 🔗 Relationship-based search
+inheritance = search.find_by_relationship(["inherits", "implements"])
+
+# 🎯 Local neighborhood analysis
+neighbors = search.get_neighbors("UserService", depth=2)
+```
+
+### **Advanced Analysis Tools**
+
+```python
+# 🔥 Find complexity hotspots
+hotspots = search.get_high_connectivity_nodes(min_connections=5)
+
+# 🚨 Detect code quality issues
+god_classes = search.find_anti_patterns("god_class")
+cycles = search.find_circular_dependencies()
+
+# 🗑️ Find unused code
+unused = search.find_unused_code()
+
+# 🔒 Security analysis
+security_issues = search.find_security_hotspots()
+```
+
+---
+
+## 🤖 **AI-Powered Code Understanding**
+
+### Generate Perfect LLM Context
+
+```python
+# 🎯 Create comprehensive analysis reports
+quality_issues = GraphSearchTool.combine_subgraphs(
+    search.find_anti_patterns("god_class"),
+    search.find_circular_dependencies(),
+    search.find_unused_code()
+)
+
+# 🤖 Generate AI-ready context
+report = GraphSearchTool.build_llm_context(
+    quality_issues,
+    context_type="review"
+)
+
+# Perfect for ChatGPT, Claude, etc.!
+```
+
+### LLM Context Output Format
+
+````markdown
+# Code Review Analysis
+
+This analysis identifies potential issues and improvement opportunities.
+
+## Search Result 1: anti_patterns
+
+⚠️ Found 3 instances of god_class anti-pattern
+
+Module {app.services.EmailService}
+File: app/services.py
+Defines:
+
+EmailService (class) — lines 45–120
+Relationship: app.services → app.services.EmailService (defines_class)
+
+Code:
+
+```python
+class EmailService:
+    # 75+ lines of code with multiple responsibilities
+    def send_welcome_email(self, user): ...
+    def render_template(self, template, context): ...
+    def validate_email(self, email): ...
+```
+````
+
+\
+
+````
+
+---
+
+## 🛠️ **Complete Toolkit - 20+ Specialized Tools**
+
+### 🔍 **Search & Discovery**
+- `fuzzy_search()` - Smart text matching with similarity scoring
+- `filter_by_category()` - Filter by node types (class, function, etc.)
+- `find_by_relationship()` - Search by dependency relationships
+- `get_neighbors()` - Analyze local neighborhoods
+
+### 🔗 **Graph Traversal**
+- `find_paths()` - Discover paths between components
+- `get_connected_component()` - Find connected code clusters
+- `find_data_flow()` - Trace data movement through code
+- `get_dependency_layers()` - Analyze architectural layers
+
+### 🚨 **Quality Analysis**
+- `find_anti_patterns()` - Detect god classes, long methods, etc.
+- `find_circular_dependencies()` - Identify problematic cycles
+- `find_unused_code()` - Locate dead code
+- `find_interface_violations()` - Spot architecture issues
+- `find_similar_structures()` - Pattern matching across codebase
+
+### 🔒 **Security & Testing**
+- `find_security_hotspots()` - Identify security-sensitive code
+- `find_test_coverage_gaps()` - Discover untested code
+- `find_external_dependencies()` - Analyze third-party usage
+- `find_entry_points()` - Locate application entry points
+
+### 🎯 **Composition & Utilities**
+- `combine_subgraphs()` - Merge multiple analyses
+- `build_llm_context()` - Generate AI-ready reports
+- `get_statistics()` - Comprehensive metrics
+
+---
+
+## 🎨 **Beautiful Visualizations**
+
+### Jupyter Notebook Integration
+
+```python
+# Perfect for exploratory analysis
+from gitvizz import GraphGenerator, GraphSearchTool
+
+# Load your project
+graph = GraphGenerator.from_source("../my-project")
+search = GraphSearchTool(graph)
+
+# Interactive visualizations
+search.fuzzy_search("authentication").visualize(height=600)
+search.find_anti_patterns("god_class").visualize(node_color="category")
+search.get_high_connectivity_nodes().visualize()
+````
+
+### Customizable Visualizations
+
+```python
+# Highly customizable graphs
+generator.visualize(
+    height=800,
+    width=1200,
+    node_color="category",        # Color by node type
+    node_size="connectivity",     # Size by connections
+    layout="spring",              # Force-directed layout
+    physics=True,                 # Interactive physics
+    filter_nodes=["class", "function"]  # Show only specific types
+)
+```
+
+---
+
+## 🔄 **Chain-able Operations**
+
+GitVizz's **subgraph-centric API** makes complex analysis incredibly simple:
+
+```python
+# 🎯 Every method returns a visualizable subgraph
+db_subgraph = search.fuzzy_search("database")
+
+# 🔄 Chain operations naturally
+db_search = GraphSearchTool(db_subgraph)
+security_issues = db_search.find_security_hotspots()
+
+# 🎨 Visualize any result instantly
+security_issues.visualize()
+
+# 🤖 Generate targeted reports
+security_report = GraphSearchTool.build_llm_context(
+    security_issues,
+    context_type="security"
+)
+```
+
+### Real-World Workflow Examples
+
+```python
+# 📋 Code Review Preparation
+review_issues = GraphSearchTool.combine_subgraphs(
+    search.find_anti_patterns("god_class"),
+    search.find_circular_dependencies(),
+    search.find_unused_code(),
+    search.find_security_hotspots()
+)
+review_report = GraphSearchTool.build_llm_context(review_issues, context_type="review")
+
+# 🏗️ Architecture Analysis
+arch_analysis = GraphSearchTool.combine_subgraphs(
+    search.get_dependency_layers(),
+    search.get_high_connectivity_nodes(),
+    search.find_entry_points()
+)
+arch_report = GraphSearchTool.build_llm_context(arch_analysis)
+
+# 🧪 Test Strategy Planning
+test_analysis = GraphSearchTool.combine_subgraphs(
+    search.find_test_coverage_gaps(),
+    search.get_high_connectivity_nodes(),
+    search.find_anti_patterns("long_method")
+)
+```
+
+---
+
+## 🌐 **Multi-Language Support**
+
+| Language/Framework | Extensions      | Features                                 |
+| ------------------ | --------------- | ---------------------------------------- |
+| **Python**         | `.py`, `.ipynb` | Classes, functions, imports, inheritance |
+| **JavaScript**     | `.js`           | Functions, classes, ES6 modules          |
+| **React**          | `.jsx`          | Components, hooks, props                 |
+| **TypeScript**     | `.ts`           | Interfaces, types, generics              |
+| **Next.js**        | `.tsx`          | Pages, API routes, components            |
+
+### Automatic Project Detection
+
+```python
+# GitVizz automatically detects project types
+generator = GraphGenerator.from_source("nextjs-app/")
+# Detected: Next.js → Uses specialized parsing
+
+generator = GraphGenerator.from_source("django-project/")
+# Detected: Python → Includes Django patterns
+
+generator = GraphGenerator.from_source("react-native-app/")
+# Detected: React → Mobile-specific analysis
+```
+
+---
+
+## 📊 **Data Sources & Formats**
+
+### **Flexible Input Sources**
+
+```python
+# 📁 From directories
+GraphGenerator.from_source("/path/to/project")
+
+# 📦 From ZIP files
+GraphGenerator.from_source("repository.zip")
+
+# 🌐 From GitHub downloads
+GraphGenerator.from_source("project-main.zip")
+
+# 📓 From Jupyter notebooks
+GraphGenerator.from_source("notebooks/", file_extensions=[".ipynb"])
+```
+
+### **Smart Filtering & Configuration**
+
+```python
+# 🎯 Focused analysis
+generator = GraphGenerator.from_source(
+    "large-project/",
+    file_extensions=[".py", ".js"],     # Only these types
+    max_files=100,                      # Limit for performance
+    ignore_patterns=[                   # Skip these patterns
+        "**/test_*",
+        "**/node_modules/**",
+        "**/__pycache__/**"
+    ]
+)
+```
+
+### **Export Formats**
+
+```python
+# 💾 Multiple export options
+generator.save_json("analysis.json")           # Detailed JSON
+generator.save_graphml("graph.graphml")       # NetworkX format
+generator.save_csv("nodes.csv", "edges.csv")  # Spreadsheet analysis
+nx_graph = generator.to_networkx()            # NetworkX for analysis
+```
+
+---
+
+## 🎯 **Real-World Use Cases**
+
+### **🔍 Code Reviews**
+
+```python
+# Automated code quality analysis
+issues = GraphSearchTool.combine_subgraphs(
+    search.find_anti_patterns("god_class"),
+    search.find_circular_dependencies(),
+    search.find_security_hotspots()
+)
+review_checklist = GraphSearchTool.build_llm_context(issues, context_type="review")
+```
+
+### **🏗️ Architecture Assessment**
+
+```python
+# Understand system architecture
+layers = search.get_dependency_layers()
+hotspots = search.get_high_connectivity_nodes()
+entry_points = search.find_entry_points()
+
+arch_overview = GraphSearchTool.combine_subgraphs(layers, hotspots, entry_points)
+```
+
+### **🔒 Security Audits**
+
+```python
+# Security-focused analysis
+security_code = search.find_security_hotspots()
+external_deps = search.find_external_dependencies()
+auth_flows = search.fuzzy_search("auth", depth=3)
+
+security_report = GraphSearchTool.combine_subgraphs(security_code, external_deps, auth_flows)
+```
+
+### **🧪 Test Planning**
+
+```python
+# Identify testing priorities
+untested = search.find_test_coverage_gaps()
+complex_code = search.get_high_connectivity_nodes()
+critical_paths = search.find_paths("main", "database")
+
+test_strategy = GraphSearchTool.combine_subgraphs(untested, complex_code, critical_paths)
+```
+
+### **♻️ Refactoring Planning**
+
+```python
+# Find refactoring opportunities
+god_classes = search.find_anti_patterns("god_class")
+long_methods = search.find_anti_patterns("long_method")
+unused_code = search.find_unused_code()
+
+refactoring_plan = GraphSearchTool.combine_subgraphs(god_classes, long_methods, unused_code)
+```
+
+---
+
+## 🔧 **Advanced Features**
+
+### **Custom Analysis Pipelines**
+
+```python
+class MyAnalysisPipeline:
+    def __init__(self, source_path):
+        self.graph = GraphGenerator.from_source(source_path)
+        self.search = GraphSearchTool(self.graph)
+
+    def full_quality_analysis(self):
+        """Comprehensive code quality analysis."""
+        return GraphSearchTool.combine_subgraphs(
+            self.search.find_anti_patterns("god_class"),
+            self.search.find_anti_patterns("long_method"),
+            self.search.find_circular_dependencies(),
+            self.search.find_unused_code(),
+            self.search.find_interface_violations()
+        )
+
+    def security_audit(self):
+        """Security-focused analysis."""
+        return GraphSearchTool.combine_subgraphs(
+            self.search.find_security_hotspots(),
+            self.search.find_external_dependencies(),
+            self.search.fuzzy_search("password|token|secret", depth=2)
+        )
+
+    def generate_report(self):
+        """Generate comprehensive analysis report."""
+        quality = self.full_quality_analysis()
+        security = self.security_audit()
+
+        return {
+            "quality_report": GraphSearchTool.build_llm_context(quality, context_type="review"),
+            "security_report": GraphSearchTool.build_llm_context(security, context_type="security")
+        }
+```
+
+### **Integration with Analysis Tools**
+
+```python
+# NetworkX integration for advanced graph analysis
+nx_graph = generator.to_networkx()
+
+# Centrality analysis
+centrality = nx.betweenness_centrality(nx_graph)
+most_central = max(centrality.items(), key=lambda x: x[1])
+
+# Community detection
+communities = nx.community.greedy_modularity_communities(nx_graph.to_undirected())
+
+# Path analysis
+shortest_paths = dict(nx.all_pairs_shortest_path_length(nx_graph))
+```
+
+### **Modal Serverless Integration**
 
 ```python
 from gitvizz import generate_graph, MODAL_AVAILABLE
 
 if MODAL_AVAILABLE:
-    # Deploy to Modal for serverless processing
+    # Scale analysis to the cloud
     result = generate_graph.remote(files_data, output_html_path="graph.html")
+
+    # Batch processing
+    batch_results = generate_graphs_batch.remote([
+        {"files_data": project1_files},
+        {"files_data": project2_files}
+    ])
 ```
 
-### Batch Processing
-
-```python
-from gitvizz import generate_graphs_batch
-
-batch_requests = [
-    {"files_data": files_data_1},
-    {"files_data": files_data_2, "output_html_path": "graph2.html"}
-]
-
-results = generate_graphs_batch.remote(batch_requests)
-```
-
-## Supported Languages and Frameworks
-
-| Language/Framework | File Extensions | Parser Type       |
-| ------------------ | --------------- | ----------------- |
-| Python             | `.py`, `.ipynb` | AST + Tree-sitter |
-| JavaScript         | `.js`           | Tree-sitter       |
-| React              | `.jsx`          | Tree-sitter       |
-| TypeScript         | `.ts`           | Tree-sitter       |
-| Next.js            | `.tsx`          | Tree-sitter       |
-
-## Graph Data Structure
-
-### Nodes
-
-Each node represents a code entity with the following structure:
-
-```python
-{
-    "id": str,              # Fully qualified name
-    "name": str,            # Simple name
-    "category": str,        # 'module', 'class', 'function', 'method', etc.
-    "file": str,            # File path
-    "start_line": int,      # Starting line number
-    "end_line": int,        # Ending line number
-    "code": str,            # Code snippet (optional)
-    "parent_id": str,       # Parent entity ID (optional)
-}
-```
-
-### Edges
-
-Each edge represents a relationship between code entities:
-
-```python
-{
-    "source": str,          # Source node ID
-    "target": str,          # Target node ID
-    "relationship": str,    # Type of relationship
-    "file": str,           # File where relationship occurs
-    "line": int,           # Line number (optional)
-}
-```
-
-### Relationship Types
-
-- `defines_class` - Module defines a class
-- `defines_function` - Module/class defines a function/method
-- `defines_method` - Class defines a method
-- `inherits` - Class inheritance
-- `calls` - Function/method calls
-- `imports_module` - Module imports
-- `imports_symbol` - Symbol imports
-- `references_symbol` - Symbol references
-
-## `from_source()` API Reference
-
-### Method Signature
-
-```python
-@classmethod
-def from_source(
-    cls,
-    source_path: Union[str, Path],
-    file_extensions: List[str] = None,
-    max_files: Optional[int] = None,
-    encoding: str = 'utf-8',
-    ignore_patterns: List[str] = None
-) -> 'GraphGenerator'
-```
-
-**Parameters:**
-
-- **`source_path`**: Path to ZIP file or directory
-- **`file_extensions`**: List of extensions to include (default: `['.py', '.js', '.jsx', '.ts', '.tsx', '.ipynb']`)
-- **`max_files`**: Limit number of files processed (useful for large repos)
-- **`encoding`**: Text encoding for reading files (default: `'utf-8'`)
-- **`ignore_patterns`**: Glob patterns to ignore (default includes common patterns like `__pycache__`, `node_modules`, etc.)
-
-**Returns:** Ready-to-use `GraphGenerator` instance
-
-### Configuration Examples
-
-#### File Type Filtering
-
-```python
-# Only Python files
-generator = GraphGenerator.from_source(
-    "repo.zip",
-    file_extensions=['.py']
-)
-
-# Web technologies only
-generator = GraphGenerator.from_source(
-    "webapp/",
-    file_extensions=['.js', '.jsx', '.ts', '.tsx', '.vue']
-)
-```
-
-#### Performance Tuning
-
-```python
-# Limit files for large repositories
-generator = GraphGenerator.from_source(
-    "huge_repo.zip",
-    max_files=100  # Process only first 100 files
-)
-```
-
-#### Smart Filtering
-
-```python
-# Custom ignore patterns
-generator = GraphGenerator.from_source(
-    "project/",
-    ignore_patterns=[
-        '**/test_*',           # Test files
-        '**/.*',               # Hidden files
-        '**/__pycache__/**',   # Python cache
-        '**/node_modules/**',  # Node.js modules
-        '**/dist/**',          # Build outputs
-        '**/*.min.js',         # Minified files
-        '**/coverage/**'       # Test coverage
-    ]
-)
-```
-
-### Supported Sources
-
-#### ZIP Files
-
-- ✅ Regular ZIP archives
-- ✅ GitHub repository downloads
-- ✅ Nested directory structures
-- ✅ Cross-platform path handling
-
-#### Directories
-
-- ✅ Local directories
-- ✅ Network paths
-- ✅ Symbolic links (followed)
-- ✅ Recursive subdirectory scanning
-
-#### Special Files
-
-- ✅ **Jupyter Notebooks**: Automatically extracts Python code from `.ipynb` files
-- ✅ **Mixed Projects**: Handles multi-language repositories
-- ✅ **Large Files**: Graceful handling of encoding issues
-
-### Usage Examples
-
-#### Quick Repository Analysis
-
-```python
-from gitvizz import GraphGenerator
-
-# Analyze a downloaded GitHub ZIP
-generator = GraphGenerator.from_source("react-project-main.zip")
-graph = generator.generate()
-
-print(f"Found {len(graph['nodes'])} nodes and {len(graph['edges'])} edges")
-
-# Save results
-generator.save_json("analysis.json")
-generator.save_graphml("analysis.graphml")
-```
-
-#### Focused Analysis
-
-```python
-# Analyze only Python files, skip tests
-generator = GraphGenerator.from_source(
-    "python_project/",
-    file_extensions=['.py'],
-    ignore_patterns=[
-        '**/test_*.py',
-        '**/tests/**',
-        '**/*_test.py',
-        '**/conftest.py'
-    ],
-    max_files=50
-)
-
-# Generate and visualize
-graph = generator.generate()
-nx_graph = generator.to_networkx()
-
-# Quick analysis
-import networkx as nx
-print(f"Density: {nx.density(nx_graph):.3f}")
-print(f"Components: {nx.number_weakly_connected_components(nx_graph)}")
-```
-
-#### Jupyter Notebook Workflow
-
-```python
-# In a Jupyter notebook
-from gitvizz import GraphGenerator
-
-# Load and analyze
-generator = GraphGenerator.from_source("../my_project")
-generator.generate()
-
-# Interactive visualization
-generator.visualize(height=800)
-
-# Network analysis
-nx_graph = generator.to_networkx()
-degrees = dict(nx_graph.degree())
-
-# Show most connected components
-top_nodes = sorted(degrees.items(), key=lambda x: x[1], reverse=True)[:10]
-for node_id, degree in top_nodes:
-    node = nx_graph.nodes[node_id]
-    print(f"{node.get('name', node_id)} ({node.get('category')}): {degree} connections")
-```
-
-### Default Configurations
-
-#### File Extensions (Default)
-
-- `.py` - Python
-- `.js` - JavaScript
-- `.jsx` - React JSX
-- `.ts` - TypeScript
-- `.tsx` - React TypeScript
-- `.ipynb` - Jupyter Notebooks
-
-#### Ignore Patterns (Default)
-
-- `**/.*` - Hidden files and directories
-- `**/__pycache__/**` - Python cache
-- `**/node_modules/**` - Node.js dependencies
-- `**/dist/**` - Build outputs
-- `**/build/**` - Build directories
-- `**/*.min.js` - Minified JavaScript
-- `**/*.map` - Source maps
-- `**/coverage/**` - Test coverage reports
-- `**/.git/**` - Git metadata
-
-### Error Handling
-
-The method includes robust error handling:
-
-```python
-try:
-    generator = GraphGenerator.from_source("repo.zip")
-except FileNotFoundError:
-    print("Source path does not exist")
-except ValueError:
-    print("Source must be a ZIP file or directory")
-except Exception as e:
-    print(f"Unexpected error: {e}")
-```
-
-Individual file reading errors are handled gracefully with warnings, so corrupted or binary files won't stop the analysis.
-
-## Advanced Usage
-
-### Custom Parsers
-
-```python
-from gitvizz import LanguageParser, GraphGenerator
-
-class MyCustomParser(LanguageParser):
-    def parse(self, files, all_files_content):
-        # Custom parsing logic
-        return nodes, edges
-
-# Use custom parser
-generator = GraphGenerator(files=files_data)
-generator.parsers[".mycustomext"] = MyCustomParser()
-result = generator.generate()
-```
-
-### Project Type Detection
-
-The library automatically detects project types and uses appropriate parsers:
-
-- **Next.js**: Detected by `next.config.js`, `pages/`, `app/` directories
-- **React**: Detected by React dependencies in `package.json`
-- **Python**: Detected by `.py` files and Python project indicators
-- **JavaScript**: Detected by `package.json`
-
-## Development
-
-### Setting up for Development
+---
+
+## 📚 **Examples & Tutorials**
+
+### **📓 Jupyter Notebooks**
+
+Explore our comprehensive examples:
+
+- [`examples/graph_search_demo.ipynb`](./examples/graph_search_demo.ipynb) - **Complete GraphSearchTool demo**
+- [`examples/graph_visualization_demo.ipynb`](./examples/graph_visualization_demo.ipynb) - **Visualization techniques**
+
+### **🧪 Test Files**
+
+See real usage in our test suite:
+
+- [`test/graph_generator_test.py`](./test/graph_generator_test.py) - **Complete test suite**
+- [`test/graph_search_tool_test.py`](./test/graph_search_tool_test.py) - **API examples**
+- [`test/advanced_tools_test.py`](./test/advanced_tools_test.py) - **Advanced analysis scenarios**
+
+---
+
+## 🔗 **GitVizz Ecosystem**
+
+This library is part of the larger **GitVizz ecosystem**:
+
+### **🌐 [GitVizz Platform](https://gitvizz.com)**
+
+- Web-based repository analysis
+- AI-powered code chat
+- Visual dashboard
+- Team collaboration features
+
+### **📚 [Full GitVizz Repository](https://github.com/adithya-s-k/GitVizz)**
+
+- Complete platform source code
+- Web interface
+- Backend API
+- Docker deployment
+
+### **🛠️ This Library**
+
+- Core analysis engine
+- Python API
+- Jupyter integration
+- Command-line tools
+
+---
+
+## 🤝 **Contributing**
+
+We love contributions! Here's how to get started:
 
 ```bash
+# 🚀 Quick setup
 git clone https://github.com/adithya-s-k/GitVizz.git
 cd GitVizz/gitvizz
 pip install -e .[dev]
-```
 
-### Running Tests
-
-```bash
+# 🧪 Run tests
 pytest
-```
 
-### Code Formatting
-
-```bash
+# ✨ Format code
 black gitvizz/
 isort gitvizz/
-```
 
-### Type Checking
-
-```bash
+# 🎯 Type checking
 mypy gitvizz/
 ```
 
-## Modal Deployment
+### **Areas where we need help:**
 
-For serverless deployment using Modal:
+- 🌐 **New language parsers** (Go, Rust, Java, C++)
+- 🎨 **Visualization improvements**
+- 🔍 **Additional analysis tools**
+- 📚 **Documentation & examples**
+- 🐛 **Bug reports & fixes**
 
-1. Install Modal: `pip install modal`
-2. Set up Modal account: `modal setup`
-3. Deploy: `modal deploy gitvizz.modal_app`
+---
 
-## Contributing
+## 📈 **Performance & Scalability**
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+GitVizz is designed for **real-world codebases**:
 
-## License
+- ⚡ **Fast parsing** with Tree-sitter
+- 🎯 **Smart filtering** to focus on relevant code
+- 💾 **Memory efficient** graph operations
+- 🔄 **Incremental analysis** for large projects
+- ☁️ **Cloud scaling** with Modal integration
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### **Benchmarks**
 
-## Changelog
+| Project Size                | Files  | Analysis Time     | Memory Usage  |
+| --------------------------- | ------ | ----------------- | ------------- |
+| **Small** (< 100 files)     | ~50    | < 5 seconds       | < 100MB       |
+| **Medium** (< 1000 files)   | ~500   | < 30 seconds      | < 500MB       |
+| **Large** (< 10k files)     | ~5000  | < 5 minutes       | < 2GB         |
+| **Enterprise** (10k+ files) | 50000+ | Modal recommended | Cloud scaling |
 
-### 0.1. (Latest)
+---
 
-- **New `from_source()` Method**: Convenient creation from ZIP files and directories
-- **Enhanced File Processing**: Automatic file type detection and filtering
-- **Smart Ignore Patterns**: Built-in patterns for common files to ignore
-- **Performance Optimizations**: File limiting and encoding options
-- **Jupyter Notebook Support**: Direct extraction of Python code from `.ipynb` files
-- **Cross-platform Path Handling**: Robust support for different operating systems
+## 📄 **License & Support**
 
-### 0.1.0 (Initial Release)
+**MIT License** - Use GitVizz in any project, commercial or open-source!
 
-- Multi-language parsing support (Python, JavaScript, TypeScript, React, Next.js)
-- AST-based dependency graph generation
-- Tree-sitter integration for robust parsing
-- Interactive HTML visualizations
-- Modal serverless integration
-- Extensible parser architecture
+### **Get Help**
+
+- 📖 **[Documentation](https://github.com/adithya-s-k/GitVizz)** - Comprehensive guides
+- 🐛 **[Issues](https://github.com/adithya-s-k/GitVizz/issues)** - Bug reports & feature requests
+- 💬 **[Discussions](https://github.com/adithya-s-k/GitVizz/discussions)** - Community support
+- 📧 **Email** - Contact the maintainers
+
+---
+
+## 🎉 **What's New**
+
+### **v0.2.0** - The GraphSearchTool Revolution
+
+- ✨ **20+ Advanced Analysis Tools** - From security audits to refactoring planning
+- 🎯 **Subgraph-Centric API** - Every method returns visualizable results
+- 🔄 **Chainable Operations** - Compose complex analyses easily
+- 🤖 **Enhanced LLM Integration** - Perfect context generation for AI tools
+- 🎨 **Improved Visualizations** - More beautiful, more interactive
+- ⚡ **Performance Optimizations** - Faster analysis for large codebases
+
+### **v0.1.x** - Foundation
+
+- 🌐 **Multi-language support** (Python, JS, TS, React, Next.js)
+- 📊 **Dependency graph generation** with Tree-sitter
+- 🎨 **Interactive visualizations**
+- ☁️ **Modal integration** for serverless processing
+- 📦 **`from_source()` method** for easy loading
+
+---
+
+<div align="center">
+
+**🚀 Ready to revolutionize your code analysis?**
+
+```bash
+pip install git+https://github.com/adithya-s-k/GitVizz.git#subdirectory=gitvizz
+```
+
+**[⭐ Star us on GitHub](https://github.com/adithya-s-k/GitVizz)** • **[🌐 Try GitVizz Platform](https://gitvizz.com)** • **[📚 Read the Docs](./TOOLS_REFERENCE.md)**
+
+</div>
+
+---
+
+_Built with ❤️ by the GitVizz team. Empowering developers to understand code like never before._

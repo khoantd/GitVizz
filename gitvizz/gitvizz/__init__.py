@@ -22,6 +22,7 @@ from .graph_generator import (
 )
 
 from .custom_ast_parser import CustomTreeSitterParser
+from .graph_search_tool import GraphSearchTool
 
 # Modal support (optional)
 try:
@@ -53,6 +54,7 @@ __all__ = [
     "ReactParser",
     "NextJSParser",
     "CustomTreeSitterParser",
+    "GraphSearchTool",
     "IPYSIGMA_AVAILABLE",
     # Modal support
     "create_modal_app",
