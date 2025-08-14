@@ -590,8 +590,8 @@ function LoadGraph({
     const currentNodeCount = data.nodes.length;
 
     // Enhanced node sizing based on graph size and connectivity
-    const minNodeSize = currentNodeCount > 1000 ? 4 : currentNodeCount > 500 ? 6 : 8;
-    const maxNodeSize = currentNodeCount > 1000 ? 12 : currentNodeCount > 500 ? 18 : 24;
+    const minNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 12 : 16; // 16 is the minimum size for the nodes
+    const maxNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 28 : 36; // 36 is the maximum size for the nodes
 
     // Calculate node degrees for size scaling
     const nodeDegrees = new Map<string, number>();
