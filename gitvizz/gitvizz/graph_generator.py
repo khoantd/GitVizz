@@ -2,16 +2,25 @@ import json
 import os  # Added for path operations
 import re
 import ast
+import zipfile
+import tempfile
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, Union
 from pathlib import Path
 from pyvis.network import Network
+import networkx as nx
 
 from tree_sitter import Language  # For Tree-sitter
 import tree_sitter_javascript
 import tree_sitter_typescript
 
 from .custom_ast_parser import CustomTreeSitterParser  # Import the new parser
+
+try:
+    from ipysigma import Sigma
+    IPYSIGMA_AVAILABLE = True
+except ImportError:
+    IPYSIGMA_AVAILABLE = False
 
 # Graph Data Structures
 GraphNodeData = Dict[str, Any]  # Detailed below
@@ -1055,7 +1064,8 @@ class GraphGenerator:
         self.node_details_map: Dict[str, GraphNodeData] = {}
 
         self.project_type: str = "unknown"
-        self._identify_project_type()  # This calls _update_parsers_based_on_project_type
+        self._identify_project_type()
+        self._update_parsers_based_on_project_type()
 
     def _identify_project_type(self):
         """Identifies the project type based on file structure and package.json."""
@@ -1476,3 +1486,472 @@ class GraphGenerator:
             result["html_url"] = html_url
 
         return result
+
+    def to_networkx(self) -> nx.DiGraph:
+        """Convert the graph to a NetworkX DiGraph."""
+        if not self.all_nodes_data:
+            self._generate_graph_elements()
+        
+        G = nx.DiGraph()
+        
+        # Add nodes with attributes
+        for node_data in self.all_nodes_data:
+            node_id = node_data["id"]
+            # Add all node attributes to NetworkX
+            G.add_node(node_id, **node_data)
+        
+        # Add edges with attributes
+        # NetworkX doesn't support multiple edges between the same nodes in DiGraph
+        # If there are multiple edges, they will be merged and only the last one's attributes kept
+        edge_keys_seen = set()
+        for edge_data in self.all_edges_data:
+            source = edge_data["source"]
+            target = edge_data["target"]
+            
+            # Skip edges where source or target nodes don't exist
+            if source not in G.nodes() or target not in G.nodes():
+                continue
+                
+            edge_key = (source, target)
+            if edge_key in edge_keys_seen:
+                # This is a duplicate edge - NetworkX will overwrite the previous one
+                # You might want to handle this differently based on your needs
+                pass
+            edge_keys_seen.add(edge_key)
+            
+            # Add edge attributes (excluding source/target which are handled separately)
+            edge_attrs = {k: v for k, v in edge_data.items() if k not in ["source", "target"]}
+            G.add_edge(source, target, **edge_attrs)
+        
+        return G
+
+    def from_networkx(self, G: nx.DiGraph) -> None:
+        """Load graph data from a NetworkX DiGraph."""
+        self.all_nodes_data = []
+        self.all_edges_data = []
+        self.node_details_map = {}
+        
+        # Extract nodes
+        for node_id, node_attrs in G.nodes(data=True):
+            node_data = dict(node_attrs)
+            # Ensure required fields exist
+            if "id" not in node_data:
+                node_data["id"] = node_id
+            if "name" not in node_data:
+                node_data["name"] = str(node_id).split(".")[-1]
+            if "category" not in node_data:
+                node_data["category"] = "unknown"
+            
+            self.all_nodes_data.append(node_data)
+            self.node_details_map[node_id] = node_data
+        
+        # Extract edges
+        for source, target, edge_attrs in G.edges(data=True):
+            edge_data = dict(edge_attrs)
+            edge_data["source"] = source
+            edge_data["target"] = target
+            if "relationship" not in edge_data:
+                edge_data["relationship"] = "related"
+            
+            self.all_edges_data.append(edge_data)
+
+    def save_json(self, file_path: str) -> None:
+        """Save the graph to a JSON file."""
+        if not self.all_nodes_data:
+            self._generate_graph_elements()
+        
+        graph_data = {
+            "nodes": self.all_nodes_data,
+            "edges": self.all_edges_data,
+            "metadata": {
+                "project_type": getattr(self, "project_type", "unknown"),
+                "total_files": len(self.files),
+                "node_count": len(self.all_nodes_data),
+                "edge_count": len(self.all_edges_data)
+            }
+        }
+        
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(graph_data, f, indent=2, ensure_ascii=False)
+
+    def load_json(self, file_path: str) -> None:
+        """Load graph data from a JSON file."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            graph_data = json.load(f)
+        
+        self.all_nodes_data = graph_data.get("nodes", [])
+        self.all_edges_data = graph_data.get("edges", [])
+        
+        # Rebuild node_details_map
+        self.node_details_map = {}
+        for node_data in self.all_nodes_data:
+            self.node_details_map[node_data["id"]] = node_data
+        
+        # Update project metadata if available
+        metadata = graph_data.get("metadata", {})
+        if "project_type" in metadata:
+            self.project_type = metadata["project_type"]
+
+    def save_graphml(self, file_path: str) -> None:
+        """Save the graph to a GraphML file using NetworkX."""
+        G = self.to_networkx()
+        
+        # GraphML only supports basic types, so serialize complex types to JSON
+        def serialize_attr(value):
+            if value is None:
+                return "null"
+            elif isinstance(value, (list, dict)):
+                return json.dumps(value)
+            elif isinstance(value, (str, int, float, bool)):
+                return value
+            else:
+                return str(value)
+        
+        # Process node attributes
+        for node_id in G.nodes():
+            for attr_key, attr_value in list(G.nodes[node_id].items()):
+                G.nodes[node_id][attr_key] = serialize_attr(attr_value)
+        
+        # Process edge attributes
+        for source, target in G.edges():
+            for attr_key, attr_value in list(G.edges[source, target].items()):
+                G.edges[source, target][attr_key] = serialize_attr(attr_value)
+        
+        nx.write_graphml(G, file_path, encoding="utf-8", prettyprint=True)
+
+    def load_graphml(self, file_path: str) -> None:
+        """Load graph data from a GraphML file using NetworkX."""
+        G = nx.read_graphml(file_path)
+        
+        # Deserialize attributes back to original types
+        def deserialize_attr(value):
+            if value == "null":
+                return None
+            elif isinstance(value, str):
+                # Try to parse as JSON for lists/dicts
+                if value.startswith(('[', '{')):
+                    try:
+                        return json.loads(value)
+                    except json.JSONDecodeError:
+                        return value
+                else:
+                    return value
+            else:
+                return value
+        
+        # Process node attributes
+        for node_id in G.nodes():
+            for attr_key, attr_value in list(G.nodes[node_id].items()):
+                G.nodes[node_id][attr_key] = deserialize_attr(attr_value)
+        
+        # Process edge attributes
+        for source, target in G.edges():
+            for attr_key, attr_value in list(G.edges[source, target].items()):
+                G.edges[source, target][attr_key] = deserialize_attr(attr_value)
+        
+        self.from_networkx(G)
+
+    def visualize(self, **kwargs) -> 'Sigma':
+        """
+        Visualize the graph in Jupyter notebook using ipysigma.
+        
+        Args:
+            **kwargs: Additional arguments passed to Sigma constructor.
+                     Common options include:
+                     - node_size: attribute name or dict mapping node IDs to sizes
+                     - node_color: attribute name or dict mapping node IDs to colors
+                     - edge_size: attribute name or dict mapping edge IDs to sizes
+                     - height: height of the visualization in pixels (default: 600)
+                     - background_color: CSS color for background (default: "white")
+                     - start_layout: automatically start layout algorithm
+        
+        Returns:
+            Sigma widget for Jupyter notebook display
+            
+        Raises:
+            ImportError: If ipysigma is not available
+        """
+        if not IPYSIGMA_AVAILABLE:
+            raise ImportError(
+                "ipysigma is not available. Install it with: pip install ipysigma"
+            )
+        
+        G = self.to_networkx()
+        
+        # Set default visualization parameters (only valid Sigma parameters)
+        default_kwargs = {
+            "node_size": "category",  # Use category for default sizing
+            "node_color": "category",  # Use category for default coloring
+            "height": 600
+        }
+        
+        # Override defaults with user-provided kwargs, but handle legacy 'width' parameter
+        viz_kwargs = {**default_kwargs, **kwargs}
+        
+        # Remove 'width' if provided (not supported by ipysigma)
+        if "width" in viz_kwargs:
+            viz_kwargs.pop("width")
+        
+        # Handle node_size based on category if using default
+        if viz_kwargs.get("node_size") == "category":
+            category_sizes = {
+                "directory": 5,
+                "module": 10,
+                "class": 15,
+                "function": 8,
+                "method": 6,
+                "external_symbol": 4,
+                "next_page_module": 12,
+                "unknown": 7
+            }
+            for node_id in G.nodes():
+                category = G.nodes[node_id].get("category", "unknown")
+                G.nodes[node_id]["size"] = category_sizes.get(category, 7)
+            viz_kwargs["node_size"] = "size"
+        
+        # Handle node_color based on category if using default
+        if viz_kwargs.get("node_color") == "category":
+            category_colors = {
+                "directory": "#6b7280",      # Gray
+                "module": "#10b981",         # Emerald
+                "class": "#0ea5e9",          # Sky blue
+                "function": "#f97316",       # Orange
+                "method": "#f59e0b",         # Amber
+                "external_symbol": "#a3a3a3", # Stone
+                "next_page_module": "#8b5cf6", # Violet
+                "unknown": "#6b7280"         # Gray
+            }
+            for node_id in G.nodes():
+                category = G.nodes[node_id].get("category", "unknown")
+                G.nodes[node_id]["color"] = category_colors.get(category, "#6b7280")
+            viz_kwargs["node_color"] = "color"
+        
+        return Sigma(G, **viz_kwargs)
+
+    @classmethod
+    def from_source(
+        cls, 
+        source_path: Union[str, Path], 
+        file_extensions: List[str] = None,
+        max_files: Optional[int] = None,
+        encoding: str = 'utf-8',
+        ignore_patterns: List[str] = None
+    ) -> 'GraphGenerator':
+        """
+        Create a GraphGenerator directly from a ZIP file or folder.
+        
+        Args:
+            source_path: Path to ZIP file or directory
+            file_extensions: List of file extensions to include (default: ['.py', '.js', '.jsx', '.ts', '.tsx', '.ipynb'])
+            max_files: Maximum number of files to process (None for unlimited)
+            encoding: Text encoding for reading files (default: 'utf-8')
+            ignore_patterns: List of glob patterns to ignore (e.g., ['**/test_*', '**/__pycache__/**'])
+        
+        Returns:
+            GraphGenerator instance ready for analysis
+        
+        Raises:
+            FileNotFoundError: If source_path doesn't exist
+            ValueError: If source_path is neither a file nor directory
+        """
+        source_path = Path(source_path)
+        
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source path does not exist: {source_path}")
+        
+        # Set default file extensions if not provided
+        if file_extensions is None:
+            file_extensions = ['.py', '.js', '.jsx', '.ts', '.tsx', '.ipynb']
+        
+        # Set default ignore patterns if not provided
+        if ignore_patterns is None:
+            ignore_patterns = [
+                '**/.*',  # Hidden files/dirs
+                '**/__pycache__/**',
+                '**/node_modules/**',
+                '**/dist/**',
+                '**/build/**',
+                '**/*.min.js',
+                '**/*.map',
+                '**/coverage/**',
+                '**/.git/**'
+            ]
+        
+        files_data = []
+        
+        if source_path.is_file() and source_path.suffix.lower() == '.zip':
+            # Handle ZIP file
+            files_data = cls._extract_files_from_zip(
+                source_path, file_extensions, max_files, encoding, ignore_patterns
+            )
+        elif source_path.is_dir():
+            # Handle directory
+            files_data = cls._extract_files_from_directory(
+                source_path, file_extensions, max_files, encoding, ignore_patterns
+            )
+        else:
+            raise ValueError(f"Source path must be a ZIP file or directory: {source_path}")
+        
+        print(f"Loaded {len(files_data)} files from {source_path}")
+        return cls(files_data)
+    
+    @staticmethod
+    def _extract_files_from_zip(
+        zip_path: Path,
+        file_extensions: List[str],
+        max_files: Optional[int],
+        encoding: str,
+        ignore_patterns: List[str]
+    ) -> List[Dict[str, Any]]:
+        """Extract files from ZIP archive."""
+        files_data = []
+        
+        with zipfile.ZipFile(zip_path, 'r') as zip_file:
+            file_list = zip_file.namelist()
+            
+            for zip_info in zip_file.infolist():
+                # Skip directories
+                if zip_info.is_dir():
+                    continue
+                
+                file_path = Path(zip_info.filename)
+                
+                # Check file extension
+                if not any(file_path.name.lower().endswith(ext.lower()) for ext in file_extensions):
+                    continue
+                
+                # Check ignore patterns
+                if GraphGenerator._should_ignore_file(file_path, ignore_patterns):
+                    continue
+                
+                # Check max files limit
+                if max_files and len(files_data) >= max_files:
+                    break
+                
+                try:
+                    # Read file content
+                    with zip_file.open(zip_info) as file:
+                        content = file.read().decode(encoding, errors='ignore')
+                    
+                    # Normalize path separators for cross-platform compatibility
+                    normalized_path = str(file_path).replace('\\', '/')
+                    
+                    # Handle special processing for Jupyter notebooks
+                    file_data = {
+                        'path': normalized_path,
+                        'content': content,
+                        'full_path': str(zip_path / file_path)
+                    }
+                    
+                    # Special handling for .ipynb files
+                    if file_path.suffix.lower() == '.ipynb':
+                        python_content = GraphGenerator._extract_python_from_notebook(content)
+                        if python_content:
+                            file_data['python_equivalent_content'] = python_content
+                    
+                    files_data.append(file_data)
+                    
+                except Exception as e:
+                    print(f"Warning: Could not read {zip_info.filename}: {e}")
+                    continue
+        
+        return files_data
+    
+    @staticmethod
+    def _extract_files_from_directory(
+        dir_path: Path,
+        file_extensions: List[str],
+        max_files: Optional[int],
+        encoding: str,
+        ignore_patterns: List[str]
+    ) -> List[Dict[str, Any]]:
+        """Extract files from directory."""
+        files_data = []
+        
+        # Use rglob to recursively find all files
+        for file_path in dir_path.rglob('*'):
+            if file_path.is_dir():
+                continue
+            
+            # Check file extension
+            if not any(file_path.name.lower().endswith(ext.lower()) for ext in file_extensions):
+                continue
+            
+            # Get relative path from the base directory
+            try:
+                relative_path = file_path.relative_to(dir_path)
+            except ValueError:
+                continue  # Skip if can't get relative path
+            
+            # Check ignore patterns using relative path
+            if GraphGenerator._should_ignore_file(relative_path, ignore_patterns):
+                continue
+            
+            # Check max files limit
+            if max_files and len(files_data) >= max_files:
+                break
+            
+            try:
+                # Read file content
+                with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
+                    content = f.read()
+                
+                # Create file data entry
+                file_data = {
+                    'path': str(relative_path).replace('\\', '/'),  # Normalize path separators
+                    'content': content,
+                    'full_path': str(file_path.absolute())
+                }
+                
+                # Special handling for .ipynb files
+                if file_path.suffix.lower() == '.ipynb':
+                    python_content = GraphGenerator._extract_python_from_notebook(content)
+                    if python_content:
+                        file_data['python_equivalent_content'] = python_content
+                
+                files_data.append(file_data)
+                
+            except Exception as e:
+                print(f"Warning: Could not read {file_path}: {e}")
+                continue
+        
+        return files_data
+    
+    @staticmethod
+    def _should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
+        """Check if a file should be ignored based on patterns."""
+        import fnmatch
+        
+        file_path_str = str(file_path).replace('\\', '/')
+        
+        for pattern in ignore_patterns:
+            if fnmatch.fnmatch(file_path_str, pattern):
+                return True
+            # Also check just the filename for patterns like '*.min.js'
+            if fnmatch.fnmatch(file_path.name, pattern):
+                return True
+        
+        return False
+    
+    @staticmethod
+    def _extract_python_from_notebook(notebook_content: str) -> str:
+        """Extract Python code from Jupyter notebook JSON."""
+        try:
+            import json
+            notebook = json.loads(notebook_content)
+            
+            python_lines = []
+            
+            for cell in notebook.get('cells', []):
+                if cell.get('cell_type') == 'code':
+                    source = cell.get('source', [])
+                    if isinstance(source, list):
+                        python_lines.extend(source)
+                    elif isinstance(source, str):
+                        python_lines.append(source)
+            
+            return ''.join(python_lines)
+            
+        except Exception as e:
+            print(f"Warning: Could not extract Python from notebook: {e}")
+            return ""
