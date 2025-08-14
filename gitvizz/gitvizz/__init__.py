@@ -5,7 +5,7 @@ A Python library for generating code dependency graphs from repository files.
 Supports multiple languages including Python, JavaScript, TypeScript, and React/Next.js.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "GitVizz Team"
 __email__ = "support@gitvizz.com"
 
@@ -18,6 +18,7 @@ from .graph_generator import (
     JavaScriptParser,
     ReactParser,
     NextJSParser,
+    IPYSIGMA_AVAILABLE,
 )
 
 from .custom_ast_parser import CustomTreeSitterParser
@@ -52,6 +53,7 @@ __all__ = [
     "ReactParser",
     "NextJSParser",
     "CustomTreeSitterParser",
+    "IPYSIGMA_AVAILABLE",
     # Modal support
     "create_modal_app",
     "create_modal_function",
