@@ -16,8 +16,7 @@ import { useLayoutNoverlap } from '@react-sigma/layout-noverlap';
 import { useLayoutCircular } from '@react-sigma/layout-circular';
 import { useLayoutRandom } from '@react-sigma/layout-random';
 import { animateNodes } from 'sigma/utils';
-import { EdgeArrowProgram, NodePointProgram, NodeCircleProgram } from 'sigma/rendering';
-import { NodeBorderProgram } from '@sigma/node-border';
+import { EdgeArrowProgram } from 'sigma/rendering';
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
 // Layout control imports commented out for now
 /* 
@@ -33,7 +32,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   // LayoutGrid,
-  // Shuffle,
+  Shuffle,
   RotateCw,
   // Zap,
   AlertTriangle,
@@ -174,11 +173,9 @@ const sigmaContainerStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%)',
 };
 
-// Enhanced Sigma settings with advanced features
+// Enhanced Sigma settings with better spacing and visibility
 const enhancedSigmaSettings = {
   allowInvalidContainer: true,
-  defaultNodeType: 'default',
-  defaultEdgeType: 'curvedNoArrow',
   renderLabels: true,
   renderEdgeLabels: false,
   edgeProgramClasses: {
@@ -186,26 +183,25 @@ const enhancedSigmaSettings = {
     curvedArrow: EdgeCurvedArrowProgram,
     curvedNoArrow: createEdgeCurveProgram(),
   },
-  nodeProgramClasses: {
-    default: NodeBorderProgram,
-    circle: NodeCircleProgram,
-    point: NodePointProgram,
-  },
   labelFont: 'Arial, sans-serif',
-  labelSize: 12,
+  labelSize: 11, // Slightly smaller to reduce overlap
   labelWeight: '500',
   labelColor: { color: '#374151' },
-  labelGridCellSize: 60,
-  labelRenderedSizeThreshold: 12,
+  labelGridCellSize: 80, // Increased for better label spacing
+  labelRenderedSizeThreshold: 8, // Lower threshold to show more labels
+  labelDensity: 0.8, // Reduce label density to prevent overlap
   edgeLabelFont: 'Arial, sans-serif',
-  edgeLabelSize: 10,
+  edgeLabelSize: 9,
   edgeLabelColor: { color: '#6b7280' },
-  minCameraRatio: 0.05,
-  maxCameraRatio: 10,
+  minCameraRatio: 0.03, // Allow more zoom out to see spread
+  maxCameraRatio: 12,
   enableEdgeEvents: true,
   hideEdgesOnMove: true,
   hideLabelsOnMove: false,
   zIndex: true,
+  // Performance optimizations for better rendering
+  itemSizesReference: 'positions' as const,
+  touchAction: 'none',
 };
 
 // Node dragging component
@@ -258,6 +254,8 @@ function LoadGraph({
   selectedRootNodeId,
   viewMode = 'highlight',
   onDoubleClick,
+  setIsInitialLayoutComplete,
+  setApplyLayoutRef,
 }: {
   data: SigmaGraphInnerData;
   onNodeClick?: (nodeId: string) => void;
@@ -267,6 +265,8 @@ function LoadGraph({
   selectedRootNodeId?: string;
   viewMode?: 'highlight' | 'isolate';
   onDoubleClick?: (nodeId: string) => void;
+  setIsInitialLayoutComplete: (complete: boolean) => void;
+  setApplyLayoutRef: (fn: ((layoutType: string, animate?: boolean) => void) | null) => void;
 }) {
   const loadGraph = useLoadGraph();
   const registerEvents = useRegisterEvents();
@@ -278,25 +278,40 @@ function LoadGraph({
   const [lastClickTime, setLastClickTime] = useState<number>(0);
   const [lastClickNode, setLastClickNode] = useState<string | null>(null);
 
-  // Enhanced layout hooks
-  const layoutForceAtlas2 = useLayoutForceAtlas2({ iterations: 300 });
+  // Enhanced layout hooks with balanced spacing
+  const layoutForceAtlas2 = useLayoutForceAtlas2({
+    iterations: 300,
+    settings: {
+      // Balanced settings for good spacing without over-spreading
+      linLogMode: false,
+      outboundAttractionDistribution: true,
+      adjustSizes: false,
+      edgeWeightInfluence: 0,
+      scalingRatio: 2.5, // Reduced from 4 for less spreading
+      strongGravityMode: false,
+      gravity: 1, // Increased to bring nodes closer
+      slowDown: 5,
+      barnesHutOptimize: true,
+      barnesHutTheta: 0.8,
+    },
+  });
   const layoutForce = useLayoutForce({
     maxIterations: 100,
     settings: {
-      attraction: 0.0003,
-      repulsion: 0.02,
-      gravity: 0.02,
-      inertia: 0.4,
-      maxMove: 100,
+      attraction: 0.0003, // Increased attraction to bring nodes closer
+      repulsion: 0.03, // Reduced repulsion for less spreading
+      gravity: 0.02, // Increased gravity for more compactness
+      inertia: 0.3,
+      maxMove: 120, // Reduced max movement
     },
   });
   const layoutNoverlap = useLayoutNoverlap({
-    maxIterations: 100,
+    maxIterations: 120, // Reduced iterations
     settings: {
-      margin: 5,
-      expansion: 1.1,
+      margin: 8, // Reduced margin for closer nodes
+      expansion: 1.15, // Less expansion
       gridSize: 1,
-      ratio: 1,
+      ratio: 1.1, // Reduced ratio
       speed: 3,
     },
   });
@@ -366,6 +381,12 @@ function LoadGraph({
     },
     [sigma],
   );
+
+  // Expose layout function to parent component
+  useEffect(() => {
+    setApplyLayoutRef(() => applyLayoutStable);
+    return () => setApplyLayoutRef(null);
+  }, [applyLayoutStable, setApplyLayoutRef]);
 
   // Update node appearance based on states (optimized to prevent constant refreshing)
   const updateNodeAppearance = useCallback(
@@ -526,18 +547,11 @@ function LoadGraph({
               sourceDepth <= hierarchyDepth &&
               targetDepth <= hierarchyDepth
             ) {
-              // Both nodes are within hierarchy depth
+              // Both nodes are within hierarchy depth - highlight edge
               color = '#000000'; // Black edges for hierarchy
               size = 1.2;
-            } else if (
-              (sourceDepth !== undefined && sourceDepth <= hierarchyDepth) ||
-              (targetDepth !== undefined && targetDepth <= hierarchyDepth)
-            ) {
-              // One node is within hierarchy depth
-              color = '#374151'; // Dark gray
-              size = 1.0;
             } else {
-              // Outside hierarchy
+              // Edge connects to nodes outside hierarchy depth - dim it
               color = '#e5e7eb30';
               size = 0.6;
             }
@@ -575,9 +589,9 @@ function LoadGraph({
     const graph = new MultiDirectedGraph();
     const currentNodeCount = data.nodes.length;
 
-    // Performance optimized node sizing based on graph size
-    const minNodeSize = currentNodeCount > 1000 ? 3 : currentNodeCount > 500 ? 4 : 5;
-    const maxNodeSize = currentNodeCount > 1000 ? 8 : currentNodeCount > 500 ? 12 : 15;
+    // Enhanced node sizing based on graph size and connectivity
+    const minNodeSize = currentNodeCount > 1000 ? 4 : currentNodeCount > 500 ? 6 : 8;
+    const maxNodeSize = currentNodeCount > 1000 ? 12 : currentNodeCount > 500 ? 18 : 24;
 
     // Calculate node degrees for size scaling
     const nodeDegrees = new Map<string, number>();
@@ -594,8 +608,10 @@ function LoadGraph({
     // Add nodes with enhanced styling and degree-based sizing
     for (const node of data.nodes) {
       const degree = nodeDegrees.get(node.id) || 1;
+      // Use square root scaling for more pronounced size differences
+      const normalizedDegree = (degree - minDegree) / degreeRange;
       const baseSize = Math.round(
-        minNodeSize + sizeScale * Math.pow((degree - minDegree) / degreeRange, 0.5),
+        minNodeSize + sizeScale * Math.pow(normalizedDegree, 0.6), // Slightly more aggressive scaling
       );
       const baseColor = getColorForCategory(node.category, nodeCategories);
 
@@ -606,11 +622,9 @@ function LoadGraph({
           originalSize: baseSize,
           color: baseColor,
           originalColor: baseColor,
-          borderColor: 'transparent',
-          borderSize: 0.2,
           degree: degree,
-          x: Math.random(),
-          y: Math.random(),
+          x: (Math.random() - 0.5) * 300, // Moderate initial spread
+          y: (Math.random() - 0.5) * 300, // Moderate initial spread
         });
       }
     }
@@ -638,11 +652,24 @@ function LoadGraph({
       }
     }
 
-    // Apply initial layout without animation for faster startup
-    // Always use ForceAtlas2 as it's most stable
-    applyLayoutStable('forceatlas2', false);
-
+    // Load graph first, then apply initial layout with a delay to ensure stability
     loadGraph(graph);
+
+    // Apply multi-stage layout for better node distribution
+    setTimeout(() => {
+      // First: Apply ForceAtlas2 for overall structure
+      applyLayoutStable('forceatlas2', false);
+
+      // Second: Apply NoOverlap to prevent node clustering
+      setTimeout(() => {
+        applyLayoutStable('noverlap', false);
+
+        // Mark layout as complete after both layouts settle
+        setTimeout(() => {
+          setIsInitialLayoutComplete(true);
+        }, 300);
+      }, 200); // Wait for ForceAtlas2 to settle
+    }, 50); // Brief delay to ensure graph is loaded
   }, [data, loadGraph, nodeCategories, applyLayoutStable]); // Include applyLayoutStable dependency
 
   // Skip layout recalculation when currentLayout changes since we always use ForceAtlas2
@@ -846,7 +873,7 @@ function LoadGraph({
 }
 
 // Enhanced zoom and camera controls
-function ZoomControls() {
+function ZoomControls({ onReorganize }: { onReorganize?: () => void }) {
   const sigma = useSigma();
   const { zoomIn, zoomOut, reset } = useCamera({ duration: 200, factor: 1.5 });
 
@@ -883,7 +910,24 @@ function ZoomControls() {
   return (
     <div className="absolute bottom-3 left-3 z-10">
       <div className="flex flex-col gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-xl p-1">
-        <Button size="sm" variant="ghost" onClick={handleRotate} className="h-8 w-8 p-0">
+        {onReorganize && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onReorganize}
+            className="h-8 w-8 p-0"
+            title="Reorganize Layout"
+          >
+            <Shuffle className="h-4 w-4" />
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleRotate}
+          className="h-8 w-8 p-0"
+          title="Rotate Clockwise"
+        >
           <RotateCw className="h-4 w-4" />
         </Button>
         <Button
@@ -891,16 +935,35 @@ function ZoomControls() {
           variant="ghost"
           onClick={handleRotateCounterClockwise}
           className="h-8 w-8 p-0"
+          title="Rotate Counter-Clockwise"
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleResetView} className="h-8 w-8 p-0">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleResetView}
+          className="h-8 w-8 p-0"
+          title="Reset View"
+        >
           <Focus className="h-4 w-4" />
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => zoomIn()} className="h-8 w-8 p-0">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => zoomIn()}
+          className="h-8 w-8 p-0"
+          title="Zoom In"
+        >
           <ZoomIn className="h-4 w-4" />
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => zoomOut()} className="h-8 w-8 p-0">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => zoomOut()}
+          className="h-8 w-8 p-0"
+          title="Zoom Out"
+        >
           <ZoomOut className="h-4 w-4" />
         </Button>
       </div>
@@ -1005,6 +1068,30 @@ export default function SigmaGraphInner({
   viewMode?: 'highlight' | 'isolate';
   onDoubleClick?: (nodeId: string) => void;
 }) {
+  const [isInitialLayoutComplete, setIsInitialLayoutComplete] = useState(false);
+  const [applyLayoutRef, setApplyLayoutRef] = useState<
+    ((layoutType: string, animate?: boolean) => void) | null
+  >(null);
+
+  // Reset layout state when data changes
+  useEffect(() => {
+    setIsInitialLayoutComplete(false);
+  }, [data]);
+
+  // Reorganize layout function with multi-stage approach
+  const handleReorganizeLayout = useCallback(() => {
+    if (applyLayoutRef) {
+      // Apply ForceAtlas2 first for structure
+      applyLayoutRef('forceatlas2', true);
+
+      // Then apply NoOverlap to spread out clustered nodes
+      setTimeout(() => {
+        if (applyLayoutRef) {
+          applyLayoutRef('noverlap', true);
+        }
+      }, 800); // Wait for ForceAtlas2 animation to complete
+    }
+  }, [applyLayoutRef]);
   // Layout state commented out for now
   // const [currentLayout, setCurrentLayout] = useState<
   //   'forceatlas2' | 'circular' | 'grid' | 'random' | 'force' | 'noverlap'
@@ -1035,6 +1122,19 @@ export default function SigmaGraphInner({
 
   return (
     <div className="relative w-full h-full">
+      {/* Loading overlay during initial layout */}
+      {!isInitialLayoutComplete && (
+        <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">Organizing Layout</p>
+              <p className="text-xs text-muted-foreground">Calculating optimal positions...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Performance Warning - top center */}
       {showPerformanceWarning && (
         <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-10 max-w-md">
@@ -1069,10 +1169,12 @@ export default function SigmaGraphInner({
           selectedRootNodeId={selectedRootNodeId}
           viewMode={viewMode}
           onDoubleClick={onDoubleClick}
+          setIsInitialLayoutComplete={setIsInitialLayoutComplete}
+          setApplyLayoutRef={setApplyLayoutRef}
         />
 
         {/* Enhanced Zoom Controls - bottom left corner */}
-        <ZoomControls />
+        <ZoomControls onReorganize={handleReorganizeLayout} />
 
         {/* Enhanced Layout Controls - bottom right corner */}
         {/* <div className="absolute bottom-3 right-3 z-10">

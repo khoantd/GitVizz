@@ -121,6 +121,104 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
 }
 
 /**
+ * Get comprehensive repository information including branches, size, and default branch
+ * This combines multiple GitHub API calls into a single function to reduce loading states
+ */
+export async function getRepositoryInfo(
+  repoUrl: string,
+  accessToken?: string,
+): Promise<{
+  branches: string[];
+  size: number | null;
+  defaultBranch: string;
+  isLargeRepo: boolean;
+}> {
+  const repoInfo = parseGitHubUrl(repoUrl);
+  if (!repoInfo) {
+    return {
+      branches: ['main', 'master', 'develop'],
+      size: null,
+      defaultBranch: 'main',
+      isLargeRepo: false,
+    };
+  }
+
+  try {
+    const headers: HeadersInit = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'gitvizz-app',
+    };
+
+    if (accessToken && accessToken.trim() && accessToken !== 'string') {
+      headers['Authorization'] = `token ${accessToken}`;
+    }
+
+    // Fetch both repo info and branches in parallel
+    const [repoInfoResponse, branchesResponse] = await Promise.all([
+      fetch(`https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`, {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      }),
+      fetch(`https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches`, {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      }),
+    ]);
+
+    let branches: string[] = [];
+    let size: number | null = null;
+    let defaultBranch = 'main';
+    let isLargeRepo = false;
+
+    // Process repository info
+    if (repoInfoResponse.ok) {
+      const repoData = await repoInfoResponse.json();
+      size = repoData.size || null;
+      defaultBranch = repoData.default_branch || 'main';
+      isLargeRepo = size ? size > 50000 : false; // Consider repos over 50MB as large
+    }
+
+    // Process branches
+    if (branchesResponse.ok) {
+      const branchData = await branchesResponse.json();
+      branches = branchData
+        .map((branch: any) => branch.name)
+        .sort((a: string, b: string) => {
+          // Sort so that common default branches appear first
+          const commonBranches = ['main', 'master', 'develop', 'dev'];
+          const aIndex = commonBranches.indexOf(a);
+          const bIndex = commonBranches.indexOf(b);
+
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+          return a.localeCompare(b);
+        });
+    } else {
+      // Fallback branches if API call fails
+      branches = [defaultBranch, 'main', 'master', 'develop'].filter(
+        (branch, index, arr) => arr.indexOf(branch) === index
+      );
+    }
+
+    return {
+      branches,
+      size,
+      defaultBranch,
+      isLargeRepo,
+    };
+  } catch (error) {
+    console.warn('Could not fetch repository info:', error);
+    return {
+      branches: ['main', 'master', 'develop'],
+      size: null,
+      defaultBranch: 'main',
+      isLargeRepo: false,
+    };
+  }
+}
+
+/**
  * Get all branches for a GitHub repository
  */
 export async function getRepositoryBranches(
