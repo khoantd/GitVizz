@@ -216,10 +216,14 @@ GitVizz is built with modern, scalable technologies:
 
 ### Optional (for enhanced features)
 
+- **MongoDB** - For user data and repository metadata storage
 - **GitHub Personal Access Token** - For private repo access
 - **GitHub App** - For advanced GitHub integration
 - **OpenAI API Key** - For AI-powered features
 - **Anthropic API Key** - Alternative AI provider
+- **Gemini API Key** - Google's AI model support
+- **Groq API Key** - Fast inference API
+- **Phoenix** - LLM observability and tracing platform
 
 ---
 
@@ -231,21 +235,49 @@ GitVizz is built with modern, scalable technologies:
 <summary>Backend (.env)</summary>
 
 ```bash
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8003
-
-# AI Providers
-OPENAI_API_KEY=your_openai_key_here
-ANTHROPIC_API_KEY=your_anthropic_key_here
-
 # GitHub Integration
-GITHUB_TOKEN=your_github_token_here
-GITHUB_APP_ID=your_app_id
-GITHUB_APP_PRIVATE_KEY=your_private_key
+GITHUB_USER_AGENT=gitvizz-cognitivelab
 
-# Database
-DATABASE_URL=sqlite:///./storage/gitvizz.db
+# JWT Authentication
+JWT_SECRET=your-jwt-secret-here-use-openssl-rand-base64-32
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=10080  # 7 days
+REFRESH_TOKEN_EXPIRE_DAYS=30  # 30 days
+
+# Database Configuration
+MONGO_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=gitvizz
+
+# Server Configuration
+HOST=0.0.0.0
+PORT=8003
+
+# File Storage
+FILE_STORAGE_BASEPATH="storage"
+
+# Data Encryption
+ENCRYPTION_KEY=your-32-byte-base64-encryption-key-here
+FERNET_KEY=your-32-byte-base64-encryption-key-here
+
+# GitHub OAuth App Credentials
+GITHUB_CLIENT_ID=your-github-oauth-client-id
+GITHUB_CLIENT_SECRET=your-github-oauth-client-secret
+
+# GitHub App Credentials (if using GitHub App instead of OAuth)
+GITHUB_APP_ID=your-github-app-id
+GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+your-github-app-private-key-here
+-----END RSA PRIVATE KEY-----"
+
+# Phoenix Observability (Optional)
+PHOENIX_API_KEY=your-phoenix-api-key
+PHOENIX_COLLECTOR_ENDPOINT=https://app.phoenix.arize.com
+
+# LLM API Keys (at least one required)
+OPENAI_API_KEY=your-openai-api-key-here
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+GEMINI_API_KEY=your-gemini-api-key-here
+GROQ_API_KEY=your-groq-api-key-here
 ```
 
 </details>
@@ -254,17 +286,17 @@ DATABASE_URL=sqlite:///./storage/gitvizz.db
 <summary>Frontend (.env.local)</summary>
 
 ```bash
-# API Endpoints
-NEXT_PUBLIC_API_URL=http://localhost:8003
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# API base URL for the frontend application
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8003
 
-# Authentication
+# NextAuth Configuration
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_nextauth_secret
+AUTH_SECRET="your-auth-secret-here"
 
-# GitHub OAuth
-GITHUB_ID=your_github_oauth_id
-GITHUB_SECRET=your_github_oauth_secret
+# GitHub App Integration
+NEXT_PUBLIC_GITHUB_APP_NAME=your-github-app-name
+AUTH_GITHUB_ID=your-github-app-client-id
+AUTH_GITHUB_SECRET=your-github-app-client-secret
 ```
 
 </details>
