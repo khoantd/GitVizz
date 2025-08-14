@@ -1,0 +1,303 @@
+import httpx
+from fastapi import HTTPException, status
+from beanie import PydanticObjectId
+
+from models.user import User
+from schemas.github_schemas import (
+    GitHubInstallationsResponse,
+    GitHubRepositoriesResponse,
+    GitHubInstallation,
+    GitHubRepository
+)
+
+
+async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
+    """
+    Get GitHub App installations for the authenticated user
+    """
+    try:
+        # Get user from database
+        user = await User.get(PydanticObjectId(user_id))
+        if not user or not user.github_access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or GitHub access token missing"
+            )
+
+        access_token = user.github_access_token
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github+json",
+        }
+
+        async with httpx.AsyncClient() as client:
+            # Get the current authenticated user's information
+            user_res = await client.get("https://api.github.com/user", headers=headers)
+            if user_res.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid GitHub token"
+                )
+
+            github_user = user_res.json()
+
+            # Get user installations
+            installations_res = await client.get(
+                "https://api.github.com/user/installations", 
+                headers=headers
+            )
+            
+            if installations_res.status_code != 200:
+                error_data = installations_res.json() if installations_res.content else {}
+                raise HTTPException(
+                    status_code=installations_res.status_code,
+                    detail=error_data.get("message", "Failed to fetch installations")
+                )
+
+            installations_data = installations_res.json()
+
+            # Filter installations to only include those where the app is installed on the user's account
+            user_installations = []
+            for installation in installations_data.get("installations", []):
+                # Check if the installation is on the user's personal account
+                if installation["account"]["id"] == github_user["id"]:
+                    user_installations.append(GitHubInstallation(**installation))
+                # Include organization installations
+                elif installation.get("target_type") == "Organization":
+                    user_installations.append(GitHubInstallation(**installation))
+
+            return GitHubInstallationsResponse(
+                installations=user_installations,
+                user_id=github_user["id"],
+                user_login=github_user["login"]
+            )
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(error)}"
+        )
+
+
+async def get_installation_repositories(
+    installation_id: int, 
+    user_id: str
+) -> GitHubRepositoriesResponse:
+    """
+    Get repositories accessible to a GitHub App installation that the user also has access to
+    """
+    try:
+        # Get user from database
+        user = await User.get(PydanticObjectId(user_id))
+        if not user or not user.github_access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or GitHub access token missing"
+            )
+
+        # Get GitHub App credentials from environment
+        import os
+        github_app_id = os.getenv("GITHUB_APP_ID")
+        github_private_key = os.getenv("GITHUB_PRIVATE_KEY")
+        github_client_id = os.getenv("GITHUB_CLIENT_ID")
+        github_client_secret = os.getenv("GITHUB_CLIENT_SECRET")
+
+        if not all([github_app_id, github_private_key, github_client_id, github_client_secret]):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="GitHub App credentials not configured"
+            )
+
+        # Create GitHub App authentication for installation access
+        from cryptography.hazmat.primitives import serialization
+        from jose import jwt
+        import time
+
+        # Parse the private key
+        try:
+            # Handle different private key formats
+            if github_private_key.startswith('"') and github_private_key.endswith('"'):
+                # Remove quotes if present
+                private_key_content = github_private_key[1:-1]
+            else:
+                private_key_content = github_private_key
+            
+            # Replace escaped newlines with actual newlines
+            private_key_formatted = private_key_content.replace('\\n', '\n')
+            
+            # Ensure proper PEM format
+            if not private_key_formatted.startswith('-----BEGIN'):
+                raise ValueError("Private key must start with -----BEGIN")
+            
+            private_key = serialization.load_pem_private_key(
+                private_key_formatted.encode('utf-8'),
+                password=None
+            )
+            print(f"[DEBUG] Successfully parsed private key")
+        except Exception as e:
+            print(f"[DEBUG] Private key parsing error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to parse GitHub private key: {str(e)}"
+            )
+
+        # Create JWT for GitHub App authentication
+        now = int(time.time())
+        payload = {
+            'iat': now - 60,  # 1 minute ago to account for clock skew
+            'exp': now + 600,  # 10 minutes from now (GitHub allows max 10 minutes)
+            'iss': github_app_id  # Keep as string, GitHub accepts both
+        }
+        
+        try:
+            # Use RS256 algorithm as required by GitHub
+            jwt_token = jwt.encode(payload, private_key, algorithm='RS256')
+            print(f"[DEBUG] Created JWT for GitHub App {github_app_id}, installation {installation_id}")
+            print(f"[DEBUG] JWT payload: {payload}")
+            print(f"[DEBUG] JWT token (first 50 chars): {jwt_token[:50]}")
+        except Exception as e:
+            print(f"[DEBUG] JWT creation error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create GitHub App JWT: {str(e)}"
+            )
+
+        async with httpx.AsyncClient() as client:
+            # Get installation token
+            installation_token_res = await client.post(
+                f"https://api.github.com/app/installations/{installation_id}/access_tokens",
+                headers={
+                    "Authorization": f"Bearer {jwt_token}",
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "GitVizz-Backend/1.0",
+                }
+            )
+
+            if installation_token_res.status_code != 201:
+                error_detail = "Failed to get installation token"
+                try:
+                    error_response = installation_token_res.json()
+                    error_detail = f"GitHub API Error: {error_response.get('message', 'Unknown error')}"
+                    print(f"[DEBUG] GitHub API error response: {error_response}")
+                except Exception:
+                    error_detail = f"GitHub API HTTP Error: {installation_token_res.status_code}"
+                    print(f"[DEBUG] Raw response text: {installation_token_res.text}")
+                
+                print(f"[DEBUG] Installation token request failed with status {installation_token_res.status_code}")
+                print(f"[DEBUG] Request URL: https://api.github.com/app/installations/{installation_id}/access_tokens")
+                
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=error_detail
+                )
+
+            installation_token = installation_token_res.json()["token"]
+
+            # Fetch installation repositories (all repositories accessible to the GitHub App)
+            installation_repositories = []
+            page = 1
+            per_page = 100
+
+            while True:
+                repos_res = await client.get(
+                    "https://api.github.com/installation/repositories",
+                    headers={
+                        "Authorization": f"token {installation_token}",
+                        "Accept": "application/vnd.github+json",
+                    },
+                    params={"per_page": per_page, "page": page}
+                )
+
+                if repos_res.status_code != 200:
+                    break
+
+                repos_data = repos_res.json()
+                repositories = repos_data.get("repositories", [])
+                
+                if not repositories:
+                    break
+
+                installation_repositories.extend(repositories)
+                
+                # Check if there are more pages
+                if len(repositories) < per_page:
+                    break
+                    
+                page += 1
+
+            # Fetch user repositories (repositories the authenticated user has access to)
+            user_repositories = []
+            page = 1
+
+            while True:
+                user_repos_res = await client.get(
+                    "https://api.github.com/user/repos",
+                    headers={
+                        "Authorization": f"Bearer {user.github_access_token}",
+                        "Accept": "application/vnd.github+json",
+                    },
+                    params={"per_page": per_page, "page": page}
+                )
+
+                if user_repos_res.status_code != 200:
+                    break
+
+                repositories = user_repos_res.json()
+                
+                if not repositories:
+                    break
+
+                user_repositories.extend(repositories)
+                
+                # Check if there are more pages
+                if len(repositories) < per_page:
+                    break
+                    
+                page += 1
+
+            # Filter repositories: only return installation repositories that the user has access to
+            user_repo_ids = {repo["id"] for repo in user_repositories}
+            
+            filtered_repositories = [
+                repo for repo in installation_repositories 
+                if repo["id"] in user_repo_ids
+            ]
+
+            # Sort repositories by updated_at in descending order (most recent first)
+            filtered_repositories.sort(
+                key=lambda x: x.get("updated_at", ""), 
+                reverse=True
+            )
+
+            # Convert to schema objects
+            github_repos = []
+            for repo in filtered_repositories:
+                github_repo = GitHubRepository(
+                    id=repo["id"],
+                    name=repo["name"],
+                    full_name=repo["full_name"],
+                    description=repo.get("description"),  # Allow None, frontend will handle fallback
+                    private=repo["private"],
+                    html_url=repo["html_url"],
+                    language=repo.get("language"),
+                    stargazers_count=repo.get("stargazers_count", 0),
+                    forks_count=repo.get("forks_count", 0),
+                    default_branch=repo.get("default_branch", "main"),
+                    updated_at=repo.get("updated_at")
+                )
+                github_repos.append(github_repo)
+
+            return GitHubRepositoriesResponse(
+                repositories=github_repos,
+                total_count=len(github_repos)
+            )
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(error)}"
+        )

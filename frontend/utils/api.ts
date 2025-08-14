@@ -1237,6 +1237,98 @@ export async function cancelWikiGeneration(token: string, task_id: string): Prom
 }
 
 // =============================================================================
+// GITHUB INTEGRATION
+// =============================================================================
+
+/**
+ * Get GitHub App installations for the authenticated user
+ */
+export async function getGitHubInstallations(token: string): Promise<{
+  installations: Array<{
+    id: number;
+    account: {
+      login: string;
+      id: number;
+      avatar_url: string;
+      type?: string;
+    };
+    app_id: number;
+    target_type: string;
+    target_id?: number;
+    created_at?: string;
+    updated_at?: string;
+  }>;
+  user_id: number;
+  user_login: string;
+}> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/github/installations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token, // Token already contains "Bearer "
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch GitHub installations: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get repositories accessible to a GitHub App installation
+ */
+export async function getGitHubInstallationRepositories(
+  token: string,
+  installationId: number
+): Promise<{
+  repositories: Array<{
+    id: number;
+    name: string;
+    full_name: string;
+    description: string;
+    private: boolean;
+    html_url: string;
+    language?: string;
+    stargazers_count: number;
+    forks_count: number;
+    default_branch: string;
+    updated_at?: string;
+  }>;
+  total_count: number;
+}> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/github/installations/${installationId}/repositories`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token, // Token already contains "Bearer "
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch GitHub repositories: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
 // UNIVERSAL PROCESSING FUNCTION
 // =============================================================================
 
