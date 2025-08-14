@@ -11,7 +11,7 @@ from schemas.github_schemas import (
     GitHubRepositoriesResponse
 )
 
-router = APIRouter(prefix="/api/github", tags=["GitHub"])
+router = APIRouter(prefix="/github", tags=["GitHub"])
 
 
 @router.post("/installations", response_model=GitHubInstallationsResponse)

@@ -194,3 +194,4 @@ async def generate_structure_route(
     ),
 ):
     return await generate_structure_endpoint(background_tasks, current_user, repo_url, branch, zip_file, access_token)
+

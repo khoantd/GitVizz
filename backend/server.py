@@ -6,7 +6,7 @@ from routes.auth_routes import router as auth_router
 from routes.chat_routes import router as chat_router
 from routes.documentation_routes import router as documentation_router
 from routes.indexed_repos_routes import router as indexed_repos_router
-from routes.simple_api_key_routes import router as api_key_router
+from routes.api_key_routes import router as api_key_router
 from routes.github_routes import router as github_router
 from utils.observability import initialize_observability
 from utils.db import db_instance
@@ -56,7 +56,7 @@ app.include_router(
 )
 app.include_router(indexed_repos_router, prefix="/api", tags=["Indexed Repositories"])
 app.include_router(api_key_router, prefix="/api", tags=["API Key Management"])
-app.include_router(github_router, tags=["GitHub Integration"])
+app.include_router(github_router, prefix="/api", tags=["GitHub Integration"])
 
 # =====================
 # Main Entrypoint
