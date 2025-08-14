@@ -14,6 +14,7 @@ dependencies = [
     "email-validator>=2.2.0",
     "faiss-cpu>=1.11.0",
     "fastapi>=0.95.0",
+    "gitvizz @ git+https://github.com/adithya-s-k/GitVizz.git@main#subdirectory=gitvizz",
     "google-generativeai>=0.8.5",
     "httpx>=0.24.0",
     "litellm>=1.74.0",
@@ -51,4 +52,4 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["models*", "routes*", "schemas*", "storage*", "graphing*", "controllers*", "documentation_generator*"]
+include = ["models*", "routes*", "schemas*", "storage*", "controllers*", "documentation_generator*"]
