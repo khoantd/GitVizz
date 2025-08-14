@@ -410,16 +410,61 @@ gitvizz/
 ├── backend/                  # FastAPI backend application
 │   ├── controllers/             # API route handlers
 │   ├── documentation_generator/ # AI-powered analysis
-│   ├── graphing/                # Code graph generation
 │   ├── models/                  # Data models
 │   ├── routes/                  # API routes
 │   ├── schemas/                 # Request/response schemas
 │   ├── services/                # Business logic
 │   └── utils/                   # Utility functions
+├── gitvizz/                  # 📦 GitVizz Core Library
+│   ├── gitvizz/                 # Python package
+│   │   ├── graph_generator.py      # Main graph generation engine
+│   │   ├── custom_ast_parser.py    # AST parsing with Tree-sitter
+│   │   └── modal_app.py            # Optional Modal integration
+│   ├── pyproject.toml           # Package configuration
+│   └── README.md                # Library documentation
 ├── docs/                     # Documentation
 ├── docker-compose.yaml       # Container orchestration
 └── README.md                 # You are here!
 ```
+
+---
+
+## GitVizz Core Library
+
+GitVizz includes a standalone Python library (`gitvizz/`) that provides the core code analysis and dependency graph generation functionality. This library can be used independently in your own projects:
+
+### Features
+
+- 🐍 **Multi-language Parsing**: Python, JavaScript, TypeScript, React, Next.js
+- 🌳 **AST Analysis**: Advanced Abstract Syntax Tree parsing with Tree-sitter
+- 🕸️ **Dependency Graphs**: Generate detailed code relationship maps
+- 📊 **Interactive Visualizations**: HTML graph outputs with Pyvis
+- ⚡ **Fast & Efficient**: Optimized for large codebases
+- 🔧 **Extensible**: Plugin architecture for new languages
+
+### Quick Start
+
+```bash
+# Install the library
+pip install git+https://github.com/adithya-s-k/GitVizz.git#subdirectory=gitvizz
+
+# Use in your Python code
+from gitvizz import GraphGenerator
+
+files_data = [{"path": "main.py", "content": "# your code"}]
+generator = GraphGenerator(files=files_data)
+result = generator.generate()
+```
+
+### Use Cases
+
+- **Code Analysis Tools**: Build custom code analysis applications
+- **Documentation Generation**: Auto-generate dependency documentation
+- **IDE Plugins**: Integrate code visualization into development environments
+- **CI/CD Pipelines**: Automated code structure analysis
+- **Research**: Academic research on software architecture
+
+For detailed documentation, see [`gitvizz/README.md`](./gitvizz/README.md).
 
 ---
 
@@ -431,6 +476,7 @@ gitvizz/
 - [ ] **Real-time Collaboration** - Multi-user code exploration
 - [ ] **Plugin System** - Extensible architecture
 - [ ] **Advanced Analytics** - Code quality metrics and insights
+- [ ] **PyPI Release** - Publish GitVizz core library to PyPI
 
 ### Future Plans
 

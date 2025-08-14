@@ -1,6 +1,8 @@
-# GitVizz Graphing Library
+# GitVizz - Code Analysis & Dependency Graph Library
 
-A powerful Python library for generating code dependency graphs from repository files. Supports multiple programming languages including Python, JavaScript, TypeScript, React, and Next.js applications.
+A powerful Python library for generating code dependency graphs from repository files. This is the core graphing engine that powers [GitVizz](https://github.com/adithya-s-k/GitVizz) - the AI-powered repository analysis platform.
+
+Supports multiple programming languages including Python, JavaScript, TypeScript, React, and Next.js applications.
 
 ## Features
 
@@ -11,22 +13,41 @@ A powerful Python library for generating code dependency graphs from repository 
 - **Modal Integration**: Optional serverless deployment support via Modal
 - **Extensible Architecture**: Easy to add support for new languages and frameworks
 
+## About GitVizz
+
+This library is the core graphing engine that powers the [GitVizz platform](https://github.com/adithya-s-k/GitVizz) - a comprehensive AI-powered repository analysis tool that provides:
+
+- 🌐 **Web Interface**: Interactive dashboard for exploring codebases
+- 🤖 **AI Chat**: Conversation with your repositories using advanced LLMs
+- 📊 **Visual Analytics**: Beautiful dependency graphs and code maps  
+- 📝 **Auto Documentation**: AI-generated comprehensive documentation
+- 🔍 **Smart Search**: Intelligent code search and navigation
+- 📱 **Multi-platform**: Web app with mobile-responsive design
+
+**Try GitVizz**: Visit [gitvizz.com](https://gitvizz.com) or check out the [full platform on GitHub](https://github.com/adithya-s-k/GitVizz)
+
+This standalone library allows you to integrate GitVizz's powerful code analysis capabilities into your own applications and workflows.
+
 ## Installation
 
+Install directly from GitHub:
+
 ```bash
-pip install gitvizz-graphing
+pip install git+https://github.com/adithya-s-k/GitVizz.git#subdirectory=gitvizz
 ```
 
-For Modal support:
+Or for development:
 
 ```bash
-pip install gitvizz-graphing[modal]
+git clone https://github.com/adithya-s-k/GitVizz.git
+cd GitVizz/gitvizz
+pip install -e .[dev]
 ```
 
-For development:
+### PyPI Installation (Coming Soon)
 
 ```bash
-pip install gitvizz-graphing[dev]
+pip install gitvizz
 ```
 
 ## Quick Start
@@ -167,8 +188,8 @@ The library automatically detects project types and uses appropriate parsers:
 ### Setting up for Development
 
 ```bash
-git clone https://github.com/gitvizz/gitvizz.git
-cd gitvizz-graphing
+git clone https://github.com/adithya-s-k/GitVizz.git
+cd GitVizz/gitvizz
 pip install -e .[dev]
 ```
 

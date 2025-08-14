@@ -36,6 +36,7 @@ image = (
             "*.db",
         ],
     )
+    .run_commands("apt-get update && apt-get install -y git")
     .run_commands("pip install --upgrade pip")
     .run_commands("pip install uv")
     .run_commands("cd /root && uv pip install . --system")

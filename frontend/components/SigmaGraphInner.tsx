@@ -16,7 +16,7 @@ import { useLayoutNoverlap } from '@react-sigma/layout-noverlap';
 import { useLayoutCircular } from '@react-sigma/layout-circular';
 import { useLayoutRandom } from '@react-sigma/layout-random';
 import { animateNodes } from 'sigma/utils';
-import { EdgeArrowProgram } from 'sigma/rendering';
+import { EdgeArrowProgram, NodeCircleProgram } from 'sigma/rendering';
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
 // Layout control imports commented out for now
 /* 
@@ -178,6 +178,9 @@ const enhancedSigmaSettings = {
   allowInvalidContainer: true,
   renderLabels: true,
   renderEdgeLabels: false,
+  nodeProgramClasses: {
+    circle: NodeCircleProgram,
+  },
   edgeProgramClasses: {
     arrow: EdgeArrowProgram,
     curvedArrow: EdgeCurvedArrowProgram,
@@ -590,8 +593,8 @@ function LoadGraph({
     const currentNodeCount = data.nodes.length;
 
     // Enhanced node sizing based on graph size and connectivity
-    const minNodeSize = currentNodeCount > 1000 ? 4 : currentNodeCount > 500 ? 6 : 8;
-    const maxNodeSize = currentNodeCount > 1000 ? 12 : currentNodeCount > 500 ? 18 : 24;
+    const minNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 12 : 16; // 16 is the minimum size for the nodes
+    const maxNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 28 : 36; // 36 is the maximum size for the nodes
 
     // Calculate node degrees for size scaling
     const nodeDegrees = new Map<string, number>();
@@ -623,6 +626,7 @@ function LoadGraph({
           color: baseColor,
           originalColor: baseColor,
           degree: degree,
+          type: 'circle',
           x: (Math.random() - 0.5) * 300, // Moderate initial spread
           y: (Math.random() - 0.5) * 300, // Moderate initial spread
         });
