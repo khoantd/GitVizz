@@ -12,9 +12,12 @@ from beanie.operators import Or
 
 
 async def get_github_user(access_token: str) -> dict:
+    # GitHub user tokens (ghu_) use 'token' auth type, not 'Bearer'
+    auth_type = "token" if access_token.startswith(("ghu_", "ghp_", "gho_", "ghs_")) else "Bearer"
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": f"{auth_type} {access_token}",
         "Accept": "application/vnd.github+json",
+        "User-Agent": "GitVizz-Backend/1.0"
     }
 
     async with httpx.AsyncClient() as client:
