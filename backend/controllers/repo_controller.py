@@ -588,9 +588,75 @@ async def generate_graph_endpoint(
                 detail="No suitable files for graph generation after filtering.",
             )
 
-        # Generate graph data
-        generator = GraphGenerator(files=filtered_files, output_html_path=None)
-        graph_data = generator.generate()
+        # Generate graph data using the new from_source() method
+        if zip_file:
+            # For uploaded ZIP files, save to temp file and use from_source
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_zip:
+                temp_zip.write(zip_content)
+                temp_zip_path = temp_zip.name
+            
+            try:
+                generator = GraphGenerator.from_source(
+                    temp_zip_path,
+                    file_extensions=['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.go', '.rs', '.cpp', '.c'],
+                    max_files=1000,  # Reasonable limit for backend processing
+                    ignore_patterns=[
+                        '**/node_modules/**', 
+                        '**/__pycache__/**',
+                        '**/dist/**',
+                        '**/build/**',
+                        '**/.git/**',
+                        '**/coverage/**',
+                        '**/*.min.js',
+                        '**/*.map'
+                    ]
+                )
+                graph_data = generator.generate()
+            finally:
+                # Cleanup temp ZIP file
+                if os.path.exists(temp_zip_path):
+                    os.unlink(temp_zip_path)
+        
+        elif repo_url:
+            # For GitHub URLs, from_source can handle ZIP downloads directly
+            try:
+                # Build GitHub archive URL
+                if "github.com" in repo_url:
+                    repo_info = parse_repo_url(repo_url)
+                    if repo_info["owner"] != "unknown":
+                        zip_url = f"https://github.com/{repo_info['owner']}/{repo_info['repo']}/archive/refs/heads/{resolved_branch}.zip"
+                    else:
+                        zip_url = repo_url
+                else:
+                    zip_url = repo_url
+                
+                # Use from_source with URL - it will handle the download
+                generator = GraphGenerator.from_source(
+                    zip_url,
+                    file_extensions=['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.go', '.rs', '.cpp', '.c'],
+                    max_files=1000,
+                    ignore_patterns=[
+                        '**/node_modules/**',
+                        '**/__pycache__/**', 
+                        '**/dist/**',
+                        '**/build/**',
+                        '**/.git/**',
+                        '**/coverage/**',
+                        '**/*.min.js',
+                        '**/*.map'
+                    ]
+                )
+                graph_data = generator.generate()
+            except Exception as e:
+                print(f"from_source failed for URL {repo_url}, falling back to traditional method: {e}")
+                # Fallback to traditional method if from_source fails
+                generator = GraphGenerator(files=filtered_files, output_html_path=None)
+                graph_data = generator.generate()
+        else:
+            # Fallback to traditional method
+            generator = GraphGenerator(files=filtered_files, output_html_path=None)
+            graph_data = generator.generate()
 
         # Save to database if user is authenticated
         if user:
