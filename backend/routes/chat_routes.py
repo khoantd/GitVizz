@@ -5,8 +5,7 @@ from middleware.auth_middleware import require_auth
 from models.user import User
 from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
-    ChatSessionResponse, ApiKeyResponse,
-    AvailableModelsResponse, ChatSettingsResponse,
+    ChatSessionResponse, ChatSettingsResponse,
     ContextSearchResponse, ChatSessionListResponse
 )
 from controllers.chat_controller import chat_controller
@@ -240,109 +239,6 @@ async def get_chat_session(
         chat_id=chat_id
     )
 
-# API key verification endpoint
-@router.post(
-    "/keys/verify",
-    response_model=dict,
-    summary="Verify API key",
-    description="Verify if an API key is valid for a specific provider without saving it",
-    response_description="Verification result with details",
-    responses={
-        200: {
-            "description": "API key verification result"
-        },
-        400: {
-            "model": ErrorResponse,
-            "description": "Invalid provider specified"
-        },
-        401: {
-            "model": ErrorResponse,
-            "description": "Unauthorized - Invalid JWT token"
-        },
-        500: {
-            "model": ErrorResponse,
-            "description": "Internal server error"
-        }
-    }
-)
-async def verify_user_api_key(
-    current_user: Annotated[User, Depends(require_auth)],
-    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
-    api_key: Annotated[str, Form(description="API key to verify")]
-):
-    return await chat_controller.verify_user_api_key(
-        user=current_user,
-        provider=provider,
-        api_key=api_key
-    )
-
-# API key save endpoint
-@router.post(
-    "/keys/save",
-    response_model=ApiKeyResponse,
-    summary="Save user API key",
-    description="Save or update an encrypted API key for a specific provider with verification",
-    response_description="Confirmation of key save operation",
-    responses={
-        200: {
-            "model": ApiKeyResponse,
-            "description": "API key saved successfully"
-        },
-        400: {
-            "model": ErrorResponse,
-            "description": "Invalid provider or API key specified"
-        },
-        401: {
-            "model": ErrorResponse,
-            "description": "Unauthorized - Invalid JWT token"
-        },
-        500: {
-            "model": ErrorResponse,
-            "description": "Internal server error"
-        }
-    }
-)
-async def save_user_api_key(
-    current_user: Annotated[User, Depends(require_auth)],
-    provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
-    api_key: Annotated[str, Form(description="API key")],
-    key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
-    verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
-):
-    return await chat_controller.save_user_api_key(
-        user=current_user,
-        provider=provider,
-        api_key=api_key,
-        key_name=key_name,
-        verify_key=verify_key
-    )
-
-# Available models endpoint
-@router.post(
-    "/models",
-    response_model=AvailableModelsResponse,
-    summary="Get available LLM models",
-    description="Retrieve list of available models per provider and user's API key status",
-    response_description="List of available models and user's key status",
-    responses={
-        200: {
-            "model": AvailableModelsResponse,
-            "description": "Successful retrieval of available models"
-        },
-        401: {
-            "model": ErrorResponse,
-            "description": "Unauthorized - Invalid JWT token"
-        },
-        500: {
-            "model": ErrorResponse,
-            "description": "Internal server error"
-        }
-    }
-)
-async def get_available_models(
-    current_user: Annotated[User, Depends(require_auth)]
-):
-    return await chat_controller.get_available_models(user=current_user)
 
 # Chat settings endpoint
 @router.post(

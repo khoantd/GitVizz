@@ -60,11 +60,6 @@ export type AvailableModelsResponse = {
  */
 export type BodyDeleteUserApiKeyBackendEnhanced = {
   /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
    * Provider
    * Provider name to delete key for
    */
@@ -274,17 +269,6 @@ export type BodyGetIndexedRepositoriesApiIndexedReposPost = {
 };
 
 /**
- * Body_get_user_api_keys_backend_enhanced
- */
-export type BodyGetUserApiKeysBackendEnhanced = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-};
-
-/**
  * Body_get_wiki_status_api_documentation_wiki_status_post
  */
 export type BodyGetWikiStatusApiDocumentationWikiStatusPost = {
@@ -387,37 +371,6 @@ export type BodyProcessChatMessageApiBackendChatChatPost = {
    * Specific search query for context retrieval
    */
   context_search_query?: string | null;
-};
-
-/**
- * Body_save_api_key_backend_enhanced
- */
-export type BodySaveApiKeyBackendEnhanced = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
-   * Provider
-   * Provider name (openai, anthropic, gemini, groq)
-   */
-  provider: string;
-  /**
-   * Api Key
-   * API key to save
-   */
-  api_key: string;
-  /**
-   * Key Name
-   * Optional friendly name for the key
-   */
-  key_name?: string | null;
-  /**
-   * Verify Key
-   * Whether to verify key before saving
-   */
-  verify_key?: boolean;
 };
 
 /**
@@ -557,27 +510,6 @@ export type BodyUpdateChatSettingsApiBackendChatSettingsPost = {
    * Default temperature (0.0-2.0)
    */
   default_temperature?: number | null;
-};
-
-/**
- * Body_verify_api_key_backend_enhanced
- */
-export type BodyVerifyApiKeyBackendEnhanced = {
-  /**
-   * Token
-   * JWT authentication token
-   */
-  token: string;
-  /**
-   * Provider
-   * Provider name (openai, anthropic, gemini, groq)
-   */
-  provider: string;
-  /**
-   * Api Key
-   * API key to verify
-   */
-  api_key: string;
 };
 
 /**
@@ -960,6 +892,146 @@ export type FileMetadata = {
    * Type
    */
   type: string;
+};
+
+/**
+ * GitHubAccount
+ * GitHub account information
+ */
+export type GitHubAccount = {
+  /**
+   * Login
+   */
+  login: string;
+  /**
+   * Id
+   */
+  id: number;
+  /**
+   * Avatar Url
+   */
+  avatar_url: string;
+  /**
+   * Type
+   */
+  type?: string | null;
+};
+
+/**
+ * GitHubInstallation
+ * GitHub App installation
+ */
+export type GitHubInstallation = {
+  /**
+   * Id
+   */
+  id: number;
+  account: GitHubAccount;
+  /**
+   * App Id
+   */
+  app_id: number;
+  /**
+   * Target Type
+   */
+  target_type: string;
+  /**
+   * Target Id
+   */
+  target_id?: number | null;
+  /**
+   * Created At
+   */
+  created_at?: string | null;
+  /**
+   * Updated At
+   */
+  updated_at?: string | null;
+};
+
+/**
+ * GitHubInstallationsResponse
+ * Response for GitHub installations endpoint
+ */
+export type GitHubInstallationsResponse = {
+  /**
+   * Installations
+   */
+  installations: Array<GitHubInstallation>;
+  /**
+   * User Id
+   */
+  user_id: number;
+  /**
+   * User Login
+   */
+  user_login: string;
+};
+
+/**
+ * GitHubRepositoriesResponse
+ * Response for GitHub repositories endpoint
+ */
+export type GitHubRepositoriesResponse = {
+  /**
+   * Repositories
+   */
+  repositories: Array<GitHubRepository>;
+  /**
+   * Total Count
+   */
+  total_count: number;
+};
+
+/**
+ * GitHubRepository
+ * GitHub repository information
+ */
+export type GitHubRepository = {
+  /**
+   * Id
+   */
+  id: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Full Name
+   */
+  full_name: string;
+  /**
+   * Description
+   */
+  description?: string | null;
+  /**
+   * Private
+   */
+  private: boolean;
+  /**
+   * Html Url
+   */
+  html_url: string;
+  /**
+   * Language
+   */
+  language?: string | null;
+  /**
+   * Stargazers Count
+   */
+  stargazers_count?: number;
+  /**
+   * Forks Count
+   */
+  forks_count?: number;
+  /**
+   * Default Branch
+   */
+  default_branch?: string;
+  /**
+   * Updated At
+   */
+  updated_at?: string | null;
 };
 
 /**
@@ -1985,95 +2057,6 @@ export type GetChatSessionApiBackendChatSessionsChatIdPostResponses = {
 export type GetChatSessionApiBackendChatSessionsChatIdPostResponse =
   GetChatSessionApiBackendChatSessionsChatIdPostResponses[keyof GetChatSessionApiBackendChatSessionsChatIdPostResponses];
 
-export type VerifyApiKeyBackendEnhancedData = {
-  body: BodyVerifyApiKeyBackendEnhanced;
-  path?: never;
-  query?: never;
-  url: '/api/backend-chat/keys/verify';
-};
-
-export type VerifyApiKeyBackendEnhancedErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type VerifyApiKeyBackendEnhancedError =
-  VerifyApiKeyBackendEnhancedErrors[keyof VerifyApiKeyBackendEnhancedErrors];
-
-export type VerifyApiKeyBackendEnhancedResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type SaveApiKeyBackendEnhancedData = {
-  body: BodySaveApiKeyBackendEnhanced;
-  path?: never;
-  query?: never;
-  url: '/api/backend-chat/keys/save';
-};
-
-export type SaveApiKeyBackendEnhancedErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type SaveApiKeyBackendEnhancedError =
-  SaveApiKeyBackendEnhancedErrors[keyof SaveApiKeyBackendEnhancedErrors];
-
-export type SaveApiKeyBackendEnhancedResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type GetAvailableModelsApiBackendChatModelsPostData = {
-  body?: never;
-  headers?: {
-    /**
-     * Authorization
-     */
-    authorization?: string | null;
-  };
-  path?: never;
-  query?: never;
-  url: '/api/backend-chat/models';
-};
-
-export type GetAvailableModelsApiBackendChatModelsPostErrors = {
-  /**
-   * Unauthorized - Invalid JWT token
-   */
-  401: ErrorResponse;
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-  /**
-   * Internal server error
-   */
-  500: ErrorResponse;
-};
-
-export type GetAvailableModelsApiBackendChatModelsPostError =
-  GetAvailableModelsApiBackendChatModelsPostErrors[keyof GetAvailableModelsApiBackendChatModelsPostErrors];
-
-export type GetAvailableModelsApiBackendChatModelsPostResponses = {
-  /**
-   * Successful retrieval of available models
-   */
-  200: AvailableModelsResponse;
-};
-
-export type GetAvailableModelsApiBackendChatModelsPostResponse =
-  GetAvailableModelsApiBackendChatModelsPostResponses[keyof GetAvailableModelsApiBackendChatModelsPostResponses];
-
 export type UpdateChatSettingsApiBackendChatSettingsPostData = {
   body: BodyUpdateChatSettingsApiBackendChatSettingsPost;
   headers?: {
@@ -2421,8 +2404,107 @@ export type GetIndexedRepositoriesApiIndexedReposPostResponses = {
 export type GetIndexedRepositoriesApiIndexedReposPostResponse =
   GetIndexedRepositoriesApiIndexedReposPostResponses[keyof GetIndexedRepositoriesApiIndexedReposPostResponses];
 
+export type VerifyUserApiKeyApiBackendChatKeysVerifyPostData = {
+  body: BodyVerifyUserApiKeyApiBackendChatKeysVerifyPost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/keys/verify';
+};
+
+export type VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors = {
+  /**
+   * Invalid provider specified
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
+};
+
+export type VerifyUserApiKeyApiBackendChatKeysVerifyPostError =
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors[keyof VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors];
+
+export type VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses = {
+  /**
+   * Response Verify User Api Key Api Backend Chat Keys Verify Post
+   * API key verification result
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type VerifyUserApiKeyApiBackendChatKeysVerifyPostResponse =
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses[keyof VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses];
+
+export type SaveUserApiKeyApiBackendChatKeysSavePostData = {
+  body: BodySaveUserApiKeyApiBackendChatKeysSavePost;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/keys/save';
+};
+
+export type SaveUserApiKeyApiBackendChatKeysSavePostErrors = {
+  /**
+   * Invalid provider or API key specified
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
+};
+
+export type SaveUserApiKeyApiBackendChatKeysSavePostError =
+  SaveUserApiKeyApiBackendChatKeysSavePostErrors[keyof SaveUserApiKeyApiBackendChatKeysSavePostErrors];
+
+export type SaveUserApiKeyApiBackendChatKeysSavePostResponses = {
+  /**
+   * API key saved successfully
+   */
+  200: ApiKeyResponse;
+};
+
+export type SaveUserApiKeyApiBackendChatKeysSavePostResponse =
+  SaveUserApiKeyApiBackendChatKeysSavePostResponses[keyof SaveUserApiKeyApiBackendChatKeysSavePostResponses];
+
 export type GetUserApiKeysBackendEnhancedData = {
-  body: BodyGetUserApiKeysBackendEnhanced;
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/keys/list';
@@ -2447,6 +2529,12 @@ export type GetUserApiKeysBackendEnhancedResponses = {
 
 export type DeleteUserApiKeyBackendEnhancedData = {
   body: BodyDeleteUserApiKeyBackendEnhanced;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
   path?: never;
   query?: never;
   url: '/api/backend-chat/keys/delete';
@@ -2469,14 +2557,51 @@ export type DeleteUserApiKeyBackendEnhancedResponses = {
   200: unknown;
 };
 
+export type GetAvailableModelsApiBackendChatModelsPostData = {
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/backend-chat/models';
+};
+
+export type GetAvailableModelsApiBackendChatModelsPostErrors = {
+  /**
+   * Unauthorized - Invalid JWT token
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Internal server error
+   */
+  500: ErrorResponse;
+};
+
+export type GetAvailableModelsApiBackendChatModelsPostError =
+  GetAvailableModelsApiBackendChatModelsPostErrors[keyof GetAvailableModelsApiBackendChatModelsPostErrors];
+
+export type GetAvailableModelsApiBackendChatModelsPostResponses = {
+  /**
+   * Successful retrieval of available models
+   */
+  200: AvailableModelsResponse;
+};
+
+export type GetAvailableModelsApiBackendChatModelsPostResponse =
+  GetAvailableModelsApiBackendChatModelsPostResponses[keyof GetAvailableModelsApiBackendChatModelsPostResponses];
+
 export type GetAvailableModelsGetBackendEnhancedData = {
   body?: never;
   path?: never;
   query?: {
-    /**
-     * Token
-     */
-    token?: string | null;
     /**
      * Provider
      */
@@ -2592,6 +2717,80 @@ export type ServiceInfoBackendEnhancedResponses = {
    */
   200: unknown;
 };
+
+export type GetGithubInstallationsApiGithubInstallationsPostData = {
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/github/installations';
+};
+
+export type GetGithubInstallationsApiGithubInstallationsPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGithubInstallationsApiGithubInstallationsPostError =
+  GetGithubInstallationsApiGithubInstallationsPostErrors[keyof GetGithubInstallationsApiGithubInstallationsPostErrors];
+
+export type GetGithubInstallationsApiGithubInstallationsPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: GitHubInstallationsResponse;
+};
+
+export type GetGithubInstallationsApiGithubInstallationsPostResponse =
+  GetGithubInstallationsApiGithubInstallationsPostResponses[keyof GetGithubInstallationsApiGithubInstallationsPostResponses];
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostData =
+  {
+    body?: never;
+    headers?: {
+      /**
+       * Authorization
+       */
+      authorization?: string | null;
+    };
+    path: {
+      /**
+       * Installation Id
+       */
+      installation_id: number;
+    };
+    query?: never;
+    url: '/api/github/installations/{installation_id}/repositories';
+  };
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+  };
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostError =
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors[keyof GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors];
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: GitHubRepositoriesResponse;
+  };
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponse =
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses[keyof GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses];
 
 export type ClientOptions = {
   baseUrl: 'http://localhost:8003' | (string & {});

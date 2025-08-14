@@ -37,7 +37,14 @@ import {
 import { showToast } from '@/components/toaster';
 
 import { cn } from '@/lib/utils';
-import { fetchGithubRepo, uploadLocalZip, getRepositoryBranches, resolveBranch } from '@/utils/api';
+import { 
+  fetchGithubRepo, 
+  uploadLocalZip, 
+  getRepositoryBranches, 
+  resolveBranch,
+  getGitHubInstallations,
+  getGitHubInstallationRepositories
+} from '@/utils/api';
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { SupportedLanguages, type Language } from '@/components/supported-languages';
@@ -333,15 +340,11 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         }
 
         setIsReposLoading(true);
-        const installationsRes = await fetch('/api/github/installations', {
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-          signal: controller.signal,
-        });
-        if (!installationsRes.ok) throw new Error('Failed to fetch installations.');
-
-        const installationsData = await installationsRes.json();
+        
+        // Use the new backend API  
+        const jwtToken = session?.jwt_token || `Bearer ${session?.accessToken}`;
+        const installationsData = await getGitHubInstallations(jwtToken);
+        
         const hasInstalls =
           Array.isArray(installationsData.installations) &&
           installationsData.installations.length > 0;
@@ -380,17 +383,13 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     const run = async () => {
       try {
         setIsReposLoading(true);
-        const reposRes = await fetch(`/api/github/app_repos?installationId=${installationId}`, {
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-          signal: controller.signal,
-        });
-        if (!reposRes.ok) throw new Error('Failed to fetch repositories.');
-
-        const reposData = await reposRes.json();
+        
+        // Use the new backend API
+        const jwtToken = session?.jwt_token || `Bearer ${session?.accessToken}`;
+        const reposData = await getGitHubInstallationRepositories(jwtToken, installationId);
+        
         const transformedRepos = (reposData.repositories || []).map(
-          (repo: { description?: string }) => ({
+          (repo) => ({
             ...repo,
             description: repo.description || 'No description available',
           }),
@@ -404,10 +403,10 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
 
           // Load branches for first 3 repositories automatically
           const reposToAutoLoad = transformedRepos.slice(0, 3);
-          reposToAutoLoad.forEach((repo: Repository) => {
+          reposToAutoLoad.forEach((repo) => {
             // Don't auto-load if already loading or loaded
             if (!loadingBranches.includes(repo.id) && !repoBranchStates[repo.id]) {
-              loadRepoBranches(repo);
+              loadRepoBranches(repo as Repository);
             }
           });
         } else {

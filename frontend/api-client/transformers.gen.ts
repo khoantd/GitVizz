@@ -4,6 +4,7 @@ import type {
   GetConversationHistoryApiBackendChatConversationsConversationIdPostResponse,
   GetChatSessionApiBackendChatSessionsChatIdPostResponse,
   GetIndexedRepositoriesApiIndexedReposPostResponse,
+  SaveUserApiKeyApiBackendChatKeysSavePostResponse,
 } from './types.gen';
 
 const messageResponseSchemaResponseTransformer = (data: any) => {
@@ -63,5 +64,19 @@ export const getIndexedRepositoriesApiIndexedReposPostResponseTransformer = asyn
   data: any,
 ): Promise<GetIndexedRepositoriesApiIndexedReposPostResponse> => {
   data = indexedRepositoriesResponseSchemaResponseTransformer(data);
+  return data;
+};
+
+const apiKeyResponseSchemaResponseTransformer = (data: any) => {
+  if (data.created_at) {
+    data.created_at = new Date(data.created_at);
+  }
+  return data;
+};
+
+export const saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer = async (
+  data: any,
+): Promise<SaveUserApiKeyApiBackendChatKeysSavePostResponse> => {
+  data = apiKeyResponseSchemaResponseTransformer(data);
   return data;
 };

@@ -107,11 +107,6 @@ export const AvailableModelsResponseSchema = {
 
 export const Body_delete_user_api_key_backend_enhancedSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     provider: {
       type: 'string',
       title: 'Provider',
@@ -131,7 +126,7 @@ export const Body_delete_user_api_key_backend_enhancedSchema = {
     },
   },
   type: 'object',
-  required: ['token', 'provider'],
+  required: ['provider'],
   title: 'Body_delete_user_api_key_backend_enhanced',
 } as const;
 
@@ -551,19 +546,6 @@ export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
   title: 'Body_get_indexed_repositories_api_indexed_repos__post',
 } as const;
 
-export const Body_get_user_api_keys_backend_enhancedSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-  },
-  type: 'object',
-  required: ['token'],
-  title: 'Body_get_user_api_keys_backend_enhanced',
-} as const;
-
 export const Body_get_wiki_status_api_documentation_wiki_status_postSchema = {
   properties: {
     repo_id: {
@@ -714,47 +696,6 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
   type: 'object',
   required: ['message', 'repository_id'],
   title: 'Body_process_chat_message_api_backend_chat_chat_post',
-} as const;
-
-export const Body_save_api_key_backend_enhancedSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-    provider: {
-      type: 'string',
-      title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini, groq)',
-    },
-    api_key: {
-      type: 'string',
-      title: 'Api Key',
-      description: 'API key to save',
-    },
-    key_name: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Key Name',
-      description: 'Optional friendly name for the key',
-    },
-    verify_key: {
-      type: 'boolean',
-      title: 'Verify Key',
-      description: 'Whether to verify key before saving',
-      default: true,
-    },
-  },
-  type: 'object',
-  required: ['token', 'provider', 'api_key'],
-  title: 'Body_save_api_key_backend_enhanced',
 } as const;
 
 export const Body_save_user_api_key_api_backend_chat_keys_save_postSchema = {
@@ -980,29 +921,6 @@ export const Body_update_chat_settings_api_backend_chat_settings_postSchema = {
   type: 'object',
   required: ['chat_id'],
   title: 'Body_update_chat_settings_api_backend_chat_settings_post',
-} as const;
-
-export const Body_verify_api_key_backend_enhancedSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-    provider: {
-      type: 'string',
-      title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini, groq)',
-    },
-    api_key: {
-      type: 'string',
-      title: 'Api Key',
-      description: 'API key to verify',
-    },
-  },
-  type: 'object',
-  required: ['token', 'provider', 'api_key'],
-  title: 'Body_verify_api_key_backend_enhanced',
 } as const;
 
 export const Body_verify_user_api_key_api_backend_chat_keys_verify_postSchema = {
@@ -1598,6 +1516,216 @@ export const FileMetadataSchema = {
   type: 'object',
   required: ['filename', 'size', 'modified', 'type'],
   title: 'FileMetadata',
+} as const;
+
+export const GitHubAccountSchema = {
+  properties: {
+    login: {
+      type: 'string',
+      title: 'Login',
+    },
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    avatar_url: {
+      type: 'string',
+      title: 'Avatar Url',
+    },
+    type: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Type',
+    },
+  },
+  type: 'object',
+  required: ['login', 'id', 'avatar_url'],
+  title: 'GitHubAccount',
+  description: 'GitHub account information',
+} as const;
+
+export const GitHubInstallationSchema = {
+  properties: {
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    account: {
+      $ref: '#/components/schemas/GitHubAccount',
+    },
+    app_id: {
+      type: 'integer',
+      title: 'App Id',
+    },
+    target_type: {
+      type: 'string',
+      title: 'Target Type',
+    },
+    target_id: {
+      anyOf: [
+        {
+          type: 'integer',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Target Id',
+    },
+    created_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Created At',
+    },
+    updated_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Updated At',
+    },
+  },
+  type: 'object',
+  required: ['id', 'account', 'app_id', 'target_type'],
+  title: 'GitHubInstallation',
+  description: 'GitHub App installation',
+} as const;
+
+export const GitHubInstallationsResponseSchema = {
+  properties: {
+    installations: {
+      items: {
+        $ref: '#/components/schemas/GitHubInstallation',
+      },
+      type: 'array',
+      title: 'Installations',
+    },
+    user_id: {
+      type: 'integer',
+      title: 'User Id',
+    },
+    user_login: {
+      type: 'string',
+      title: 'User Login',
+    },
+  },
+  type: 'object',
+  required: ['installations', 'user_id', 'user_login'],
+  title: 'GitHubInstallationsResponse',
+  description: 'Response for GitHub installations endpoint',
+} as const;
+
+export const GitHubRepositoriesResponseSchema = {
+  properties: {
+    repositories: {
+      items: {
+        $ref: '#/components/schemas/GitHubRepository',
+      },
+      type: 'array',
+      title: 'Repositories',
+    },
+    total_count: {
+      type: 'integer',
+      title: 'Total Count',
+    },
+  },
+  type: 'object',
+  required: ['repositories', 'total_count'],
+  title: 'GitHubRepositoriesResponse',
+  description: 'Response for GitHub repositories endpoint',
+} as const;
+
+export const GitHubRepositorySchema = {
+  properties: {
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    name: {
+      type: 'string',
+      title: 'Name',
+    },
+    full_name: {
+      type: 'string',
+      title: 'Full Name',
+    },
+    description: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Description',
+    },
+    private: {
+      type: 'boolean',
+      title: 'Private',
+    },
+    html_url: {
+      type: 'string',
+      title: 'Html Url',
+    },
+    language: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Language',
+    },
+    stargazers_count: {
+      type: 'integer',
+      title: 'Stargazers Count',
+      default: 0,
+    },
+    forks_count: {
+      type: 'integer',
+      title: 'Forks Count',
+      default: 0,
+    },
+    default_branch: {
+      type: 'string',
+      title: 'Default Branch',
+      default: 'main',
+    },
+    updated_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Updated At',
+    },
+  },
+  type: 'object',
+  required: ['id', 'name', 'full_name', 'private', 'html_url'],
+  title: 'GitHubRepository',
+  description: 'GitHub repository information',
 } as const;
 
 export const GraphEdgeSchema = {

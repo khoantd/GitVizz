@@ -6,7 +6,7 @@ from schemas.response_schemas import (
     GraphResponse,
     StructureResponse
 )
-from middleware.auth_middleware import require_auth
+from middleware.auth_middleware import optional_auth
 from models.user import User
 
 from controllers.repo_controller import (
@@ -45,7 +45,7 @@ router = APIRouter(prefix='/repo')
     },
 )
 async def generate_text_route(
-    current_user: Annotated[User, Depends(require_auth)],
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
     background_tasks: BackgroundTasks,
     repo_url: Optional[str] = Form(
         None,
@@ -87,7 +87,7 @@ async def generate_text_route(
     },
 )
 async def generate_graph_route(
-    current_user: Annotated[User, Depends(require_auth)],
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
     background_tasks: BackgroundTasks,
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
@@ -126,7 +126,7 @@ async def generate_graph_route(
     },
 )
 async def generate_subgraph_route(
-    current_user: Annotated[User, Depends(require_auth)],
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
     background_tasks: BackgroundTasks,
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
@@ -175,7 +175,7 @@ async def generate_subgraph_route(
     },
 )
 async def generate_structure_route(
-    current_user: Annotated[User, Depends(require_auth)],
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
     background_tasks: BackgroundTasks,
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
@@ -194,3 +194,4 @@ async def generate_structure_route(
     ),
 ):
     return await generate_structure_endpoint(background_tasks, current_user, repo_url, branch, zip_file, access_token)
+

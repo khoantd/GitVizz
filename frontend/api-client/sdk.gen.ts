@@ -41,15 +41,6 @@ import type {
   GetChatSessionApiBackendChatSessionsChatIdPostData,
   GetChatSessionApiBackendChatSessionsChatIdPostResponses,
   GetChatSessionApiBackendChatSessionsChatIdPostErrors,
-  VerifyApiKeyBackendEnhancedData,
-  VerifyApiKeyBackendEnhancedResponses,
-  VerifyApiKeyBackendEnhancedErrors,
-  SaveApiKeyBackendEnhancedData,
-  SaveApiKeyBackendEnhancedResponses,
-  SaveApiKeyBackendEnhancedErrors,
-  GetAvailableModelsApiBackendChatModelsPostData,
-  GetAvailableModelsApiBackendChatModelsPostResponses,
-  GetAvailableModelsApiBackendChatModelsPostErrors,
   UpdateChatSettingsApiBackendChatSettingsPostData,
   UpdateChatSettingsApiBackendChatSettingsPostResponses,
   UpdateChatSettingsApiBackendChatSettingsPostErrors,
@@ -77,12 +68,21 @@ import type {
   GetIndexedRepositoriesApiIndexedReposPostData,
   GetIndexedRepositoriesApiIndexedReposPostResponses,
   GetIndexedRepositoriesApiIndexedReposPostErrors,
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostData,
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses,
+  VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors,
+  SaveUserApiKeyApiBackendChatKeysSavePostData,
+  SaveUserApiKeyApiBackendChatKeysSavePostResponses,
+  SaveUserApiKeyApiBackendChatKeysSavePostErrors,
   GetUserApiKeysBackendEnhancedData,
   GetUserApiKeysBackendEnhancedResponses,
   GetUserApiKeysBackendEnhancedErrors,
   DeleteUserApiKeyBackendEnhancedData,
   DeleteUserApiKeyBackendEnhancedResponses,
   DeleteUserApiKeyBackendEnhancedErrors,
+  GetAvailableModelsApiBackendChatModelsPostData,
+  GetAvailableModelsApiBackendChatModelsPostResponses,
+  GetAvailableModelsApiBackendChatModelsPostErrors,
   GetAvailableModelsGetBackendEnhancedData,
   GetAvailableModelsGetBackendEnhancedResponses,
   GetAvailableModelsGetBackendEnhancedErrors,
@@ -96,12 +96,19 @@ import type {
   HealthCheckBackendEnhancedResponses,
   ServiceInfoBackendEnhancedData,
   ServiceInfoBackendEnhancedResponses,
+  GetGithubInstallationsApiGithubInstallationsPostData,
+  GetGithubInstallationsApiGithubInstallationsPostResponses,
+  GetGithubInstallationsApiGithubInstallationsPostErrors,
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostData,
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses,
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
   getConversationHistoryApiBackendChatConversationsConversationIdPostResponseTransformer,
   getChatSessionApiBackendChatSessionsChatIdPostResponseTransformer,
   getIndexedRepositoriesApiIndexedReposPostResponseTransformer,
+  saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
 } from './transformers.gen';
 
 export type Options<
@@ -371,67 +378,6 @@ export const getChatSessionApiBackendChatSessionsChatIdPost = <
 };
 
 /**
- * Verify API key
- * Verify if an API key is valid for a specific provider without saving it
- */
-export const verifyApiKeyBackendEnhanced = <ThrowOnError extends boolean = false>(
-  options: Options<VerifyApiKeyBackendEnhancedData, ThrowOnError>,
-) => {
-  return (options.client ?? _heyApiClient).post<
-    VerifyApiKeyBackendEnhancedResponses,
-    VerifyApiKeyBackendEnhancedErrors,
-    ThrowOnError
-  >({
-    ...urlSearchParamsBodySerializer,
-    url: '/api/backend-chat/keys/verify',
-    ...options,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
-    },
-  });
-};
-
-/**
- * Save user API key
- * Save an encrypted API key for the authenticated user
- */
-export const saveApiKeyBackendEnhanced = <ThrowOnError extends boolean = false>(
-  options: Options<SaveApiKeyBackendEnhancedData, ThrowOnError>,
-) => {
-  return (options.client ?? _heyApiClient).post<
-    SaveApiKeyBackendEnhancedResponses,
-    SaveApiKeyBackendEnhancedErrors,
-    ThrowOnError
-  >({
-    ...urlSearchParamsBodySerializer,
-    url: '/api/backend-chat/keys/save',
-    ...options,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...options.headers,
-    },
-  });
-};
-
-/**
- * Get available LLM models
- * Retrieve list of available models per provider and user's API key status
- */
-export const getAvailableModelsApiBackendChatModelsPost = <ThrowOnError extends boolean = false>(
-  options?: Options<GetAvailableModelsApiBackendChatModelsPostData, ThrowOnError>,
-) => {
-  return (options?.client ?? _heyApiClient).post<
-    GetAvailableModelsApiBackendChatModelsPostResponses,
-    GetAvailableModelsApiBackendChatModelsPostErrors,
-    ThrowOnError
-  >({
-    url: '/api/backend-chat/models',
-    ...options,
-  });
-};
-
-/**
  * Update chat settings
  * Update settings for a chat session (title, default model, etc.)
  */
@@ -638,24 +584,64 @@ export const getIndexedRepositoriesApiIndexedReposPost = <ThrowOnError extends b
 };
 
 /**
- * Get user API keys
- * Get list of user's saved API keys (without exposing actual keys)
+ * Verify API key
+ * Verify if an API key is valid for a specific provider without saving it
  */
-export const getUserApiKeysBackendEnhanced = <ThrowOnError extends boolean = false>(
-  options: Options<GetUserApiKeysBackendEnhancedData, ThrowOnError>,
+export const verifyUserApiKeyApiBackendChatKeysVerifyPost = <ThrowOnError extends boolean = false>(
+  options: Options<VerifyUserApiKeyApiBackendChatKeysVerifyPostData, ThrowOnError>,
 ) => {
   return (options.client ?? _heyApiClient).post<
-    GetUserApiKeysBackendEnhancedResponses,
-    GetUserApiKeysBackendEnhancedErrors,
+    VerifyUserApiKeyApiBackendChatKeysVerifyPostResponses,
+    VerifyUserApiKeyApiBackendChatKeysVerifyPostErrors,
     ThrowOnError
   >({
     ...urlSearchParamsBodySerializer,
-    url: '/api/backend-chat/keys/list',
+    url: '/api/backend-chat/keys/verify',
     ...options,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Save user API key
+ * Save or update an encrypted API key for a specific provider with verification
+ */
+export const saveUserApiKeyApiBackendChatKeysSavePost = <ThrowOnError extends boolean = false>(
+  options: Options<SaveUserApiKeyApiBackendChatKeysSavePostData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SaveUserApiKeyApiBackendChatKeysSavePostResponses,
+    SaveUserApiKeyApiBackendChatKeysSavePostErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    responseTransformer: saveUserApiKeyApiBackendChatKeysSavePostResponseTransformer,
+    url: '/api/backend-chat/keys/save',
+    ...options,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get user API keys
+ * Get list of user's saved API keys (without exposing actual keys)
+ */
+export const getUserApiKeysBackendEnhanced = <ThrowOnError extends boolean = false>(
+  options?: Options<GetUserApiKeysBackendEnhancedData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetUserApiKeysBackendEnhancedResponses,
+    GetUserApiKeysBackendEnhancedErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/keys/list',
+    ...options,
   });
 };
 
@@ -678,6 +664,23 @@ export const deleteUserApiKeyBackendEnhanced = <ThrowOnError extends boolean = f
       'Content-Type': 'application/x-www-form-urlencoded',
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Get available LLM models
+ * Retrieve list of available models per provider and user's API key status
+ */
+export const getAvailableModelsApiBackendChatModelsPost = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAvailableModelsApiBackendChatModelsPostData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetAvailableModelsApiBackendChatModelsPostResponses,
+    GetAvailableModelsApiBackendChatModelsPostErrors,
+    ThrowOnError
+  >({
+    url: '/api/backend-chat/models',
+    ...options,
   });
 };
 
@@ -770,3 +773,43 @@ export const serviceInfoBackendEnhanced = <ThrowOnError extends boolean = false>
     ...options,
   });
 };
+
+/**
+ * Get Github Installations
+ * Get GitHub App installations for the authenticated user
+ */
+export const getGithubInstallationsApiGithubInstallationsPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetGithubInstallationsApiGithubInstallationsPostData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetGithubInstallationsApiGithubInstallationsPostResponses,
+    GetGithubInstallationsApiGithubInstallationsPostErrors,
+    ThrowOnError
+  >({
+    url: '/api/github/installations',
+    ...options,
+  });
+};
+
+/**
+ * Get Github Installation Repositories
+ * Get repositories accessible to a GitHub App installation that the user also has access to
+ */
+export const getGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPost =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostData,
+      ThrowOnError
+    >,
+  ) => {
+    return (options.client ?? _heyApiClient).post<
+      GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses,
+      GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors,
+      ThrowOnError
+    >({
+      url: '/api/github/installations/{installation_id}/repositories',
+      ...options,
+    });
+  };
