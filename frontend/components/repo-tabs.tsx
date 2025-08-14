@@ -41,6 +41,7 @@ import {
   fetchGithubRepo, 
   uploadLocalZip, 
   getRepositoryBranches, 
+  getRepositoryInfo,
   resolveBranch,
   getGitHubInstallations,
   getGitHubInstallationRepositories
@@ -182,7 +183,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     showToast.success(message);
   }, []);
 
-  // Function to detect repository info (size, branches) for GitHub repos
+  // Function to detect repository info (size, branches) for GitHub repos using unified API
   const detectRepositoryInfo = useCallback(
     async (url: string, token?: string) => {
       if (!url || !url.includes('github.com')) {
@@ -200,39 +201,19 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setBranchDetectionError('');
 
       try {
-        // Extract owner and repo from URL
-        const urlObj = new URL(url);
-        const [, owner, repo] = urlObj.pathname.split('/');
+        // Use the new unified API function that fetches everything in one call
+        const repoInfo = await getRepositoryInfo(url, token);
 
-        if (!owner || !repo) {
-          throw new Error('Invalid GitHub URL format');
-        }
-
-        // Fetch repo info (size + default_branch) and branches together
-        const repoInfoPromise = fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-          headers: token ? { Authorization: `token ${token}` } : {},
-        }).then((res) => res.json());
-
-        const branchesPromise = getRepositoryBranches(url, token);
-
-        const [repoInfo, branches] = await Promise.all([repoInfoPromise, branchesPromise]);
-
-        // Set repository size (in KB)
-        if (repoInfo.size) {
-          setRepoSize(repoInfo.size);
-          // Consider repos over 50MB (50000 KB) as large
-          setIsLargeRepo(repoInfo.size > 50000);
-        }
-
-        const defaultBranch = repoInfo?.default_branch || 'main';
-
-        setSuggestedBranch(defaultBranch);
-        setAvailableBranches(branches);
+        // Set all the repository information at once
+        setRepoSize(repoInfo.size);
+        setIsLargeRepo(repoInfo.isLargeRepo);
+        setSuggestedBranch(repoInfo.defaultBranch);
+        setAvailableBranches(repoInfo.branches);
         setShowBranchSection(true);
 
         // Auto-fill branch if it's empty
         if (!branch.trim()) {
-          setBranch(defaultBranch);
+          setBranch(repoInfo.defaultBranch);
         }
       } catch (error) {
         console.warn('Could not detect repository info:', error);
@@ -569,6 +550,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
 
+      handleSuccess('Analysis complete! Redirecting to results page...');
+
       try {
         const url = new URL(repoUrl);
         const parts = url.pathname.split('/').filter(Boolean);
@@ -629,6 +612,9 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('github');
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
+      
+      handleSuccess('Analysis complete! Redirecting to results page...');
+      
       try {
         const url = new URL(repoUrl.trim());
         const parts = url.pathname.split('/').filter(Boolean);
@@ -670,6 +656,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('zip');
       setSourceData(zipFile);
       setOutputMessage('ZIP file processed successfully!');
+
+      handleSuccess('Processing complete! Redirecting to results page...');
 
       const zipName = zipFile.name.replace(/\.zip$/i, '');
       router.push(`/results/zip/${encodeURIComponent(zipName)}`);
@@ -1011,7 +999,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                     ) : isDetectingBranch || isDetectingRepo ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {isDetectingRepo ? 'Detecting repository...' : 'Loading branches...'}
+                        Getting repo information...
                       </>
                     ) : (
                       <>
