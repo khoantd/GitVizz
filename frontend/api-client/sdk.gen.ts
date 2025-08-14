@@ -96,6 +96,12 @@ import type {
   HealthCheckBackendEnhancedResponses,
   ServiceInfoBackendEnhancedData,
   ServiceInfoBackendEnhancedResponses,
+  GetGithubInstallationsApiGithubInstallationsPostData,
+  GetGithubInstallationsApiGithubInstallationsPostResponses,
+  GetGithubInstallationsApiGithubInstallationsPostErrors,
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostData,
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses,
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors,
 } from './types.gen';
 import { client as _heyApiClient } from './client.gen';
 import {
@@ -770,3 +776,43 @@ export const serviceInfoBackendEnhanced = <ThrowOnError extends boolean = false>
     ...options,
   });
 };
+
+/**
+ * Get Github Installations
+ * Get GitHub App installations for the authenticated user
+ */
+export const getGithubInstallationsApiGithubInstallationsPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetGithubInstallationsApiGithubInstallationsPostData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetGithubInstallationsApiGithubInstallationsPostResponses,
+    GetGithubInstallationsApiGithubInstallationsPostErrors,
+    ThrowOnError
+  >({
+    url: '/api/github/installations',
+    ...options,
+  });
+};
+
+/**
+ * Get Github Installation Repositories
+ * Get repositories accessible to a GitHub App installation that the user also has access to
+ */
+export const getGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPost =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostData,
+      ThrowOnError
+    >,
+  ) => {
+    return (options.client ?? _heyApiClient).post<
+      GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses,
+      GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors,
+      ThrowOnError
+    >({
+      url: '/api/github/installations/{installation_id}/repositories',
+      ...options,
+    });
+  };

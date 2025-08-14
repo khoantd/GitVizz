@@ -1600,6 +1600,216 @@ export const FileMetadataSchema = {
   title: 'FileMetadata',
 } as const;
 
+export const GitHubAccountSchema = {
+  properties: {
+    login: {
+      type: 'string',
+      title: 'Login',
+    },
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    avatar_url: {
+      type: 'string',
+      title: 'Avatar Url',
+    },
+    type: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Type',
+    },
+  },
+  type: 'object',
+  required: ['login', 'id', 'avatar_url'],
+  title: 'GitHubAccount',
+  description: 'GitHub account information',
+} as const;
+
+export const GitHubInstallationSchema = {
+  properties: {
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    account: {
+      $ref: '#/components/schemas/GitHubAccount',
+    },
+    app_id: {
+      type: 'integer',
+      title: 'App Id',
+    },
+    target_type: {
+      type: 'string',
+      title: 'Target Type',
+    },
+    target_id: {
+      anyOf: [
+        {
+          type: 'integer',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Target Id',
+    },
+    created_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Created At',
+    },
+    updated_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Updated At',
+    },
+  },
+  type: 'object',
+  required: ['id', 'account', 'app_id', 'target_type'],
+  title: 'GitHubInstallation',
+  description: 'GitHub App installation',
+} as const;
+
+export const GitHubInstallationsResponseSchema = {
+  properties: {
+    installations: {
+      items: {
+        $ref: '#/components/schemas/GitHubInstallation',
+      },
+      type: 'array',
+      title: 'Installations',
+    },
+    user_id: {
+      type: 'integer',
+      title: 'User Id',
+    },
+    user_login: {
+      type: 'string',
+      title: 'User Login',
+    },
+  },
+  type: 'object',
+  required: ['installations', 'user_id', 'user_login'],
+  title: 'GitHubInstallationsResponse',
+  description: 'Response for GitHub installations endpoint',
+} as const;
+
+export const GitHubRepositoriesResponseSchema = {
+  properties: {
+    repositories: {
+      items: {
+        $ref: '#/components/schemas/GitHubRepository',
+      },
+      type: 'array',
+      title: 'Repositories',
+    },
+    total_count: {
+      type: 'integer',
+      title: 'Total Count',
+    },
+  },
+  type: 'object',
+  required: ['repositories', 'total_count'],
+  title: 'GitHubRepositoriesResponse',
+  description: 'Response for GitHub repositories endpoint',
+} as const;
+
+export const GitHubRepositorySchema = {
+  properties: {
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    name: {
+      type: 'string',
+      title: 'Name',
+    },
+    full_name: {
+      type: 'string',
+      title: 'Full Name',
+    },
+    description: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Description',
+    },
+    private: {
+      type: 'boolean',
+      title: 'Private',
+    },
+    html_url: {
+      type: 'string',
+      title: 'Html Url',
+    },
+    language: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Language',
+    },
+    stargazers_count: {
+      type: 'integer',
+      title: 'Stargazers Count',
+      default: 0,
+    },
+    forks_count: {
+      type: 'integer',
+      title: 'Forks Count',
+      default: 0,
+    },
+    default_branch: {
+      type: 'string',
+      title: 'Default Branch',
+      default: 'main',
+    },
+    updated_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Updated At',
+    },
+  },
+  type: 'object',
+  required: ['id', 'name', 'full_name', 'private', 'html_url'],
+  title: 'GitHubRepository',
+  description: 'GitHub repository information',
+} as const;
+
 export const GraphEdgeSchema = {
   properties: {
     source: {

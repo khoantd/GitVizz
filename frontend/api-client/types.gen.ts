@@ -963,6 +963,146 @@ export type FileMetadata = {
 };
 
 /**
+ * GitHubAccount
+ * GitHub account information
+ */
+export type GitHubAccount = {
+  /**
+   * Login
+   */
+  login: string;
+  /**
+   * Id
+   */
+  id: number;
+  /**
+   * Avatar Url
+   */
+  avatar_url: string;
+  /**
+   * Type
+   */
+  type?: string | null;
+};
+
+/**
+ * GitHubInstallation
+ * GitHub App installation
+ */
+export type GitHubInstallation = {
+  /**
+   * Id
+   */
+  id: number;
+  account: GitHubAccount;
+  /**
+   * App Id
+   */
+  app_id: number;
+  /**
+   * Target Type
+   */
+  target_type: string;
+  /**
+   * Target Id
+   */
+  target_id?: number | null;
+  /**
+   * Created At
+   */
+  created_at?: string | null;
+  /**
+   * Updated At
+   */
+  updated_at?: string | null;
+};
+
+/**
+ * GitHubInstallationsResponse
+ * Response for GitHub installations endpoint
+ */
+export type GitHubInstallationsResponse = {
+  /**
+   * Installations
+   */
+  installations: Array<GitHubInstallation>;
+  /**
+   * User Id
+   */
+  user_id: number;
+  /**
+   * User Login
+   */
+  user_login: string;
+};
+
+/**
+ * GitHubRepositoriesResponse
+ * Response for GitHub repositories endpoint
+ */
+export type GitHubRepositoriesResponse = {
+  /**
+   * Repositories
+   */
+  repositories: Array<GitHubRepository>;
+  /**
+   * Total Count
+   */
+  total_count: number;
+};
+
+/**
+ * GitHubRepository
+ * GitHub repository information
+ */
+export type GitHubRepository = {
+  /**
+   * Id
+   */
+  id: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Full Name
+   */
+  full_name: string;
+  /**
+   * Description
+   */
+  description?: string | null;
+  /**
+   * Private
+   */
+  private: boolean;
+  /**
+   * Html Url
+   */
+  html_url: string;
+  /**
+   * Language
+   */
+  language?: string | null;
+  /**
+   * Stargazers Count
+   */
+  stargazers_count?: number;
+  /**
+   * Forks Count
+   */
+  forks_count?: number;
+  /**
+   * Default Branch
+   */
+  default_branch?: string;
+  /**
+   * Updated At
+   */
+  updated_at?: string | null;
+};
+
+/**
  * GraphEdge
  */
 export type GraphEdge = {
@@ -2592,6 +2732,80 @@ export type ServiceInfoBackendEnhancedResponses = {
    */
   200: unknown;
 };
+
+export type GetGithubInstallationsApiGithubInstallationsPostData = {
+  body?: never;
+  headers?: {
+    /**
+     * Authorization
+     */
+    authorization?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/github/installations';
+};
+
+export type GetGithubInstallationsApiGithubInstallationsPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGithubInstallationsApiGithubInstallationsPostError =
+  GetGithubInstallationsApiGithubInstallationsPostErrors[keyof GetGithubInstallationsApiGithubInstallationsPostErrors];
+
+export type GetGithubInstallationsApiGithubInstallationsPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: GitHubInstallationsResponse;
+};
+
+export type GetGithubInstallationsApiGithubInstallationsPostResponse =
+  GetGithubInstallationsApiGithubInstallationsPostResponses[keyof GetGithubInstallationsApiGithubInstallationsPostResponses];
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostData =
+  {
+    body?: never;
+    headers?: {
+      /**
+       * Authorization
+       */
+      authorization?: string | null;
+    };
+    path: {
+      /**
+       * Installation Id
+       */
+      installation_id: number;
+    };
+    query?: never;
+    url: '/api/github/installations/{installation_id}/repositories';
+  };
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+  };
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostError =
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors[keyof GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostErrors];
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: GitHubRepositoriesResponse;
+  };
+
+export type GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponse =
+  GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses[keyof GetGithubInstallationRepositoriesApiGithubInstallationsInstallationIdRepositoriesPostResponses];
 
 export type ClientOptions = {
   baseUrl: 'http://localhost:8003' | (string & {});
