@@ -1,7 +1,7 @@
 import httpx
+import logging
 from fastapi import HTTPException, status
 from beanie import PydanticObjectId
-
 from models.user import User
 from schemas.github_schemas import (
     GitHubInstallationsResponse,
@@ -10,18 +10,32 @@ from schemas.github_schemas import (
     GitHubRepository
 )
 
+# Set up logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
     """
     Get GitHub App installations for the authenticated user
     """
     try:
+        print(f"Fetching GitHub installations for user_id: {user_id}")
+        
         # Get user from database
         user = await User.get(PydanticObjectId(user_id))
-        if not user or not user.github_access_token:
+        if not user:
+            print(f"User not found in database: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or GitHub access token missing"
+                detail="User not found in database"
+            )
+        
+        if not user.github_access_token:
+            print(f"GitHub access token missing for user: {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="GitHub access token missing"
             )
 
         access_token = user.github_access_token
@@ -32,16 +46,23 @@ async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
 
         async with httpx.AsyncClient() as client:
             # Get the current authenticated user's information
+            print("Fetching GitHub user information")
             user_res = await client.get("https://api.github.com/user", headers=headers)
+            
             if user_res.status_code != 200:
+                error_data = user_res.json() if user_res.content else {}
+                error_message = error_data.get("message", "Unknown error")
+                print(f"GitHub user API failed with status {user_res.status_code}: {error_message}")
+                print(f"GitHub API Response: {error_data}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid GitHub token"
+                    detail=f"Invalid GitHub token: {error_message}"
                 )
 
             github_user = user_res.json()
 
             # Get user installations
+            print("Fetching GitHub user installations")
             installations_res = await client.get(
                 "https://api.github.com/user/installations", 
                 headers=headers
@@ -49,9 +70,13 @@ async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
             
             if installations_res.status_code != 200:
                 error_data = installations_res.json() if installations_res.content else {}
+                error_message = error_data.get("message", "Unknown error")
+                print(f"GitHub installations API failed with status {installations_res.status_code}: {error_message}")
+                print(f"GitHub API Response: {error_data}")
+                print(f"Request headers: {headers}")
                 raise HTTPException(
                     status_code=installations_res.status_code,
-                    detail=error_data.get("message", "Failed to fetch installations")
+                    detail=f"Failed to fetch installations: {installations_res.status_code}: {error_message}"
                 )
 
             installations_data = installations_res.json()
@@ -66,15 +91,18 @@ async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
                 elif installation.get("target_type") == "Organization":
                     user_installations.append(GitHubInstallation(**installation))
 
-            return GitHubInstallationsResponse(
+            response = GitHubInstallationsResponse(
                 installations=user_installations,
                 user_id=github_user["id"],
                 user_login=github_user["login"]
             )
+            print(f"Successfully fetched {len(user_installations)} GitHub installations for user {github_user['login']}")
+            return response
 
     except HTTPException:
         raise
     except Exception as error:
+        logger.exception(f"Unexpected error in get_user_installations for user_id {user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(error)}"
@@ -135,7 +163,7 @@ async def get_installation_repositories(
                 private_key_formatted.encode('utf-8'),
                 password=None
             )
-            print(f"[DEBUG] Successfully parsed private key")
+            print("[DEBUG] Successfully parsed private key")
         except Exception as e:
             print(f"[DEBUG] Private key parsing error: {str(e)}")
             raise HTTPException(
