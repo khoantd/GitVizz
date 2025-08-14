@@ -9,6 +9,7 @@ from models.user import User
 from models.chat import UserApiKey
 from beanie import BeanieObjectId
 from datetime import datetime, timezone
+from schemas.chat_schemas import AvailableModelsResponse
 
 
 
@@ -178,18 +179,18 @@ class ApiKeyController:
                     user_key = await UserApiKey.find_one(
                         UserApiKey.id == BeanieObjectId(key_id),
                         UserApiKey.user.id == BeanieObjectId(user.id),
-                        UserApiKey.provider == provider,
-                        UserApiKey.is_active == True
+                        UserApiKey.provider == provider
+                        # Removed is_active filter since we're doing hard deletes
                     )
                 except Exception as e:
                     print(f"Error finding key by ID {key_id}: {e}")
                     user_key = None
             else:
-                # Find by user and provider
+                # Find by user and provider (active keys only for provider-based deletion)
                 user_key = await UserApiKey.find_one(
                     UserApiKey.user.id == BeanieObjectId(user.id),
                     UserApiKey.provider == provider,
-                    UserApiKey.is_active == True
+                    UserApiKey.is_active == True  # Keep this for provider-based deletion
                 )
             if not user_key:
                 # Debug: List all keys for this user to help troubleshoot
@@ -207,16 +208,15 @@ class ApiKeyController:
                     detail=f"API key not found for provider '{provider}'. Available providers for user: {[k.provider for k in all_user_keys if k.is_active]}"
                 )
             
-            # Soft delete by setting is_active to False
-            user_key.is_active = False
-            user_key.updated_at = datetime.now(timezone.utc)
-            await user_key.save()
+            # Hard delete for security reasons - completely remove the API key from database
+            deleted_at = datetime.now(timezone.utc)
+            await user_key.delete()
             
             return {
                 "success": True,
-                "message": f"API key for {provider} deleted successfully",
+                "message": f"API key for {provider} permanently deleted successfully",
                 "provider": provider,
-                "deleted_at": user_key.updated_at.isoformat()
+                "deleted_at": deleted_at.isoformat()
             }
             
         except HTTPException:
@@ -335,6 +335,35 @@ class ApiKeyController:
             
         except HTTPException:
             raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_available_models_response(
+        self,
+        user: User
+    ) -> AvailableModelsResponse:
+        """Get available models with user's key status - returns AvailableModelsResponse schema"""
+        try:
+            # Get user's keys
+            user_keys = await UserApiKey.find(
+                UserApiKey.user.id == BeanieObjectId(user.id),
+                UserApiKey.is_active == True
+            ).to_list()
+            
+            user_has_keys = [key.provider for key in user_keys]
+            
+            # Get available models from LangChain service
+            from utils.langchain_llm_service import langchain_service
+            models = langchain_service.get_available_models()
+            
+            response = AvailableModelsResponse(
+                providers=models,
+                current_limits={},  # Remove limits
+                user_has_keys=user_has_keys
+            )
+            
+            return response
+            
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 

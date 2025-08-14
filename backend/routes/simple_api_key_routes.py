@@ -7,45 +7,85 @@ from typing import Optional, Annotated
 from controllers.api_key_controller import api_key_controller
 from middleware.auth_middleware import require_auth
 from models.user import User
+from schemas.chat_schemas import (
+    ApiKeyResponse,
+    AvailableModelsResponse
+)
+from schemas.response_schemas import ErrorResponse
 
 router = APIRouter(prefix="/backend-chat")
 
-# API key verification endpoint
+# API key verification endpoint - exact copy from chat_routes.py
 @router.post(
     "/keys/verify",
+    response_model=dict,
     summary="Verify API key",
     description="Verify if an API key is valid for a specific provider without saving it",
-    operation_id="verify_api_key_backend_enhanced"
+    response_description="Verification result with details",
+    responses={
+        200: {
+            "description": "API key verification result"
+        },
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid provider specified"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized - Invalid JWT token"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error"
+        }
+    }
 )
-async def verify_user_api_key_enhanced(
-    token: Annotated[str, Form(description="JWT authentication token")],
+async def verify_user_api_key(
+    current_user: Annotated[User, Depends(require_auth)],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
     api_key: Annotated[str, Form(description="API key to verify")]
 ):
-    """Verify API key without saving it"""
     return await api_key_controller.verify_api_key(
-        token=token,
+        user=current_user,
         provider=provider,
         api_key=api_key
     )
 
-# Save user API key endpoint
+# API key save endpoint - exact copy from chat_routes.py
 @router.post(
     "/keys/save",
+    response_model=ApiKeyResponse,
     summary="Save user API key",
-    description="Save an encrypted API key for the authenticated user",
-    operation_id="save_api_key_backend_enhanced"
+    description="Save or update an encrypted API key for a specific provider with verification",
+    response_description="Confirmation of key save operation",
+    responses={
+        200: {
+            "model": ApiKeyResponse,
+            "description": "API key saved successfully"
+        },
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid provider or API key specified"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized - Invalid JWT token"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error"
+        }
+    }
 )
-async def save_user_api_key_enhanced(
-    token: Annotated[str, Form(description="JWT authentication token")],
+async def save_user_api_key(
+    current_user: Annotated[User, Depends(require_auth)],
     provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
-    api_key: Annotated[str, Form(description="API key to save")],
-    key_name: Annotated[Optional[str], Form(description="Optional friendly name for the key")] = None,
-    verify_key: Annotated[bool, Form(description="Whether to verify key before saving")] = True
+    api_key: Annotated[str, Form(description="API key")],
+    key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
+    verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
 ):
-    """Save encrypted user API key with optional verification"""
     return await api_key_controller.save_user_api_key(
-        token=token,
+        user=current_user,
         provider=provider,
         api_key=api_key,
         key_name=key_name,
@@ -60,10 +100,10 @@ async def save_user_api_key_enhanced(
     operation_id="get_user_api_keys_backend_enhanced"
 )
 async def get_user_api_keys_enhanced(
-    token: Annotated[str, Form(description="JWT authentication token")]
+    current_user: Annotated[User, Depends(require_auth)]
 ):
     """Get list of user's saved API keys"""
-    return await api_key_controller.get_user_api_keys(token=token)
+    return await api_key_controller.get_user_api_keys(user=current_user)
 
 # Delete user API key endpoint
 @router.post(
@@ -73,18 +113,45 @@ async def get_user_api_keys_enhanced(
     operation_id="delete_user_api_key_backend_enhanced"
 )
 async def delete_user_api_key_enhanced(
-    token: Annotated[str, Form(description="JWT authentication token")],
+    current_user: Annotated[User, Depends(require_auth)],
     provider: Annotated[str, Form(description="Provider name to delete key for")],
     key_id: Annotated[Optional[str], Form(description="Specific key ID to delete")] = None
 ):
     """Delete user's API key for a specific provider"""
     return await api_key_controller.delete_user_api_key(
-        token=token,
+        user=current_user,
         provider=provider,
         key_id=key_id
     )
 
-# Get available models endpoint
+# Available models endpoint - exact copy from chat_routes.py
+@router.post(
+    "/models",
+    response_model=AvailableModelsResponse,
+    summary="Get available LLM models",
+    description="Retrieve list of available models per provider and user's API key status",
+    response_description="List of available models and user's key status",
+    responses={
+        200: {
+            "model": AvailableModelsResponse,
+            "description": "Successful retrieval of available models"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized - Invalid JWT token"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error"
+        }
+    }
+)
+async def get_available_models(
+    current_user: Annotated[User, Depends(require_auth)]
+):
+    return await api_key_controller.get_available_models_response(user=current_user)
+
+# Get available models endpoint with provider filter
 @router.post(
     "/models/available",
     summary="Get available models",
@@ -109,16 +176,12 @@ async def get_available_models_enhanced(
     operation_id="get_available_models_get_backend_enhanced"
 )
 async def get_available_models_get_enhanced(
-    token: Optional[str] = None,
     provider: Optional[str] = None
 ):
     """Get available models with detailed configurations (GET method)"""
-    # For GET requests, use a dummy token if none provided (for anonymous access)
-    if not token:
-        token = "anonymous"
-    
+    # For GET requests without auth, return basic model information
     return await api_key_controller.get_available_models(
-        token=token,
+        user=None,
         provider=provider
     )
 

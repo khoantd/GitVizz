@@ -946,7 +946,6 @@ export async function getDetailedAvailableModels(
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', token);
     if (provider) {
       formData.append('provider', provider);
     }
@@ -954,6 +953,9 @@ export async function getDetailedAvailableModels(
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/models/available`, {
       method: 'POST',
+      headers: {
+        'Authorization': token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
