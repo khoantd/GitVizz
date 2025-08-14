@@ -39,9 +39,24 @@ async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
             )
 
         access_token = user.github_access_token
+        
+        # Basic token validation
+        if not access_token.strip():
+            print(f"GitHub token is empty or whitespace for user: {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="GitHub token is empty"
+            )
+            
+        # Log token length and format (safely)
+        token_length = len(access_token)
+        token_prefix = access_token[:7] + "..." if token_length > 10 else "..."
+        print(f"Token validation - Length: {token_length}, Prefix: {token_prefix}")
+        
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/vnd.github+json",
+            "User-Agent": "GitVizz-Backend/1.0"  # Adding User-Agent as GitHub requires it
         }
 
         async with httpx.AsyncClient() as client:
@@ -54,10 +69,27 @@ async def get_user_installations(user_id: str) -> GitHubInstallationsResponse:
                 error_message = error_data.get("message", "Unknown error")
                 print(f"GitHub user API failed with status {user_res.status_code}: {error_message}")
                 print(f"GitHub API Response: {error_data}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"Invalid GitHub token: {error_message}"
-                )
+                print(f"Request URL: {user_res.request.url}")
+                print(f"Request headers (sanitized): {dict(user_res.request.headers)}")
+                
+                # Check specific error cases
+                if error_message == "Bad credentials":
+                    print("Token validation failed - token might be expired or invalid")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="GitHub token is invalid or expired. Please re-authenticate."
+                    )
+                elif user_res.status_code == 403:
+                    print("Rate limit or permission issue detected")
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"GitHub API access forbidden: {error_message}"
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=f"Invalid GitHub token: {error_message}"
+                    )
 
             github_user = user_res.json()
 
