@@ -41,8 +41,7 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
   // Create form data as expected by the API
   const formData = new FormData();
 
-  // Add all required fields
-  formData.append('token', request.token);
+  // Add all required fields (no token in body)
   formData.append('message', request.message);
   formData.append('repository_id', request.repository_id);
   formData.append('use_user', request.use_user.toString());
@@ -61,9 +60,13 @@ export async function createStreamingChatRequest(request: StreamingChatRequest):
     formData.append('context_mode', request.context_mode);
   }
 
-  // Make the request to your backend
-  const response = await fetch(`${'http://localhost:8003'}/api/backend-chat/chat/stream`, {
+  // Make the request to your backend with Authorization header
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+  const response = await fetch(`${backendUrl}/api/backend-chat/chat/stream`, {
     method: 'POST',
+    headers: {
+      'Authorization': request.token, // Token already contains "Bearer "
+    },
     body: formData,
   });
 

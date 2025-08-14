@@ -7,18 +7,16 @@ import time
 from datetime import datetime, timedelta, timezone
 import logging
 from beanie import BeanieObjectId
-from models.chat import ChatSession, Conversation, UserApiKey
+from models.chat import ChatSession, Conversation
 from models.repository import Repository
 from models.user import User
 from utils.llm_utils import llm_service
 from utils.file_utils import file_manager
-from utils.jwt_utils import get_current_user
 from utils.repo_utils import extract_zip_contents, smart_filter_files, format_repo_contents, cleanup_temp_files
 from utils.repo_utils import find_user_repository
 from schemas.chat_schemas import (
     ChatResponse, ConversationHistoryResponse, 
-    ChatSessionResponse, ApiKeyResponse,
-    AvailableModelsResponse, ChatSettingsResponse,
+    ChatSessionResponse, ChatSettingsResponse,
     ContextSearchResponse, MessageResponse, StreamChatResponse, ChatSessionListItem, ChatSessionListResponse
 )
 
@@ -92,7 +90,9 @@ class ChatController:
         context_search_query: Optional[str] = None,
         user_query: Optional[str] = None,
         max_context_tokens: int = 8000,
-        scope_preference: str = "moderate"
+        scope_preference: str = "moderate",
+        model: str = "gpt-4o-mini",
+        provider: str = "openai"
     ) -> tuple[str, dict]:
         """
         Get repository context for LLM processing by processing the locally stored ZIP file
@@ -126,13 +126,28 @@ class ChatController:
                             "search_query": context_search_query
                         }
                         
-                        # Truncate if too long (rough token estimation: 1 token ≈ 4 characters)
-                        estimated_tokens = len(cached_content) // 4
-                        if estimated_tokens > max_context_tokens:
-                            char_limit = max_context_tokens * 4
-                            cached_content = cached_content[:char_limit] + "\n\n... (content truncated due to length)"
-                            context_metadata["truncated"] = True
-                            context_metadata["truncated_at_tokens"] = max_context_tokens
+                        # Use intelligent token-aware truncation for cached content
+                        from utils.langchain_llm_service import langchain_service
+                        actual_tokens = langchain_service.count_tokens_approximately(cached_content)
+                        context_metadata["actual_tokens"] = actual_tokens
+                        context_metadata["model_used_for_counting"] = model
+                        
+                        if actual_tokens > max_context_tokens:
+                            logger.info(f"Cached content exceeds limit: {actual_tokens} > {max_context_tokens}, truncating...")
+                            
+                            # Calculate the proportion to keep
+                            keep_ratio = max_context_tokens / actual_tokens
+                            char_limit = int(len(cached_content) * keep_ratio * 0.9)  # Use 90% to be safe
+                            
+                            cached_content = cached_content[:char_limit] + "\n\n... (content truncated due to token limit)"
+                            final_tokens = langchain_service.count_tokens_approximately(cached_content)
+                            
+                            context_metadata.update({
+                                "truncated": True,
+                                "truncated_at_tokens": max_context_tokens,
+                                "final_tokens": final_tokens,
+                                "truncation_ratio": keep_ratio
+                            })
                         
                         return cached_content, context_metadata
                 except Exception as e:
@@ -182,27 +197,59 @@ class ChatController:
                     "repository_name": repository.repo_name
                 }
             
+            # Use intelligent token-aware truncation with LangChain utilities
+            from utils.langchain_llm_service import langchain_service
+            
             # Format repository contents into LLM-friendly text
             context_text = format_repo_contents(filtered_files)
+            
+            # Count actual tokens using LangChain's approximate counting
+            actual_tokens = langchain_service.count_tokens_approximately(context_text)
             
             context_metadata = {
                 "source": "zip_processed",
                 "repository_id": str(repository.id),
                 "repository_name": repository.repo_name,
                 "content_length": len(context_text),
+                "actual_tokens": actual_tokens,
+                "max_context_tokens": max_context_tokens,
                 "scope": scope_preference,
                 "search_query": context_search_query,
                 "files_processed": len(filtered_files),
-                "zip_path": zip_file_path
+                "zip_path": zip_file_path,
+                "model_used_for_counting": model
             }
             
-            # Truncate if too long (rough token estimation: 1 token ≈ 4 characters)
-            estimated_tokens = len(context_text) // 4
-            if estimated_tokens > max_context_tokens:
-                char_limit = max_context_tokens * 4
-                context_text = context_text[:char_limit] + "\n\n... (content truncated due to length)"
-                context_metadata["truncated"] = True
-                context_metadata["truncated_at_tokens"] = max_context_tokens
+            # Intelligent truncation if content exceeds token limit
+            if actual_tokens > max_context_tokens:
+                logger.info(f"Context exceeds limit: {actual_tokens} > {max_context_tokens}, truncating...")
+                
+                # Calculate the proportion to keep
+                keep_ratio = max_context_tokens / actual_tokens
+                char_limit = int(len(context_text) * keep_ratio * 0.9)  # Use 90% to be safe
+                
+                # Try to truncate at natural boundaries (file boundaries)
+                lines = context_text.split('\n')
+                truncated_lines = []
+                current_chars = 0
+                
+                for line in lines:
+                    if current_chars + len(line) + 1 > char_limit:
+                        break
+                    truncated_lines.append(line)
+                    current_chars += len(line) + 1
+                
+                context_text = '\n'.join(truncated_lines)
+                context_text += "\n\n... (content truncated due to token limit)"
+                
+                # Update token count after truncation
+                final_tokens = langchain_service.count_tokens_approximately(context_text)
+                context_metadata.update({
+                    "truncated": True,
+                    "truncated_at_tokens": max_context_tokens,
+                    "final_tokens": final_tokens,
+                    "truncation_ratio": keep_ratio
+                })
             
             logger.info(f"Successfully processed repository context: {len(filtered_files)} files, {len(context_text)} characters")
             return context_text, context_metadata
@@ -243,33 +290,30 @@ class ChatController:
     
     async def process_chat_message(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        message: Annotated[str, Form(description="User's message/question")],
-        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
-        use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
-        chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
-        conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
-        model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
-        temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
-        max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        context_search_query: Annotated[Optional[str], Form(description="Specific search query for context retrieval")] = None,
-        scope_preference: Annotated[str, Form(description="Context scope preference: focused, moderate, or comprehensive")] = "moderate"
+        user: User,
+        message: str,
+        repository_id: str,
+        use_user: bool = False,
+        chat_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        provider: str = "openai",
+        model: str = "gpt-3.5-turbo",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        include_full_context: bool = False,
+        context_search_query: Optional[str] = None,
+        scope_preference: str = "moderate"
     ) -> ChatResponse:
         """Process a chat message and generate AI response"""
         
         start_time = time.time()
         
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
                 user, 
-                repository_identifier,
+                repository_id,
                 None,  # No separate branch parameter needed with new identifier format
                 chat_id
             )
@@ -306,7 +350,9 @@ class ChatController:
                 context_search_query,
                 user_query=message,
                 max_context_tokens=max_tokens or 8000,
-                scope_preference=scope_preference
+                scope_preference=scope_preference,
+                model=model,
+                provider=provider
             )
             
             # Prepare messages for LLM with intelligent context window management
@@ -431,13 +477,13 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def process_streaming_chat(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         message: Annotated[str, Form(description="User's message/question")],
         repository_id: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
         chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
         conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
-        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini)")] = "openai",
+        provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
@@ -462,15 +508,6 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 ).model_dump()) + "\n"
                 return
             
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                yield json.dumps(StreamChatResponse(
-                    event="error",
-                    error="Invalid JWT token",
-                    error_type="authentication_error"
-                ).model_dump()) + "\n"
-                return
             
             # Get or create chat session
             chat_session = await self.get_or_create_chat_session(
@@ -561,7 +598,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 chat_session.repository,
                 context_mode,
                 user_query=message,
-                max_context_tokens=max_tokens or 8000
+                max_context_tokens=max_tokens or 8000,
+                model=model,
+                provider=provider
             )
             
             # Prepare messages for LLM with intelligent context window management
@@ -733,13 +772,10 @@ Provide detailed, accurate responses based on the repository content. Reference 
             
     async def list_user_chat_sessions(
         self,
-        jwt_token: Annotated[str, Form(description="JWT authentication token")],
-        repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")]
+        user: User,
+        repository_identifier: str
     ) -> ChatSessionListResponse:
         try:
-            user = await get_current_user(jwt_token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             user_object_id = BeanieObjectId(user.id)
             
@@ -801,14 +837,11 @@ Provide detailed, accurate responses based on the repository content. Reference 
         
     async def get_conversation_history(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        conversation_id: Annotated[str, Form(description="Conversation ID to retrieve")]
+        user: User,
+        conversation_id: str
     ) -> ConversationHistoryResponse:
         """Get full conversation history"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             conversation = await Conversation.find_one(
                 Conversation.conversation_id == conversation_id,
@@ -847,14 +880,11 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def get_chat_session(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        chat_id: Annotated[str, Form(description="Chat session ID to retrieve")]
+        user: User,
+        chat_id: str
     ) -> ChatSessionResponse:
         """Get chat session details with recent conversations"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Fetch with linked repository included
             chat_session = await ChatSession.find_one(
@@ -929,164 +959,11 @@ Provide detailed, accurate responses based on the repository content. Reference 
             raise HTTPException(status_code=500, detail=str(e))
         
     
-    async def verify_user_api_key(
-        self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
-        api_key: Annotated[str, Form(description="API key to verify")]
-    ) -> dict:
-        """Verify API key without saving it"""
-        try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
-            
-            # Validate provider
-            valid_providers = ["openai", "anthropic", "gemini"]
-            if provider not in valid_providers:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
-                )
-            
-            # Verify the API key
-            is_valid = llm_service.verify_api_key(provider, api_key)
-            
-            response = {
-                "success": True,
-                "provider": provider,
-                "is_valid": is_valid,
-                "message": "API key is valid" if is_valid else "API key is invalid"
-            }
-            
-            # Optionally get available models if key is valid
-            if is_valid:
-                try:
-                    available_models = llm_service.get_valid_models_for_provider(provider, api_key)
-                    response["available_models"] = available_models[:10]  # Limit to first 10 models
-                except Exception as e:
-                    logger.warning(f"Could not fetch models for {provider}: {e}")
-                    response["available_models"] = []
-            
-            return response
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
 
-    async def save_user_api_key(
-        self,
-        token: Annotated[str, Form(description="JWT authentication token")],
-        provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini)")],
-        api_key: Annotated[str, Form(description="API key")],
-        key_name: Annotated[Optional[str], Form(description="Friendly name for the key")] = None,
-        verify_key: Annotated[bool, Form(description="Whether to verify the key before saving")] = True
-    ) -> ApiKeyResponse:
-        """Save or update user API key with optional verification"""
-        try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
-            
-            # Validate provider
-            valid_providers = ["openai", "anthropic", "gemini"]
-            if provider not in valid_providers:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
-                )
-            
-            # Save key with verification
-            user_key = await llm_service.save_user_api_key(
-                user,
-                provider,
-                api_key,
-                verify=verify_key
-            )
-            # Set key_name if provided (the new service doesn't use key_name parameter)
-            if key_name and hasattr(user_key, 'key_name'):
-                user_key.key_name = key_name
-                await user_key.save()
-            
-            return ApiKeyResponse(
-                success=True,
-                message="API key saved successfully",
-                provider=provider,
-                key_name=user_key.key_name,
-                created_at=user_key.created_at
-            )
-            
-        except Exception as e:
-            return ApiKeyResponse(
-                success=False,
-                message=str(e),
-                provider=provider
-            )
-    
-    # Cache for model data to prevent repeated calls
-    _models_cache = None
-    _models_cache_time = None
-    _cache_duration = 300  # 5 minutes
-    
-    async def get_available_models(
-        self,
-        token: Annotated[str, Form(description="JWT authentication token")]
-    ) -> AvailableModelsResponse:
-        """Get available models with user's key status (cached)"""
-        try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
-            
-            # Check cache first
-            current_time = time.time()
-            if (self._models_cache is not None and 
-                self._models_cache_time is not None and 
-                current_time - self._models_cache_time < self._cache_duration):
-                
-                # Update user-specific data in cached response
-                user_keys = await UserApiKey.find(
-                    UserApiKey.user.id == BeanieObjectId(user.id),
-                    UserApiKey.is_active == True
-                ).to_list()
-                
-                cached_response = self._models_cache
-                cached_response.user_has_keys = [key.provider for key in user_keys]
-                return cached_response
-            
-            # Get user's keys
-            user_keys = await UserApiKey.find(
-                UserApiKey.user.id == BeanieObjectId(user.id),
-                UserApiKey.is_active == True
-            ).to_list()
-            
-            user_has_keys = [key.provider for key in user_keys]
-            
-            # Get available models from LangChain service
-            from utils.langchain_llm_service import langchain_service
-            models = langchain_service.get_available_models()
-            
-            response = AvailableModelsResponse(
-                providers=models,
-                current_limits={},  # Remove limits
-                user_has_keys=user_has_keys
-            )
-            
-            # Cache the response (without user-specific data)
-            self._models_cache = AvailableModelsResponse(
-                providers=models,
-                current_limits={},  # Remove limits
-                user_has_keys=[]  # Will be updated per request
-            )
-            self._models_cache_time = current_time
-            
-            return response
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
     
     async def update_chat_settings(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         chat_id: Annotated[str, Form(description="Chat session ID to update")],
         title: Annotated[Optional[str], Form(description="New chat title")] = None,
         default_provider: Annotated[Optional[str], Form(description="Default LLM provider")] = None,
@@ -1095,9 +972,6 @@ Provide detailed, accurate responses based on the repository content. Reference 
     ) -> ChatSettingsResponse:
         """Update chat session settings"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             chat_session = await ChatSession.find_one(
                 ChatSession.chat_id == chat_id,
@@ -1143,16 +1017,13 @@ Provide detailed, accurate responses based on the repository content. Reference 
     
     async def search_context(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         repository_identifier: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
         query: Annotated[str, Form(description="Search query")],
         max_results: Annotated[int, Form(description="Maximum number of results (1-20)", ge=1, le=20)] = 5
     ) -> ContextSearchResponse:
         """Search repository context"""
         try:
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             repository = await find_user_repository(repository_identifier, user)
             
@@ -1204,7 +1075,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
         repository,
         context_mode: str,
         user_query: str,
-        max_context_tokens: int = 8000
+        max_context_tokens: int = 8000,
+        model: str = "gpt-4o-mini",
+        provider: str = "openai"
     ) -> tuple[str, dict]:
         """Get repository context based on the selected mode"""
         
@@ -1212,7 +1085,8 @@ Provide detailed, accurate responses based on the repository content. Reference 
             # Full context mode - include entire repository
             return await self.get_full_repository_context(
                 repository,
-                max_context_tokens
+                max_context_tokens,
+                model=model
             )
         elif context_mode == "smart":
             # Smart context mode - use AI-powered retrieval (existing logic)
@@ -1221,7 +1095,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 context_search_query=user_query,
                 user_query=user_query,
                 max_context_tokens=max_context_tokens,
-                scope_preference="moderate"
+                scope_preference="moderate",
+                model=model,
+                provider=provider
             )
         elif context_mode == "agentic":
             # Agentic context mode - multi-step reasoning (not implemented yet)
@@ -1231,7 +1107,9 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 context_search_query=user_query,
                 user_query=user_query,
                 max_context_tokens=max_context_tokens,
-                scope_preference="comprehensive"
+                scope_preference="comprehensive",
+                model=model,
+                provider=provider
             )
         else:
             # Default to smart mode
@@ -1240,13 +1118,16 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 context_search_query=user_query,
                 user_query=user_query,
                 max_context_tokens=max_context_tokens,
-                scope_preference="moderate"
+                scope_preference="moderate",
+                model=model,
+                provider=provider
             )
 
     async def get_full_repository_context(
         self,
         repository,
-        max_context_tokens: int = 8000
+        max_context_tokens: int = 8000,
+        model: str = "gpt-4o-mini"
     ) -> tuple[str, dict]:
         """Get full repository context by extracting and including all files from ZIP"""
         temp_dirs_to_cleanup = []
@@ -1275,13 +1156,12 @@ Provide detailed, accurate responses based on the repository content. Reference 
             if not filtered_files:
                 return "No relevant source files found after filtering.", {"context_type": "full", "files_included": 0}
             
-            # Estimate tokens per character (rough approximation)
-            char_to_token_ratio = 4
-            max_chars = max_context_tokens * char_to_token_ratio
+            # Use intelligent token counting with LangChain
+            from utils.langchain_llm_service import langchain_service
             
             context_parts = []
             files_included = 0
-            current_chars = 0
+            current_tokens = 0
             
             # Sort files by importance (e.g., README files first, then main source files)
             def get_file_priority(file_info):
@@ -1318,44 +1198,60 @@ Provide detailed, accurate responses based on the repository content. Reference 
                     file_section = f"\n=== File: {file_path} ===\n{content}\n"
                     
                     # Check if adding this file would exceed token limit
-                    if current_chars + len(file_section) > max_chars and context_parts:
-                        # Truncate the current file if needed
-                        remaining_chars = max_chars - current_chars
-                        if remaining_chars > 200:  # Only include if we have reasonable space
-                            truncated_content = content[:remaining_chars-100] + "\n... (truncated due to length)"
-                            file_section = f"\n=== File: {file_path} ===\n{truncated_content}\n"
-                            context_parts.append(file_section)
-                            files_included += 1
+                    file_section_tokens = langchain_service.count_tokens_approximately(file_section)
+                    
+                    if current_tokens + file_section_tokens > max_context_tokens and context_parts:
+                        # Calculate how much content we can fit in remaining tokens
+                        remaining_tokens = max_context_tokens - current_tokens
+                        if remaining_tokens > 100:  # Only include if we have reasonable space
+                            # Estimate how much content we can fit
+                            approx_chars_per_token = len(file_section) / file_section_tokens
+                            max_content_chars = int(remaining_tokens * approx_chars_per_token * 0.8)  # Use 80% to be safe
+                            
+                            if max_content_chars > 200:  # Minimum reasonable content size
+                                truncated_content = content[:max_content_chars-100] + "\n... (truncated due to token limit)"
+                                file_section = f"\n=== File: {file_path} ===\n{truncated_content}\n"
+                                context_parts.append(file_section)
+                                files_included += 1
+                                current_tokens += langchain_service.count_tokens_approximately(file_section)
                         break
                     
                     context_parts.append(file_section)
                     files_included += 1
-                    current_chars += len(file_section)
+                    current_tokens += file_section_tokens
                     
                 except Exception as e:
                     logger.warning(f"Could not read file {file_path}: {e}")
                     # Add a placeholder for files that couldn't be read
                     file_section = f"\n=== File: {file_path} ===\n[Could not read file: {e}]\n"
-                    if current_chars + len(file_section) <= max_chars:
+                    file_section_tokens = langchain_service.count_tokens_approximately(file_section)
+                    
+                    if current_tokens + file_section_tokens <= max_context_tokens:
                         context_parts.append(file_section)
                         files_included += 1
-                        current_chars += len(file_section)
+                        current_tokens += file_section_tokens
                     continue
             
             context = "".join(context_parts)
             if not context:
                 context = "No file content could be extracted from the repository."
             
+            # Get final accurate token count
+            final_tokens = langchain_service.count_tokens_approximately(context)
+            
             metadata = {
                 "context_type": "full",
                 "files_included": files_included,
                 "total_files_available": len(filtered_files),
-                "estimated_tokens": current_chars // char_to_token_ratio,
+                "actual_tokens": final_tokens,
+                "max_context_tokens": max_context_tokens,
+                "content_length": len(context),
                 "zip_path": zip_file_path,
-                "extraction_successful": True
+                "extraction_successful": True,
+                "model_used_for_counting": model
             }
             
-            logger.info(f"Full context extracted: {files_included} files, {current_chars} characters, ~{current_chars // char_to_token_ratio} tokens")
+            logger.info(f"Full context extracted: {files_included} files, {len(context)} characters, {final_tokens} tokens")
             return context, metadata
             
         except Exception as e:

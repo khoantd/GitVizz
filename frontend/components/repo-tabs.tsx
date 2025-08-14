@@ -37,12 +37,19 @@ import {
 import { showToast } from '@/components/toaster';
 
 import { cn } from '@/lib/utils';
-import { fetchGithubRepo, uploadLocalZip, getRepositoryBranches, resolveBranch } from '@/utils/api';
+import { 
+  fetchGithubRepo, 
+  uploadLocalZip, 
+  getRepositoryBranches, 
+  getRepositoryInfo,
+  resolveBranch,
+  getGitHubInstallations,
+  getGitHubInstallationRepositories
+} from '@/utils/api';
 import { useResultData } from '@/context/ResultDataContext';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 import { SupportedLanguages, type Language } from '@/components/supported-languages';
 import { IndexedRepositories } from '@/components/IndexedRepositories';
-import { extractJwtToken } from '@/utils/token-utils';
 
 // --- Constants & Types ---
 const SUPPORTED_LANGUAGES: Language[] = [
@@ -176,7 +183,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     showToast.success(message);
   }, []);
 
-  // Function to detect repository info (size, branches) for GitHub repos
+  // Function to detect repository info (size, branches) for GitHub repos using unified API
   const detectRepositoryInfo = useCallback(
     async (url: string, token?: string) => {
       if (!url || !url.includes('github.com')) {
@@ -194,39 +201,19 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setBranchDetectionError('');
 
       try {
-        // Extract owner and repo from URL
-        const urlObj = new URL(url);
-        const [, owner, repo] = urlObj.pathname.split('/');
+        // Use the new unified API function that fetches everything in one call
+        const repoInfo = await getRepositoryInfo(url, token);
 
-        if (!owner || !repo) {
-          throw new Error('Invalid GitHub URL format');
-        }
-
-        // Fetch repo info (size + default_branch) and branches together
-        const repoInfoPromise = fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-          headers: token ? { Authorization: `token ${token}` } : {},
-        }).then((res) => res.json());
-
-        const branchesPromise = getRepositoryBranches(url, token);
-
-        const [repoInfo, branches] = await Promise.all([repoInfoPromise, branchesPromise]);
-
-        // Set repository size (in KB)
-        if (repoInfo.size) {
-          setRepoSize(repoInfo.size);
-          // Consider repos over 50MB (50000 KB) as large
-          setIsLargeRepo(repoInfo.size > 50000);
-        }
-
-        const defaultBranch = repoInfo?.default_branch || 'main';
-
-        setSuggestedBranch(defaultBranch);
-        setAvailableBranches(branches);
+        // Set all the repository information at once
+        setRepoSize(repoInfo.size);
+        setIsLargeRepo(repoInfo.isLargeRepo);
+        setSuggestedBranch(repoInfo.defaultBranch);
+        setAvailableBranches(repoInfo.branches);
         setShowBranchSection(true);
 
         // Auto-fill branch if it's empty
         if (!branch.trim()) {
-          setBranch(defaultBranch);
+          setBranch(repoInfo.defaultBranch);
         }
       } catch (error) {
         console.warn('Could not detect repository info:', error);
@@ -334,15 +321,11 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         }
 
         setIsReposLoading(true);
-        const installationsRes = await fetch('/api/github/installations', {
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-          signal: controller.signal,
-        });
-        if (!installationsRes.ok) throw new Error('Failed to fetch installations.');
-
-        const installationsData = await installationsRes.json();
+        
+        // Use the new backend API  
+        const jwtToken = session?.jwt_token || `Bearer ${session?.accessToken}`;
+        const installationsData = await getGitHubInstallations(jwtToken);
+        
         const hasInstalls =
           Array.isArray(installationsData.installations) &&
           installationsData.installations.length > 0;
@@ -381,34 +364,30 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     const run = async () => {
       try {
         setIsReposLoading(true);
-        const reposRes = await fetch(`/api/github/app_repos?installationId=${installationId}`, {
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-          signal: controller.signal,
-        });
-        if (!reposRes.ok) throw new Error('Failed to fetch repositories.');
-
-        const reposData = await reposRes.json();
+        
+        // Use the new backend API
+        const jwtToken = session?.jwt_token || `Bearer ${session?.accessToken}`;
+        const reposData = await getGitHubInstallationRepositories(jwtToken, installationId);
+        
         const transformedRepos = (reposData.repositories || []).map(
-          (repo: { description?: string }) => ({
+          (repo) => ({
             ...repo,
             description: repo.description || 'No description available',
           }),
         );
 
         setRepositories(transformedRepos as Repository[]);
-        
+
         // Auto-load branches for first few repositories to encourage branch selection
         if (transformedRepos.length > 0) {
           handleSuccess(`Successfully loaded ${transformedRepos.length} GitHub repositories`);
-          
+
           // Load branches for first 3 repositories automatically
           const reposToAutoLoad = transformedRepos.slice(0, 3);
-          reposToAutoLoad.forEach((repo: Repository) => {
+          reposToAutoLoad.forEach((repo) => {
             // Don't auto-load if already loading or loaded
             if (!loadingBranches.includes(repo.id) && !repoBranchStates[repo.id]) {
-              loadRepoBranches(repo);
+              loadRepoBranches(repo as Repository);
             }
           });
         } else {
@@ -473,40 +452,43 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   };
 
   // --- My Repos Branch Selection Functions ---
-  const loadRepoBranches = useCallback(async (repo: Repository) => {
-    if (loadingBranches.includes(repo.id)) return;
+  const loadRepoBranches = useCallback(
+    async (repo: Repository) => {
+      if (loadingBranches.includes(repo.id)) return;
 
-    setLoadingBranches((prev) => [...prev, repo.id]);
+      setLoadingBranches((prev) => [...prev, repo.id]);
 
-    try {
-      const repoUrl = repo.html_url;
-      const branches = await getRepositoryBranches(repoUrl, session?.accessToken || undefined);
+      try {
+        const repoUrl = repo.html_url;
+        const branches = await getRepositoryBranches(repoUrl, session?.accessToken || undefined);
 
-      // Determine a default branch
-      let defaultBranch = repo.default_branch || '';
-      if (!defaultBranch) {
-        if (branches.includes('main')) defaultBranch = 'main';
-        else if (branches.includes('master')) defaultBranch = 'master';
-        else defaultBranch = branches[0] || 'main';
+        // Determine a default branch
+        let defaultBranch = repo.default_branch || '';
+        if (!defaultBranch) {
+          if (branches.includes('main')) defaultBranch = 'main';
+          else if (branches.includes('master')) defaultBranch = 'master';
+          else defaultBranch = branches[0] || 'main';
+        }
+
+        setRepoBranchStates((prev) => ({
+          ...prev,
+          [repo.id]: {
+            branches,
+            selectedBranch: prev[repo.id]?.selectedBranch || defaultBranch,
+            defaultBranch,
+            isLoading: false,
+            showBranchSelection: true,
+          },
+        }));
+      } catch (e) {
+        console.error('Failed to load branches:', e);
+        handleError('Failed to load branches for this repository.');
+      } finally {
+        setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
       }
-
-      setRepoBranchStates((prev) => ({
-        ...prev,
-        [repo.id]: {
-          branches,
-          selectedBranch: prev[repo.id]?.selectedBranch || defaultBranch,
-          defaultBranch,
-          isLoading: false,
-          showBranchSelection: true,
-        },
-      }));
-    } catch (e) {
-      console.error('Failed to load branches:', e);
-      handleError('Failed to load branches for this repository.');
-    } finally {
-      setLoadingBranches((prev) => prev.filter((id) => id !== repo.id));
-    }
-  }, [loadingBranches, repoBranchStates, session?.accessToken, handleError]);
+    },
+    [loadingBranches, repoBranchStates, session?.accessToken, handleError],
+  );
 
   const handleRepoBranchSelect = (repoId: number, branchName: string) => {
     setRepoBranchStates((prev) => ({
@@ -558,7 +540,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl,
         access_token: session?.accessToken || undefined,
         branch: finalBranch,
-        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
+        jwt_token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -567,6 +549,8 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('github');
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
+
+      handleSuccess('Analysis complete! Redirecting to results page...');
 
       try {
         const url = new URL(repoUrl);
@@ -619,7 +603,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: finalBranch,
-        jwt_token: extractJwtToken(session?.jwt_token) || undefined,
+        jwt_token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -628,6 +612,9 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
       setSourceType('github');
       setSourceData(requestData);
       setOutputMessage('Repository analysis successful!');
+      
+      handleSuccess('Analysis complete! Redirecting to results page...');
+      
       try {
         const url = new URL(repoUrl.trim());
         const parts = url.pathname.split('/').filter(Boolean);
@@ -662,14 +649,18 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
     try {
       const { text_content: text, repo_id } = await uploadLocalZipWithAuth(
         zipFile,
-        extractJwtToken(session?.jwt_token) || '',
+        session?.jwt_token || undefined,
       );
       setCurrentRepoId(repo_id);
       setOutput(text);
       setSourceType('zip');
       setSourceData(zipFile);
       setOutputMessage('ZIP file processed successfully!');
-      router.push('/results');
+
+      handleSuccess('Processing complete! Redirecting to results page...');
+
+      const zipName = zipFile.name.replace(/\.zip$/i, '');
+      router.push(`/results/zip/${encodeURIComponent(zipName)}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -1008,7 +999,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                     ) : isDetectingBranch || isDetectingRepo ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {isDetectingRepo ? 'Detecting repository...' : 'Loading branches...'}
+                        Getting repo information...
                       </>
                     ) : (
                       <>
@@ -1414,7 +1405,11 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                   <Button
                                     className="h-9 px-4 text-sm rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02]"
                                     onClick={() => handleVizifyRepo(repo)}
-                                    disabled={isProcessingRepo || loading || !repoBranchStates[repo.id]?.selectedBranch}
+                                    disabled={
+                                      isProcessingRepo ||
+                                      loading ||
+                                      !repoBranchStates[repo.id]?.selectedBranch
+                                    }
                                   >
                                     {isProcessingRepo ? (
                                       <>
@@ -1425,7 +1420,9 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
                                     ) : !hasSelectedBranch ? (
                                       <>
                                         <GitBranch className="h-4 w-4 mr-2" />
-                                        <span className="hidden sm:inline">Select Branch First</span>
+                                        <span className="hidden sm:inline">
+                                          Select Branch First
+                                        </span>
                                         <span className="sm:hidden">Select Branch</span>
                                       </>
                                     ) : (

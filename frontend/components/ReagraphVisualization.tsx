@@ -5,7 +5,6 @@ import { useEffect, useState, useMemo, useCallback, useRef, memo } from 'react';
 import dynamic from 'next/dynamic';
 import type { GraphCanvasRef } from 'reagraph';
 import { generateGraphFromGithub, generateGraphFromZip } from '@/utils/api';
-import { extractJwtToken } from '@/utils/token-utils';
 import type {
   GraphResponse,
   GraphNode as ApiGraphNode,
@@ -984,13 +983,10 @@ export default function EnhancedReagraphVisualization({
         if (sourceType === 'github' && sourceData && isGitHubSourceData(sourceData)) {
           data = await generateGraphFromGithubWithAuth({
             ...sourceData,
-            jwt_token: extractJwtToken(session?.jwt_token) || '',
+            jwt_token: session?.jwt_token || undefined,
           });
         } else if (sourceType === 'zip' && sourceData instanceof File) {
-          data = await generateGraphFromZipWithAuth(
-            sourceData,
-            extractJwtToken(session?.jwt_token) || '',
-          );
+          data = await generateGraphFromZipWithAuth(sourceData, session?.jwt_token || '');
         } else {
           throw new Error('Invalid source type or data');
         }

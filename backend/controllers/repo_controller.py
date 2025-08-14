@@ -20,7 +20,6 @@ from utils.repo_utils import (
     parse_repo_url,
     format_repo_structure,
 )
-from utils.jwt_utils import get_current_user
 from utils.file_utils import (
     save_repository_files,
     generate_repo_identifier,
@@ -338,6 +337,7 @@ async def save_and_cache_repository(
 
 async def generate_text_endpoint(
     background_tasks: BackgroundTasks,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None,
         description="URL to a downloadable ZIP of the repository (e.g., GitHub archive link).",
@@ -354,26 +354,17 @@ async def generate_text_endpoint(
         description="Optional GitHub token for accessing private repositories.",
         example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     ),
-    jwt_token: Optional[str] = Form(
-        None,
-        description="Optional JWT token for user authentication.",
-        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    ),
 ) -> TextResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
 
-    user = None
     if repo_url:
         repo_url = repo_url.lower()
 
-    # Get user if JWT token provided
-    if jwt_token:
-        user = await get_current_user(jwt_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
+    # User is already authenticated via middleware
+    user = current_user
 
     # Resolve the actual branch to use
     resolved_branch = branch or "main"  # Default fallback
@@ -499,6 +490,7 @@ async def generate_text_endpoint(
 
 async def generate_graph_endpoint(
     background_tasks: BackgroundTasks,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
     ),
@@ -514,27 +506,17 @@ async def generate_graph_endpoint(
         description="Optional GitHub token for accessing private repositories.",
         example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     ),
-    jwt_token: Optional[str] = Form(
-        None,
-        description="Optional JWT token for user authentication.",
-        example="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    ),
 ) -> GraphResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
 
-    user = None
-
     if repo_url:
         repo_url = repo_url.lower()
 
-    # Get user if JWT token provided
-    if jwt_token:
-        user = await get_current_user(jwt_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
+    # User is already authenticated via middleware
+    user = current_user
 
     # Resolve the actual branch to use
     resolved_branch = branch or "main"  # Default fallback
@@ -651,6 +633,7 @@ async def generate_graph_endpoint(
 
 async def generate_structure_endpoint(
     background_tasks: BackgroundTasks,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
     ),
@@ -666,25 +649,17 @@ async def generate_structure_endpoint(
         description="Optional GitHub token for accessing private repositories.",
         example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     ),
-    jwt_token: Optional[str] = Form(
-        None,
-        description="Optional JWT token for user authentication.",
-        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    ),
 ) -> StructureResponse:
     if not repo_url and not zip_file:
         raise HTTPException(
             status_code=400, detail="Either repo_url or zip_file must be provided."
         )
 
-    user = None
-    repo_url = repo_url.lower()
+    if repo_url:
+        repo_url = repo_url.lower()
 
-    # Get user if JWT token provided
-    if jwt_token:
-        user = await get_current_user(jwt_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
+    # User is already authenticated via middleware
+    user = current_user
 
     # Resolve the actual branch to use
     resolved_branch = branch or "main"  # Default fallback
@@ -905,12 +880,12 @@ def _filter_subgraph(
 
 async def generate_subgraph_endpoint(
     background_tasks: BackgroundTasks,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
     ),
     branch: Optional[str] = Form("main", description="Branch for GitHub repo URL."),
     access_token: Optional[str] = Form(None, description="Optional GitHub token."),
-    jwt_token: Optional[str] = Form(None, description="Optional JWT token."),
     # Subgraph params
     center_node_id: Optional[str] = Form(
         None, description="Center node id for ego network."
@@ -933,12 +908,10 @@ async def generate_subgraph_endpoint(
             status_code=400, detail="repo_url must be provided for subgraph generation."
         )
 
-    user = None
     repo_url = repo_url.lower()
-    if jwt_token:
-        user = await get_current_user(jwt_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
+    
+    # User is already authenticated via middleware
+    user = current_user
 
     repo_identifier = generate_repo_identifier(repo_url, None, branch)
     commit_sha = None

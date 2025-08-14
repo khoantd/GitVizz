@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { SessionProvider } from 'next-auth/react';
+import { generateSEOMetadata, structuredData } from '@/lib/seo';
+
+// Generate metadata for the site using our SEO function
+export const metadata: Metadata = generateSEOMetadata();
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -14,48 +18,6 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'gitvizz - From Repo to Reasoning Instantly',
-  description:
-    'gitvizz helps you understand repository content easily and extract AI-ready plain text from GitHub or local files.',
-  keywords: [
-    'gitvizz',
-    'GitHub Visualization',
-    'Repo to Text',
-    'Code to Text',
-    'AI Ready Code',
-    'GitHub Summary Tool',
-    'Repository Analysis',
-    'Code Understanding',
-    'Plain Text Conversion',
-  ],
-  authors: [{ name: 'gitvizz Team', url: 'https://gitvizz.app' }],
-  metadataBase: new URL('https://gitvizz.app'), //FIXME: replace with actual domain
-  openGraph: {
-    title: 'gitvizz - From Repo to Reasoning Instantly',
-    description:
-      'Visualize and extract code structure effortlessly. Convert repositories to AI-friendly plain text with gitvizz.',
-    url: 'https://gitvizz.app', //FIXME: replace with actual domain
-    siteName: 'gitvizz',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'gitvizz - From Repo to Reasoning Instantly',
-      },
-    ],
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'gitvizz - From Repo to Reasoning Instantly',
-    description: 'Understand GitHub repositories visually and convert them into AI-ready formats.',
-    creator: '@yourhandle', // FIXME: Replace with Twitter handle
-    images: ['/og-image.png'],
-  },
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -63,6 +25,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData.website) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData.softwareApplication) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

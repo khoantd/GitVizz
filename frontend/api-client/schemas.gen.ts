@@ -105,27 +105,8 @@ export const AvailableModelsResponseSchema = {
   description: 'Response model for available models',
 } as const;
 
-export const Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__postSchema =
-  {
-    properties: {
-      jwt_token: {
-        type: 'string',
-        title: 'Jwt Token',
-        description: 'Authentication jwt_token for the request',
-      },
-    },
-    type: 'object',
-    required: ['jwt_token'],
-    title: 'Body_cancel_wiki_generation_api_documentation_cancel_generation__task_id__post',
-  } as const;
-
-export const Body_delete_user_api_key_api_backend_chat_keys_delete_postSchema = {
+export const Body_delete_user_api_key_backend_enhancedSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     provider: {
       type: 'string',
       title: 'Provider',
@@ -145,11 +126,11 @@ export const Body_delete_user_api_key_api_backend_chat_keys_delete_postSchema = 
     },
   },
   type: 'object',
-  required: ['token', 'provider'],
-  title: 'Body_delete_user_api_key_api_backend_chat_keys_delete_post',
+  required: ['provider'],
+  title: 'Body_delete_user_api_key_backend_enhanced',
 } as const;
 
-export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
+export const Body_generate_graph_route_api_repo_generate_graph_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -201,24 +182,12 @@ export const Body_generate_graph_endpoint_api_repo_generate_graph_postSchema = {
       title: 'Access Token',
       description: 'Optional GitHub token for accessing private repositories.',
     },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token for user authentication.',
-    },
   },
   type: 'object',
-  title: 'Body_generate_graph_endpoint_api_repo_generate_graph_post',
+  title: 'Body_generate_graph_route_api_repo_generate_graph_post',
 } as const;
 
-export const Body_generate_structure_endpoint_api_repo_generate_structure_postSchema = {
+export const Body_generate_structure_route_api_repo_generate_structure_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -270,24 +239,12 @@ export const Body_generate_structure_endpoint_api_repo_generate_structure_postSc
       title: 'Access Token',
       description: 'Optional GitHub token for accessing private repositories.',
     },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token for user authentication.',
-    },
   },
   type: 'object',
-  title: 'Body_generate_structure_endpoint_api_repo_generate_structure_post',
+  title: 'Body_generate_structure_route_api_repo_generate_structure_post',
 } as const;
 
-export const Body_generate_subgraph_endpoint_api_repo_generate_subgraph_postSchema = {
+export const Body_generate_subgraph_route_api_repo_generate_subgraph_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -325,18 +282,6 @@ export const Body_generate_subgraph_endpoint_api_repo_generate_subgraph_postSche
       ],
       title: 'Access Token',
       description: 'Optional GitHub token.',
-    },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token.',
     },
     center_node_id: {
       anyOf: [
@@ -426,10 +371,10 @@ export const Body_generate_subgraph_endpoint_api_repo_generate_subgraph_postSche
     },
   },
   type: 'object',
-  title: 'Body_generate_subgraph_endpoint_api_repo_generate_subgraph_post',
+  title: 'Body_generate_subgraph_route_api_repo_generate_subgraph_post',
 } as const;
 
-export const Body_generate_text_endpoint_api_repo_generate_text_postSchema = {
+export const Body_generate_text_route_api_repo_generate_text_postSchema = {
   properties: {
     repo_url: {
       anyOf: [
@@ -481,30 +426,13 @@ export const Body_generate_text_endpoint_api_repo_generate_text_postSchema = {
       title: 'Access Token',
       description: 'Optional GitHub token for accessing private repositories.',
     },
-    jwt_token: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Jwt Token',
-      description: 'Optional JWT token for user authentication.',
-    },
   },
   type: 'object',
-  title: 'Body_generate_text_endpoint_api_repo_generate_text_post',
+  title: 'Body_generate_text_route_api_repo_generate_text_post',
 } as const;
 
 export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {
   properties: {
-    jwt_token: {
-      type: 'string',
-      title: 'Jwt Token',
-      description: 'Authentication jwt_token for the request',
-    },
     repository_url: {
       type: 'string',
       title: 'Repository Url',
@@ -576,17 +504,12 @@ export const Body_generate_wiki_api_documentation_generate_wiki_postSchema = {
     },
   },
   type: 'object',
-  required: ['jwt_token', 'repository_url'],
+  required: ['repository_url'],
   title: 'Body_generate_wiki_api_documentation_generate_wiki_post',
 } as const;
 
-export const Body_get_available_models_api_backend_chat_models_available_postSchema = {
+export const Body_get_available_models_backend_enhancedSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     provider: {
       anyOf: [
         {
@@ -601,57 +524,11 @@ export const Body_get_available_models_api_backend_chat_models_available_postSch
     },
   },
   type: 'object',
-  required: ['token'],
-  title: 'Body_get_available_models_api_backend_chat_models_available_post',
+  title: 'Body_get_available_models_backend_enhanced',
 } as const;
-
-export const Body_get_available_models_api_backend_chat_models_postSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-  },
-  type: 'object',
-  required: ['token'],
-  title: 'Body_get_available_models_api_backend_chat_models_post',
-} as const;
-
-export const Body_get_chat_session_api_backend_chat_sessions__chat_id__postSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-  },
-  type: 'object',
-  required: ['token'],
-  title: 'Body_get_chat_session_api_backend_chat_sessions__chat_id__post',
-} as const;
-
-export const Body_get_conversation_history_api_backend_chat_conversations__conversation_id__postSchema =
-  {
-    properties: {
-      token: {
-        type: 'string',
-        title: 'Token',
-        description: 'JWT authentication token',
-      },
-    },
-    type: 'object',
-    required: ['token'],
-    title: 'Body_get_conversation_history_api_backend_chat_conversations__conversation_id__post',
-  } as const;
 
 export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     limit: {
       type: 'integer',
       title: 'Limit',
@@ -666,21 +543,7 @@ export const Body_get_indexed_repositories_api_indexed_repos__postSchema = {
     },
   },
   type: 'object',
-  required: ['token'],
   title: 'Body_get_indexed_repositories_api_indexed_repos__post',
-} as const;
-
-export const Body_get_user_api_keys_api_backend_chat_keys_list_postSchema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-  },
-  type: 'object',
-  required: ['token'],
-  title: 'Body_get_user_api_keys_api_backend_chat_keys_list_post',
 } as const;
 
 export const Body_get_wiki_status_api_documentation_wiki_status_postSchema = {
@@ -690,14 +553,9 @@ export const Body_get_wiki_status_api_documentation_wiki_status_postSchema = {
       title: 'Repo Id',
       description: 'ID of the repository to check wiki generation status for',
     },
-    jwt_token: {
-      type: 'string',
-      title: 'Jwt Token',
-      description: 'Authentication jwt_token for the request',
-    },
   },
   type: 'object',
-  required: ['repo_id', 'jwt_token'],
+  required: ['repo_id'],
   title: 'Body_get_wiki_status_api_documentation_wiki_status_post',
 } as const;
 
@@ -708,14 +566,9 @@ export const Body_is_wiki_generated_api_documentation_is_wiki_generated_postSche
       title: 'Repo Id',
       description: 'ID of the repository to check wiki generation status for',
     },
-    jwt_token: {
-      type: 'string',
-      title: 'Jwt Token',
-      description: 'Authentication jwt_token for the request',
-    },
   },
   type: 'object',
-  required: ['repo_id', 'jwt_token'],
+  required: ['repo_id'],
   title: 'Body_is_wiki_generated_api_documentation_is_wiki_generated_post',
 } as const;
 
@@ -726,24 +579,14 @@ export const Body_list_repository_docs_api_documentation_repository_docs_postSch
       title: 'Repo Id',
       description: 'ID of the repository to list documentation files for',
     },
-    jwt_token: {
-      type: 'string',
-      title: 'Jwt Token',
-      description: 'Authentication jwt_token for the request',
-    },
   },
   type: 'object',
-  required: ['repo_id', 'jwt_token'],
+  required: ['repo_id'],
   title: 'Body_list_repository_docs_api_documentation_repository_docs_post',
 } as const;
 
 export const Body_list_user_chat_sessions_api_backend_chat_sessions_postSchema = {
   properties: {
-    jwt_token: {
-      type: 'string',
-      title: 'Jwt Token',
-      description: 'JWT authentication token',
-    },
     repository_identifier: {
       type: 'string',
       title: 'Repository Identifier',
@@ -751,17 +594,12 @@ export const Body_list_user_chat_sessions_api_backend_chat_sessions_postSchema =
     },
   },
   type: 'object',
-  required: ['jwt_token', 'repository_identifier'],
+  required: ['repository_identifier'],
   title: 'Body_list_user_chat_sessions_api_backend_chat_sessions_post',
 } as const;
 
 export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     message: {
       type: 'string',
       title: 'Message',
@@ -805,7 +643,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
     provider: {
       type: 'string',
       title: 'Provider',
-      description: 'LLM provider (openai, anthropic, gemini)',
+      description: 'LLM provider (openai, anthropic, gemini, groq)',
       default: 'openai',
     },
     model: {
@@ -826,7 +664,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
       anyOf: [
         {
           type: 'integer',
-          maximum: 4000,
+          maximum: 1000000,
           minimum: 1,
         },
         {
@@ -834,7 +672,7 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
         },
       ],
       title: 'Max Tokens',
-      description: 'Maximum tokens in response (1-4000)',
+      description: 'Maximum tokens for context (1-1000000)',
     },
     include_full_context: {
       type: 'boolean',
@@ -856,17 +694,48 @@ export const Body_process_chat_message_api_backend_chat_chat_postSchema = {
     },
   },
   type: 'object',
-  required: ['token', 'message', 'repository_id'],
+  required: ['message', 'repository_id'],
   title: 'Body_process_chat_message_api_backend_chat_chat_post',
+} as const;
+
+export const Body_save_user_api_key_api_backend_chat_keys_save_postSchema = {
+  properties: {
+    provider: {
+      type: 'string',
+      title: 'Provider',
+      description: 'Provider name (openai, anthropic, gemini, groq)',
+    },
+    api_key: {
+      type: 'string',
+      title: 'Api Key',
+      description: 'API key',
+    },
+    key_name: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Key Name',
+      description: 'Friendly name for the key',
+    },
+    verify_key: {
+      type: 'boolean',
+      title: 'Verify Key',
+      description: 'Whether to verify the key before saving',
+      default: true,
+    },
+  },
+  type: 'object',
+  required: ['provider', 'api_key'],
+  title: 'Body_save_user_api_key_api_backend_chat_keys_save_post',
 } as const;
 
 export const Body_search_context_api_backend_chat_context_search_postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     repository_id: {
       type: 'string',
       title: 'Repository Id',
@@ -887,17 +756,12 @@ export const Body_search_context_api_backend_chat_context_search_postSchema = {
     },
   },
   type: 'object',
-  required: ['token', 'repository_id', 'query'],
+  required: ['repository_id', 'query'],
   title: 'Body_search_context_api_backend_chat_context_search_post',
 } as const;
 
 export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     message: {
       type: 'string',
       title: 'Message',
@@ -941,7 +805,7 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
     provider: {
       type: 'string',
       title: 'Provider',
-      description: 'LLM provider (openai, anthropic, gemini)',
+      description: 'LLM provider (openai, anthropic, gemini, groq)',
       default: 'openai',
     },
     model: {
@@ -962,7 +826,7 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
       anyOf: [
         {
           type: 'integer',
-          maximum: 4000,
+          maximum: 1000000,
           minimum: 1,
         },
         {
@@ -970,7 +834,7 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
         },
       ],
       title: 'Max Tokens',
-      description: 'Maximum tokens in response (1-4000)',
+      description: 'Maximum tokens for context (1-1000000)',
     },
     context_mode: {
       type: 'string',
@@ -992,17 +856,12 @@ export const Body_stream_chat_response_api_backend_chat_chat_stream_postSchema =
     },
   },
   type: 'object',
-  required: ['token', 'message', 'repository_id'],
+  required: ['message', 'repository_id'],
   title: 'Body_stream_chat_response_api_backend_chat_chat_stream_post',
 } as const;
 
 export const Body_update_chat_settings_api_backend_chat_settings_postSchema = {
   properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
     chat_id: {
       type: 'string',
       title: 'Chat Id',
@@ -1060,8 +919,26 @@ export const Body_update_chat_settings_api_backend_chat_settings_postSchema = {
     },
   },
   type: 'object',
-  required: ['token', 'chat_id'],
+  required: ['chat_id'],
   title: 'Body_update_chat_settings_api_backend_chat_settings_post',
+} as const;
+
+export const Body_verify_user_api_key_api_backend_chat_keys_verify_postSchema = {
+  properties: {
+    provider: {
+      type: 'string',
+      title: 'Provider',
+      description: 'Provider name (openai, anthropic, gemini, groq)',
+    },
+    api_key: {
+      type: 'string',
+      title: 'Api Key',
+      description: 'API key to verify',
+    },
+  },
+  type: 'object',
+  required: ['provider', 'api_key'],
+  title: 'Body_verify_user_api_key_api_backend_chat_keys_verify_post',
 } as const;
 
 export const ChatResponseSchema = {
@@ -1639,6 +1516,216 @@ export const FileMetadataSchema = {
   type: 'object',
   required: ['filename', 'size', 'modified', 'type'],
   title: 'FileMetadata',
+} as const;
+
+export const GitHubAccountSchema = {
+  properties: {
+    login: {
+      type: 'string',
+      title: 'Login',
+    },
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    avatar_url: {
+      type: 'string',
+      title: 'Avatar Url',
+    },
+    type: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Type',
+    },
+  },
+  type: 'object',
+  required: ['login', 'id', 'avatar_url'],
+  title: 'GitHubAccount',
+  description: 'GitHub account information',
+} as const;
+
+export const GitHubInstallationSchema = {
+  properties: {
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    account: {
+      $ref: '#/components/schemas/GitHubAccount',
+    },
+    app_id: {
+      type: 'integer',
+      title: 'App Id',
+    },
+    target_type: {
+      type: 'string',
+      title: 'Target Type',
+    },
+    target_id: {
+      anyOf: [
+        {
+          type: 'integer',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Target Id',
+    },
+    created_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Created At',
+    },
+    updated_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Updated At',
+    },
+  },
+  type: 'object',
+  required: ['id', 'account', 'app_id', 'target_type'],
+  title: 'GitHubInstallation',
+  description: 'GitHub App installation',
+} as const;
+
+export const GitHubInstallationsResponseSchema = {
+  properties: {
+    installations: {
+      items: {
+        $ref: '#/components/schemas/GitHubInstallation',
+      },
+      type: 'array',
+      title: 'Installations',
+    },
+    user_id: {
+      type: 'integer',
+      title: 'User Id',
+    },
+    user_login: {
+      type: 'string',
+      title: 'User Login',
+    },
+  },
+  type: 'object',
+  required: ['installations', 'user_id', 'user_login'],
+  title: 'GitHubInstallationsResponse',
+  description: 'Response for GitHub installations endpoint',
+} as const;
+
+export const GitHubRepositoriesResponseSchema = {
+  properties: {
+    repositories: {
+      items: {
+        $ref: '#/components/schemas/GitHubRepository',
+      },
+      type: 'array',
+      title: 'Repositories',
+    },
+    total_count: {
+      type: 'integer',
+      title: 'Total Count',
+    },
+  },
+  type: 'object',
+  required: ['repositories', 'total_count'],
+  title: 'GitHubRepositoriesResponse',
+  description: 'Response for GitHub repositories endpoint',
+} as const;
+
+export const GitHubRepositorySchema = {
+  properties: {
+    id: {
+      type: 'integer',
+      title: 'Id',
+    },
+    name: {
+      type: 'string',
+      title: 'Name',
+    },
+    full_name: {
+      type: 'string',
+      title: 'Full Name',
+    },
+    description: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Description',
+    },
+    private: {
+      type: 'boolean',
+      title: 'Private',
+    },
+    html_url: {
+      type: 'string',
+      title: 'Html Url',
+    },
+    language: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Language',
+    },
+    stargazers_count: {
+      type: 'integer',
+      title: 'Stargazers Count',
+      default: 0,
+    },
+    forks_count: {
+      type: 'integer',
+      title: 'Forks Count',
+      default: 0,
+    },
+    default_branch: {
+      type: 'string',
+      title: 'Default Branch',
+      default: 'main',
+    },
+    updated_at: {
+      anyOf: [
+        {
+          type: 'string',
+        },
+        {
+          type: 'null',
+        },
+      ],
+      title: 'Updated At',
+    },
+  },
+  type: 'object',
+  required: ['id', 'name', 'full_name', 'private', 'html_url'],
+  title: 'GitHubRepository',
+  description: 'GitHub repository information',
 } as const;
 
 export const GraphEdgeSchema = {
@@ -2386,133 +2473,3 @@ export const WikiGenerationResponseSchema = {
   required: ['status', 'message'],
   title: 'WikiGenerationResponse',
 } as const;
-
-export const fastapi___compat__Body_save_user_api_key_api_backend_chat_keys_save_post__1Schema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-    provider: {
-      type: 'string',
-      title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini)',
-    },
-    api_key: {
-      type: 'string',
-      title: 'Api Key',
-      description: 'API key',
-    },
-    key_name: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Key Name',
-      description: 'Friendly name for the key',
-    },
-    verify_key: {
-      type: 'boolean',
-      title: 'Verify Key',
-      description: 'Whether to verify the key before saving',
-      default: true,
-    },
-  },
-  type: 'object',
-  required: ['token', 'provider', 'api_key'],
-  title: 'Body_save_user_api_key_api_backend_chat_keys_save_post',
-} as const;
-
-export const fastapi___compat__Body_save_user_api_key_api_backend_chat_keys_save_post__2Schema = {
-  properties: {
-    token: {
-      type: 'string',
-      title: 'Token',
-      description: 'JWT authentication token',
-    },
-    provider: {
-      type: 'string',
-      title: 'Provider',
-      description: 'Provider name (openai, anthropic, gemini, groq)',
-    },
-    api_key: {
-      type: 'string',
-      title: 'Api Key',
-      description: 'API key to save',
-    },
-    key_name: {
-      anyOf: [
-        {
-          type: 'string',
-        },
-        {
-          type: 'null',
-        },
-      ],
-      title: 'Key Name',
-      description: 'Optional friendly name for the key',
-    },
-    verify_key: {
-      type: 'boolean',
-      title: 'Verify Key',
-      description: 'Whether to verify key before saving',
-      default: true,
-    },
-  },
-  type: 'object',
-  required: ['token', 'provider', 'api_key'],
-  title: 'Body_save_user_api_key_api_backend_chat_keys_save_post',
-} as const;
-
-export const fastapi___compat__Body_verify_user_api_key_api_backend_chat_keys_verify_post__1Schema =
-  {
-    properties: {
-      token: {
-        type: 'string',
-        title: 'Token',
-        description: 'JWT authentication token',
-      },
-      provider: {
-        type: 'string',
-        title: 'Provider',
-        description: 'Provider name (openai, anthropic, gemini)',
-      },
-      api_key: {
-        type: 'string',
-        title: 'Api Key',
-        description: 'API key to verify',
-      },
-    },
-    type: 'object',
-    required: ['token', 'provider', 'api_key'],
-    title: 'Body_verify_user_api_key_api_backend_chat_keys_verify_post',
-  } as const;
-
-export const fastapi___compat__Body_verify_user_api_key_api_backend_chat_keys_verify_post__2Schema =
-  {
-    properties: {
-      token: {
-        type: 'string',
-        title: 'Token',
-        description: 'JWT authentication token',
-      },
-      provider: {
-        type: 'string',
-        title: 'Provider',
-        description: 'Provider name (openai, anthropic, gemini, groq)',
-      },
-      api_key: {
-        type: 'string',
-        title: 'Api Key',
-        description: 'API key to verify',
-      },
-    },
-    type: 'object',
-    required: ['token', 'provider', 'api_key'],
-    title: 'Body_verify_user_api_key_api_backend_chat_keys_verify_post',
-  } as const;

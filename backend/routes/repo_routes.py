@@ -1,10 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, BackgroundTasks, Form, File, UploadFile
+from typing import Annotated, Optional
 from schemas.response_schemas import (
     TextResponse,
     ErrorResponse,
     GraphResponse,
     StructureResponse
 )
+from middleware.auth_middleware import optional_auth
+from models.user import User
 
 from controllers.repo_controller import (
     generate_text_endpoint,
@@ -16,7 +19,7 @@ from controllers.repo_controller import (
 router = APIRouter(prefix='/repo')
 
 # Generating LLM-friendly text from a code repository or ZIP file
-router.post(
+@router.post(
     "/generate-text",
     response_model=TextResponse,
     summary="Generates LLM-friendly text from a code repository with smart caching.",
@@ -40,10 +43,31 @@ router.post(
         },
         500: {"model": ErrorResponse, "description": "Server error during processing."},
     },
-)(generate_text_endpoint)
+)
+async def generate_text_route(
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
+    background_tasks: BackgroundTasks,
+    repo_url: Optional[str] = Form(
+        None,
+        description="URL to a downloadable ZIP of the repository (e.g., GitHub archive link).",
+    ),
+    branch: Optional[str] = Form(
+        None,
+        description="Branch to use if repo_url is a GitHub repository link. If not specified, uses the repository's default branch.",
+    ),
+    zip_file: Optional[UploadFile] = File(
+        None, description="A ZIP file of the repository."
+    ),
+    access_token: Optional[str] = Form(
+        None,
+        description="Optional GitHub token for accessing private repositories.",
+        example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    ),
+):
+    return await generate_text_endpoint(background_tasks, current_user, repo_url, branch, zip_file, access_token)
 
 # Generating a graph representation of the repository structure
-router.post(
+@router.post(
     "/generate-graph",
     response_model=GraphResponse,
     summary="Generates a dependency graph from a code repository with smart caching.",
@@ -61,10 +85,30 @@ router.post(
         404: {"model": ErrorResponse, "description": "Repository not found or no suitable files for graph generation."},
         500: {"model": ErrorResponse, "description": "Server error during graph generation."},
     },
-)(generate_graph_endpoint)
+)
+async def generate_graph_route(
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
+    background_tasks: BackgroundTasks,
+    repo_url: Optional[str] = Form(
+        None, description="URL to a downloadable ZIP of the repository."
+    ),
+    branch: Optional[str] = Form(
+        None,
+        description="Branch for GitHub repo URL. If not specified, uses the repository's default branch.",
+    ),
+    zip_file: Optional[UploadFile] = File(
+        None, description="A ZIP file of the repository."
+    ),
+    access_token: Optional[str] = Form(
+        None,
+        description="Optional GitHub token for accessing private repositories.",
+        example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    ),
+):
+    return await generate_graph_endpoint(background_tasks, current_user, repo_url, branch, zip_file, access_token)
 
 # Generate a subgraph (ego network or filtered view) for large graphs
-router.post(
+@router.post(
     "/generate-subgraph",
     response_model=GraphResponse,
     summary="Generates a subgraph (ego network or filtered subset) for large repositories.",
@@ -80,9 +124,35 @@ router.post(
         404: {"model": ErrorResponse, "description": "Repository not found or no graph available."},
         500: {"model": ErrorResponse, "description": "Server error during subgraph generation."},
     },
-)(generate_subgraph_endpoint)
+)
+async def generate_subgraph_route(
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
+    background_tasks: BackgroundTasks,
+    repo_url: Optional[str] = Form(
+        None, description="URL to a downloadable ZIP of the repository."
+    ),
+    branch: Optional[str] = Form("main", description="Branch for GitHub repo URL."),
+    access_token: Optional[str] = Form(None, description="Optional GitHub token."),
+    # Subgraph params
+    center_node_id: Optional[str] = Form(
+        None, description="Center node id for ego network."
+    ),
+    depth: Optional[int] = Form(1, description="Traversal depth for ego network."),
+    categories: Optional[str] = Form(
+        None, description="Comma-separated categories filter."
+    ),
+    directories: Optional[str] = Form(
+        None, description="Comma-separated directory prefixes filter."
+    ),
+    relationship_types: Optional[str] = Form(
+        None, description="Comma-separated relationship types filter."
+    ),
+    min_degree: Optional[int] = Form(None, description="Minimum degree for nodes."),
+    limit: Optional[int] = Form(500, description="Max nodes in subgraph."),
+):
+    return await generate_subgraph_endpoint(background_tasks, current_user, repo_url, branch, access_token, center_node_id, depth, categories, directories, relationship_types, min_degree, limit)
 
-router.post(
+@router.post(
     "/generate-structure",
     response_model=StructureResponse,
     summary="Generates the file structure and content of a code repository with smart caching.",
@@ -103,4 +173,25 @@ router.post(
         404: {"model": ErrorResponse, "description": "Repository not found or no suitable files after filtering."},
         500: {"model": ErrorResponse, "description": "Server error during structure generation."},
     },
-)(generate_structure_endpoint)
+)
+async def generate_structure_route(
+    current_user: Annotated[Optional[User], Depends(optional_auth)],
+    background_tasks: BackgroundTasks,
+    repo_url: Optional[str] = Form(
+        None, description="URL to a downloadable ZIP of the repository."
+    ),
+    branch: Optional[str] = Form(
+        None,
+        description="Branch for GitHub repo URL. If not specified, uses the repository's default branch.",
+    ),
+    zip_file: Optional[UploadFile] = File(
+        None, description="A ZIP file of the repository."
+    ),
+    access_token: Optional[str] = Form(
+        None,
+        description="Optional GitHub token for accessing private repositories.",
+        example="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    ),
+):
+    return await generate_structure_endpoint(background_tasks, current_user, repo_url, branch, zip_file, access_token)
+

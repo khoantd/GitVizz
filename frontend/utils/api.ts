@@ -1,16 +1,15 @@
 // API utilities for interacting with the backend using Hey-API generated SDK
 
-import { getAuthClient, apiClient } from './client-config';
+import { getAuthClient } from './client-config';
 import {
-  generateTextEndpointApiRepoGenerateTextPost,
-  generateGraphEndpointApiRepoGenerateGraphPost,
-  generateStructureEndpointApiRepoGenerateStructurePost,
+  generateTextRouteApiRepoGenerateTextPost,
+  generateGraphRouteApiRepoGenerateGraphPost,
+  generateStructureRouteApiRepoGenerateStructurePost,
   loginUserApiBackendAuthLoginPost,
   processChatMessageApiBackendChatChatPost,
   streamChatResponseApiBackendChatChatStreamPost,
   getConversationHistoryApiBackendChatConversationsConversationIdPost,
   getChatSessionApiBackendChatSessionsChatIdPost,
-  saveUserApiKeyApiBackendChatKeysSavePost,
   getAvailableModelsApiBackendChatModelsPost,
   updateChatSettingsApiBackendChatSettingsPost,
   searchContextApiBackendChatContextSearchPost,
@@ -43,7 +42,7 @@ export interface RepoRequest {
   repo_url?: string;
   branch?: string;
   access_token?: string;
-  jwt_token?: string;
+  token?: string;
   zip_file?: File;
 }
 
@@ -93,9 +92,9 @@ type ResponseMap = {
 
 // Type mapping for API functions
 type ApiFunctionMap = {
-  [OperationType.TEXT]: typeof generateTextEndpointApiRepoGenerateTextPost;
-  [OperationType.GRAPH]: typeof generateGraphEndpointApiRepoGenerateGraphPost;
-  [OperationType.STRUCTURE]: typeof generateStructureEndpointApiRepoGenerateStructurePost;
+  [OperationType.TEXT]: typeof generateTextRouteApiRepoGenerateTextPost;
+  [OperationType.GRAPH]: typeof generateGraphRouteApiRepoGenerateGraphPost;
+  [OperationType.STRUCTURE]: typeof generateStructureRouteApiRepoGenerateStructurePost;
 };
 
 /**
@@ -107,7 +106,7 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
     if (!urlObj.hostname.includes('github.com')) {
       return null;
     }
-    
+
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
     if (pathParts.length >= 2) {
       return {
@@ -122,11 +121,109 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
 }
 
 /**
+ * Get comprehensive repository information including branches, size, and default branch
+ * This combines multiple GitHub API calls into a single function to reduce loading states
+ */
+export async function getRepositoryInfo(
+  repoUrl: string,
+  accessToken?: string,
+): Promise<{
+  branches: string[];
+  size: number | null;
+  defaultBranch: string;
+  isLargeRepo: boolean;
+}> {
+  const repoInfo = parseGitHubUrl(repoUrl);
+  if (!repoInfo) {
+    return {
+      branches: ['main', 'master', 'develop'],
+      size: null,
+      defaultBranch: 'main',
+      isLargeRepo: false,
+    };
+  }
+
+  try {
+    const headers: HeadersInit = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'gitvizz-app',
+    };
+
+    if (accessToken && accessToken.trim() && accessToken !== 'string') {
+      headers['Authorization'] = `token ${accessToken}`;
+    }
+
+    // Fetch both repo info and branches in parallel
+    const [repoInfoResponse, branchesResponse] = await Promise.all([
+      fetch(`https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`, {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      }),
+      fetch(`https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches`, {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      }),
+    ]);
+
+    let branches: string[] = [];
+    let size: number | null = null;
+    let defaultBranch = 'main';
+    let isLargeRepo = false;
+
+    // Process repository info
+    if (repoInfoResponse.ok) {
+      const repoData = await repoInfoResponse.json();
+      size = repoData.size || null;
+      defaultBranch = repoData.default_branch || 'main';
+      isLargeRepo = size ? size > 50000 : false; // Consider repos over 50MB as large
+    }
+
+    // Process branches
+    if (branchesResponse.ok) {
+      const branchData = await branchesResponse.json();
+      branches = branchData
+        .map((branch: any) => branch.name)
+        .sort((a: string, b: string) => {
+          // Sort so that common default branches appear first
+          const commonBranches = ['main', 'master', 'develop', 'dev'];
+          const aIndex = commonBranches.indexOf(a);
+          const bIndex = commonBranches.indexOf(b);
+
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+          return a.localeCompare(b);
+        });
+    } else {
+      // Fallback branches if API call fails
+      branches = [defaultBranch, 'main', 'master', 'develop'].filter(
+        (branch, index, arr) => arr.indexOf(branch) === index
+      );
+    }
+
+    return {
+      branches,
+      size,
+      defaultBranch,
+      isLargeRepo,
+    };
+  } catch (error) {
+    console.warn('Could not fetch repository info:', error);
+    return {
+      branches: ['main', 'master', 'develop'],
+      size: null,
+      defaultBranch: 'main',
+      isLargeRepo: false,
+    };
+  }
+}
+
+/**
  * Get all branches for a GitHub repository
  */
 export async function getRepositoryBranches(
-  repoUrl: string, 
-  accessToken?: string
+  repoUrl: string,
+  accessToken?: string,
 ): Promise<string[]> {
   const repoInfo = parseGitHubUrl(repoUrl);
   if (!repoInfo) {
@@ -136,7 +233,7 @@ export async function getRepositoryBranches(
   try {
     const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches`;
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'gitvizz-app',
     };
 
@@ -145,20 +242,22 @@ export async function getRepositoryBranches(
     }
 
     const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
-    
+
     if (response.ok) {
       const branches = await response.json();
-      return branches.map((branch: any) => branch.name).sort((a: string, b: string) => {
-        // Sort so that common default branches appear first
-        const commonBranches = ['main', 'master', 'develop', 'dev'];
-        const aIndex = commonBranches.indexOf(a);
-        const bIndex = commonBranches.indexOf(b);
-        
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
-        return a.localeCompare(b);
-      });
+      return branches
+        .map((branch: any) => branch.name)
+        .sort((a: string, b: string) => {
+          // Sort so that common default branches appear first
+          const commonBranches = ['main', 'master', 'develop', 'dev'];
+          const aIndex = commonBranches.indexOf(a);
+          const bIndex = commonBranches.indexOf(b);
+
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+          return a.localeCompare(b);
+        });
     } else {
       console.warn(`Could not fetch branches for ${repoUrl}`);
       return [];
@@ -173,8 +272,8 @@ export async function getRepositoryBranches(
  * Get the default branch for a GitHub repository
  */
 export async function getRepositoryDefaultBranch(
-  repoUrl: string, 
-  accessToken?: string
+  repoUrl: string,
+  accessToken?: string,
 ): Promise<string> {
   const repoInfo = parseGitHubUrl(repoUrl);
   if (!repoInfo) {
@@ -184,7 +283,7 @@ export async function getRepositoryDefaultBranch(
   try {
     const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`;
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'gitvizz-app',
     };
 
@@ -193,7 +292,7 @@ export async function getRepositoryDefaultBranch(
     }
 
     const response = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(10000) });
-    
+
     if (response.ok) {
       const data = await response.json();
       return data.default_branch || 'main';
@@ -211,9 +310,9 @@ export async function getRepositoryDefaultBranch(
  * Validate if a specific branch exists in the repository
  */
 export async function validateBranchExists(
-  repoUrl: string, 
-  branch: string, 
-  accessToken?: string
+  repoUrl: string,
+  branch: string,
+  accessToken?: string,
 ): Promise<boolean> {
   const repoInfo = parseGitHubUrl(repoUrl);
   if (!repoInfo) {
@@ -223,7 +322,7 @@ export async function validateBranchExists(
   try {
     const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/branches/${branch}`;
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'gitvizz-app',
     };
 
@@ -247,9 +346,9 @@ export async function validateBranchExists(
  * 3. If no requested branch, use repository's default branch
  */
 export async function resolveBranch(
-  repoUrl: string, 
-  requestedBranch?: string, 
-  accessToken?: string
+  repoUrl: string,
+  requestedBranch?: string,
+  accessToken?: string,
 ): Promise<string> {
   if (!repoUrl || !repoUrl.includes('github.com')) {
     return requestedBranch || 'main';
@@ -263,7 +362,9 @@ export async function resolveBranch(
         console.log(`Using requested branch '${requestedBranch}' for ${repoUrl}`);
         return requestedBranch;
       } else {
-        console.warn(`Requested branch '${requestedBranch}' not found, falling back to default branch`);
+        console.warn(
+          `Requested branch '${requestedBranch}' not found, falling back to default branch`,
+        );
       }
     }
 
@@ -279,9 +380,9 @@ export async function resolveBranch(
 
 // API function mapping
 const API_FUNCTIONS: ApiFunctionMap = {
-  [OperationType.TEXT]: generateTextEndpointApiRepoGenerateTextPost,
-  [OperationType.GRAPH]: generateGraphEndpointApiRepoGenerateGraphPost,
-  [OperationType.STRUCTURE]: generateStructureEndpointApiRepoGenerateStructurePost,
+  [OperationType.TEXT]: generateTextRouteApiRepoGenerateTextPost,
+  [OperationType.GRAPH]: generateGraphRouteApiRepoGenerateGraphPost,
+  [OperationType.STRUCTURE]: generateStructureRouteApiRepoGenerateStructurePost,
 };
 
 // Error messages mapping
@@ -315,21 +416,27 @@ async function executeOperation<T extends OperationType>(
       resolvedBranch = await resolveBranch(request.repo_url, request.branch, request.access_token);
     }
 
-    // Prepare the request data with resolved branch
+    // Prepare the request data with resolved branch (no token in body)
     const requestData = {
       repo_url: request.repo_url || null,
       branch: resolvedBranch,
       access_token: request.access_token || null,
-      jwt_token: request.jwt_token || null,
       zip_file: request.zip_file || null,
     };
 
     // Get the appropriate API function
     const apiFunction = API_FUNCTIONS[operationType];
 
-    // Execute the API call with proper options structure
+    // Prepare headers - only include Authorization if token exists
+    const headers: Record<string, string> = {};
+    if (request.token && request.token.trim()) {
+      headers.Authorization = request.token; // Token already contains "Bearer "
+    }
+
+    // Execute the API call
     const response = await apiFunction({
       body: requestData,
+      headers,
     });
 
     // Handle errors
@@ -357,7 +464,7 @@ function extractErrorMessage(error: any, operationType: OperationType, isZipFile
   if (typeof error === 'string') {
     // Check for branch-related errors
     if (error.includes('Failed to download ZIP') && error.includes('Status: 404')) {
-      return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+      return "Repository branch not found. Please check if the branch exists or try using the repository's default branch.";
     }
     return error;
   }
@@ -366,17 +473,20 @@ function extractErrorMessage(error: any, operationType: OperationType, isZipFile
     if (typeof error.detail === 'string') {
       // Check for branch-related errors in detail
       if (error.detail.includes('Failed to download ZIP') && error.detail.includes('Status: 404')) {
-        return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+        return "Repository branch not found. Please check if the branch exists or try using the repository's default branch.";
       }
       return error.detail;
     }
     if (Array.isArray(error.detail)) {
       const errorMessages = error.detail.map((err: any) => err.msg || err.message || String(err));
       const joinedMessage = errorMessages.join(', ');
-      
+
       // Check for branch-related errors in joined messages
-      if (joinedMessage.includes('Failed to download ZIP') && joinedMessage.includes('Status: 404')) {
-        return 'Repository branch not found. Please check if the branch exists or try using the repository\'s default branch.';
+      if (
+        joinedMessage.includes('Failed to download ZIP') &&
+        joinedMessage.includes('Status: 404')
+      ) {
+        return "Repository branch not found. Please check if the branch exists or try using the repository's default branch.";
       }
       return joinedMessage;
     }
@@ -433,10 +543,10 @@ export async function generateStructureFromGithub(
 /**
  * Upload and process local ZIP file to generate text
  */
-export async function uploadLocalZip(file: File, jwt_token: string): Promise<TextResponse> {
+export async function uploadLocalZip(file: File, token: string): Promise<TextResponse> {
   const response = await executeOperation(OperationType.TEXT, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
   return {
@@ -449,10 +559,10 @@ export async function uploadLocalZip(file: File, jwt_token: string): Promise<Tex
 /**
  * Generate graph from uploaded ZIP file
  */
-export async function generateGraphFromZip(file: File, jwt_token: string): Promise<GraphResponse> {
+export async function generateGraphFromZip(file: File, token: string): Promise<GraphResponse> {
   return executeOperation(OperationType.GRAPH, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
 }
@@ -462,11 +572,11 @@ export async function generateGraphFromZip(file: File, jwt_token: string): Promi
  */
 export async function generateStructureFromZip(
   file: File,
-  jwt_token: string,
+  token: string,
 ): Promise<StructureResponse> {
   return executeOperation(OperationType.STRUCTURE, {
     zip_file: file,
-    jwt_token,
+    token,
     branch: 'main',
   });
 }
@@ -518,16 +628,21 @@ export async function getJwtToken(access_token: string): Promise<LoginResponse> 
 /**
  * Refresh JWT token using refresh token
  */
-export async function refreshJwtToken(refresh_token: string): Promise<{ access_token: string; expires_in: number }> {
+export async function refreshJwtToken(
+  refresh_token: string,
+): Promise<{ access_token: string; expires_in: number }> {
   try {
     const authClient = getAuthClient();
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token }),
       },
-      body: JSON.stringify({ refresh_token }),
-    });
+    );
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -564,7 +679,6 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
   try {
     const response = await processChatMessageApiBackendChatChatPost({
       body: {
-        token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
         use_user: chatRequest.use_user || false,
@@ -574,6 +688,9 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
+      },
+      headers: {
+        Authorization: chatRequest.token, // Token already contains "Bearer "
       },
     });
 
@@ -598,7 +715,6 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
   try {
     const response = await streamChatResponseApiBackendChatChatStreamPost({
       body: {
-        token: chatRequest.token,
         message: chatRequest.message,
         repository_id: chatRequest.repository_id,
         use_user: chatRequest.use_user || false,
@@ -608,6 +724,9 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
         model: chatRequest.model || 'gpt-3.5-turbo',
         temperature: chatRequest.temperature || 0.7,
         max_tokens: chatRequest.max_tokens || null,
+      },
+      headers: {
+        Authorization: chatRequest.token, // Token already contains "Bearer "
       },
     });
 
@@ -622,12 +741,15 @@ export async function streamChatResponse(chatRequest: ChatRequest): Promise<Resp
  * Get list of user's chat sessions
  */
 export async function getUserChatSessions(
-  jwt_token: string,
+  token: string,
   repository_identifier: string,
 ): Promise<ChatSessionListResponse> {
   try {
     const response = await listUserChatSessionsApiBackendChatSessionsPost({
-      body: { jwt_token, repository_identifier },
+      body: { repository_identifier },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -654,7 +776,9 @@ export async function getConversationHistory(
   try {
     const response = await getConversationHistoryApiBackendChatConversationsConversationIdPost({
       path: { conversation_id: conversationId },
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -678,7 +802,9 @@ export async function getChatSession(token: string, chatId: string): Promise<Cha
   try {
     const response = await getChatSessionApiBackendChatSessionsChatIdPost({
       path: { chat_id: chatId },
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -715,14 +841,16 @@ export async function verifyApiKey(verifyRequest: {
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', verifyRequest.token);
     formData.append('provider', verifyRequest.provider);
     formData.append('api_key', verifyRequest.api_key);
 
     // Use the proper backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/verify`, {
       method: 'POST',
+      headers: {
+        Authorization: verifyRequest.token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -745,7 +873,6 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
   try {
     // Use manual form data to include verify_key parameter that might not be in generated types yet
     const formData = new FormData();
-    formData.append('token', apiKeyRequest.token);
     formData.append('provider', apiKeyRequest.provider);
     formData.append('api_key', apiKeyRequest.api_key);
     if (apiKeyRequest.key_name) {
@@ -754,9 +881,12 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
     formData.append('verify_key', 'true'); // Always verify by default
 
     // Use the proper backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/save`, {
       method: 'POST',
+      headers: {
+        Authorization: apiKeyRequest.token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -788,7 +918,9 @@ export async function saveApiKey(apiKeyRequest: ApiKeyRequest): Promise<ApiKeyRe
 export async function getAvailableModels(token: string): Promise<AvailableModelsResponse> {
   try {
     const response = await getAvailableModelsApiBackendChatModelsPost({
-      body: { token },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
     });
 
     if (response.error) {
@@ -821,13 +953,13 @@ export async function getUserApiKeys(token: string): Promise<{
   total_keys: number;
 }> {
   try {
-    const formData = new FormData();
-    formData.append('token', token);
-
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/list`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
 
     if (!response.ok) {
@@ -848,7 +980,7 @@ export async function getUserApiKeys(token: string): Promise<{
 export async function deleteUserApiKey(
   token: string,
   provider: string,
-  keyId?: string
+  keyId?: string,
 ): Promise<{
   success: boolean;
   message: string;
@@ -857,15 +989,17 @@ export async function deleteUserApiKey(
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', token);
     formData.append('provider', provider);
     if (keyId) {
       formData.append('key_id', keyId);
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/keys/delete`, {
       method: 'POST',
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -884,34 +1018,42 @@ export async function deleteUserApiKey(
 /**
  * Get detailed available models with configurations
  */
-export async function getDetailedAvailableModels(token: string, provider?: string): Promise<{
+export async function getDetailedAvailableModels(
+  token: string,
+  provider?: string,
+): Promise<{
   success: boolean;
   providers: string[];
   models: Record<string, string[]>;
-  detailed_models: Record<string, Array<{
-    name: string;
-    max_tokens: number;
-    max_output_tokens: number;
-    supports_function_calling: boolean;
-    supports_vision: boolean;
-    is_reasoning_model: boolean;
-    knowledge_cutoff: string | null;
-    cost_per_1M_input: number;
-    cost_per_1M_output: number;
-  }>>;
+  detailed_models: Record<
+    string,
+    Array<{
+      name: string;
+      max_tokens: number;
+      max_output_tokens: number;
+      supports_function_calling: boolean;
+      supports_vision: boolean;
+      is_reasoning_model: boolean;
+      knowledge_cutoff: string | null;
+      cost_per_1M_input: number;
+      cost_per_1M_output: number;
+    }>
+  >;
   user_has_keys: string[];
   total_models: number;
 }> {
   try {
     const formData = new FormData();
-    formData.append('token', token);
     if (provider) {
       formData.append('provider', provider);
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     const response = await fetch(`${backendUrl}/api/backend-chat/models/available`, {
       method: 'POST',
+      headers: {
+        'Authorization': token, // Token already contains "Bearer "
+      },
       body: formData,
     });
 
@@ -947,12 +1089,14 @@ export async function updateChatSettings(
   try {
     const response = await updateChatSettingsApiBackendChatSettingsPost({
       body: {
-        token,
         chat_id: chatId,
         title: settings.title || null,
         default_provider: settings.default_provider || null,
         default_model: settings.default_model || null,
         default_temperature: settings.default_temperature || null,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -986,10 +1130,12 @@ export async function searchContext(
   try {
     const response = await searchContextApiBackendChatContextSearchPost({
       body: {
-        token,
         repository_id: repositoryId,
         query,
         max_results: Math.min(Math.max(maxResults, 1), 20), // Ensure between 1-20
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1037,7 +1183,7 @@ function isTokenExpiredError(error: any): boolean {
  * Starts the process of generating wiki documentation. The task runs in the background.
  */
 export async function generateWikiDocumentation(
-  jwt_token: string,
+  token: string,
   repository_url: string,
   language: string = 'en',
   comprehensive: boolean = true,
@@ -1048,13 +1194,15 @@ export async function generateWikiDocumentation(
   try {
     const response = await generateWikiApiDocumentationGenerateWikiPost({
       body: {
-        jwt_token,
         repository_url,
         language,
         comprehensive,
         provider_name: provider,
         model_name: model,
         temperature,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1076,12 +1224,14 @@ export async function generateWikiDocumentation(
  * Get wiki generation status
  * Retrieves the current status of a wiki generation task using the provided task ID.
  */
-export async function getWikiGenerationStatus(jwt_token: string, repo_id: string): Promise<any> {
+export async function getWikiGenerationStatus(token: string, repo_id: string): Promise<any> {
   try {
     const response = await getWikiStatusApiDocumentationWikiStatusPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1103,12 +1253,14 @@ export async function getWikiGenerationStatus(jwt_token: string, repo_id: string
  * List repository documentation files
  * Lists all documentation files for a specific repository with parsed content.
  */
-export async function getRepositoryDocumentation(jwt_token: string, repo_id: string): Promise<any> {
+export async function getRepositoryDocumentation(token: string, repo_id: string): Promise<any> {
   try {
     const response = await listRepositoryDocsApiDocumentationRepositoryDocsPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1131,15 +1283,16 @@ export async function getRepositoryDocumentation(jwt_token: string, repo_id: str
  * Checks if wiki documentation has been generated for a specific repository.
  */
 export async function isWikiGenerated(
-  jwt_token: string,
+  token: string,
   repo_id: string,
 ): Promise<IsWikiGeneratedApiDocumentationIsWikiGeneratedPostResponse> {
-  console.log(jwt_token);
   try {
     const response = await isWikiGeneratedApiDocumentationIsWikiGeneratedPost({
       body: {
-        jwt_token,
         repo_id,
+      },
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
       },
     });
 
@@ -1160,15 +1313,16 @@ export async function isWikiGenerated(
 /**
  * Cancel wiki documentation generation
  */
-export async function cancelWikiGeneration(jwt_token: string, task_id: string): Promise<any> {
+export async function cancelWikiGeneration(token: string, task_id: string): Promise<any> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003';
-    const formData = new FormData();
-    formData.append('jwt_token', jwt_token);
-    
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+
     const response = await fetch(`${backendUrl}/api/documentation/cancel-generation/${task_id}`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        Authorization: token, // Token already contains "Bearer "
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     });
 
     if (!response.ok) {
@@ -1183,14 +1337,106 @@ export async function cancelWikiGeneration(jwt_token: string, task_id: string): 
 }
 
 // =============================================================================
+// GITHUB INTEGRATION
+// =============================================================================
+
+/**
+ * Get GitHub App installations for the authenticated user
+ */
+export async function getGitHubInstallations(token: string): Promise<{
+  installations: Array<{
+    id: number;
+    account: {
+      login: string;
+      id: number;
+      avatar_url: string;
+      type?: string;
+    };
+    app_id: number;
+    target_type: string;
+    target_id?: number;
+    created_at?: string;
+    updated_at?: string;
+  }>;
+  user_id: number;
+  user_login: string;
+}> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/github/installations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token, // Token already contains "Bearer "
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch GitHub installations: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+/**
+ * Get repositories accessible to a GitHub App installation
+ */
+export async function getGitHubInstallationRepositories(
+  token: string,
+  installationId: number
+): Promise<{
+  repositories: Array<{
+    id: number;
+    name: string;
+    full_name: string;
+    description: string;
+    private: boolean;
+    html_url: string;
+    language?: string;
+    stargazers_count: number;
+    forks_count: number;
+    default_branch: string;
+    updated_at?: string;
+  }>;
+  total_count: number;
+}> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+    const response = await fetch(`${backendUrl}/api/github/installations/${installationId}/repositories`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token, // Token already contains "Bearer "
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch GitHub repositories: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    handleApiError(error, OperationType.TEXT);
+  }
+}
+
+// =============================================================================
 // UNIVERSAL PROCESSING FUNCTION
 // =============================================================================
 
 /**
  * Universal function that can handle any operation type and source (repo/zip)
  * Usage examples:
- *   - processRepository('text', { repo_url: 'https://github.com/user/repo', jwt_token: 'xxx' })
- *   - processRepository('graph', { zip_file: file, jwt_token: 'xxx' })
+ *   - processRepository('text', { repo_url: 'https://github.com/user/repo', token: 'xxx' })
+ *   - processRepository('graph', { zip_file: file, token: 'xxx' })
  */
 export async function processRepository<T extends OperationType>(
   operationType: T,

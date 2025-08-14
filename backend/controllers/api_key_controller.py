@@ -5,10 +5,11 @@ Handles API key verification, saving, and management for users
 from fastapi import HTTPException, Form
 from typing import Annotated, Optional
 from utils.llm_utils import llm_service
-from utils.jwt_utils import get_current_user
+from models.user import User
 from models.chat import UserApiKey
 from beanie import BeanieObjectId
 from datetime import datetime, timezone
+from schemas.chat_schemas import AvailableModelsResponse
 
 
 
@@ -17,7 +18,7 @@ class ApiKeyController:
 
     async def verify_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key to verify")]
     ) -> dict:
@@ -80,7 +81,7 @@ class ApiKeyController:
 
     async def save_user_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name (openai, anthropic, gemini, groq)")],
         api_key: Annotated[str, Form(description="API key to save")],
         key_name: Annotated[Optional[str], Form(description="Optional friendly name for the key")] = None,
@@ -88,10 +89,6 @@ class ApiKeyController:
     ) -> dict:
         """Save encrypted user API key"""
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Validate provider
             valid_providers = ["openai", "anthropic", "gemini", "groq"]
@@ -133,14 +130,10 @@ class ApiKeyController:
 
     async def get_user_api_keys(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")]
+        user: User
     ) -> dict:
         """Get list of user's saved API keys (without exposing the actual keys)"""
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
             # Get user's API keys
             user_keys = await UserApiKey.find(
@@ -172,41 +165,58 @@ class ApiKeyController:
 
     async def delete_user_api_key(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: User,
         provider: Annotated[str, Form(description="Provider name to delete key for")],
         key_id: Annotated[Optional[str], Form(description="Specific key ID to delete")] = None
     ) -> dict:
         """Delete user's API key for a specific provider"""
         try:
-            # Authenticate user
-            user = await get_current_user(token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid JWT token")
             
-            # Find and delete the key
-            query = {
-                "user.id": BeanieObjectId(user.id),
-                "provider": provider,
-                "is_active": True
-            }
-            
+            # Find the key using proper Beanie query format
             if key_id:
-                query["_id"] = BeanieObjectId(key_id)
-            
-            user_key = await UserApiKey.find_one(query)
+                # If specific key ID provided, find by ID and verify it belongs to user
+                try:
+                    user_key = await UserApiKey.find_one(
+                        UserApiKey.id == BeanieObjectId(key_id),
+                        UserApiKey.user.id == BeanieObjectId(user.id),
+                        UserApiKey.provider == provider
+                        # Removed is_active filter since we're doing hard deletes
+                    )
+                except Exception as e:
+                    print(f"Error finding key by ID {key_id}: {e}")
+                    user_key = None
+            else:
+                # Find by user and provider (active keys only for provider-based deletion)
+                user_key = await UserApiKey.find_one(
+                    UserApiKey.user.id == BeanieObjectId(user.id),
+                    UserApiKey.provider == provider,
+                    UserApiKey.is_active == True  # Keep this for provider-based deletion
+                )
             if not user_key:
-                raise HTTPException(status_code=404, detail="API key not found")
+                # Debug: List all keys for this user to help troubleshoot
+                all_user_keys = await UserApiKey.find(
+                    UserApiKey.user.id == BeanieObjectId(user.id)
+                ).to_list()
+                
+                print(f"Debug - Delete API key: User {user.id}, Provider {provider}, Key ID {key_id}")
+                print(f"Debug - User has {len(all_user_keys)} total keys")
+                for key in all_user_keys:
+                    print(f"Debug - Key: ID={key.id}, Provider={key.provider}, Active={key.is_active}")
+                
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"API key not found for provider '{provider}'. Available providers for user: {[k.provider for k in all_user_keys if k.is_active]}"
+                )
             
-            # Soft delete by setting is_active to False
-            user_key.is_active = False
-            user_key.updated_at = datetime.now(timezone.utc)
-            await user_key.save()
+            # Hard delete for security reasons - completely remove the API key from database
+            deleted_at = datetime.now(timezone.utc)
+            await user_key.delete()
             
             return {
                 "success": True,
-                "message": f"API key for {provider} deleted successfully",
+                "message": f"API key for {provider} permanently deleted successfully",
                 "provider": provider,
-                "deleted_at": user_key.updated_at.isoformat()
+                "deleted_at": deleted_at.isoformat()
             }
             
         except HTTPException:
@@ -216,16 +226,11 @@ class ApiKeyController:
 
     async def get_available_models(
         self,
-        token: Annotated[str, Form(description="JWT authentication token")],
+        user: Optional[User] = None,
         provider: Annotated[Optional[str], Form(description="Specific provider to get models for")] = None
     ) -> dict:
         """Get available models for all providers or a specific provider"""
         try:
-            # Get user for authentication (optional for this endpoint)
-            try:
-                user = await get_current_user(token) if token and token != "anonymous" else None
-            except Exception:
-                user = None  # Allow anonymous access to model list
             
             # Get available models from llm_service
             all_models = llm_service.get_available_models()
@@ -275,6 +280,90 @@ class ApiKeyController:
             
         except HTTPException:
             raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_model_config(
+        self,
+        provider: str,
+        model: str
+    ) -> dict:
+        """Get detailed configuration for a specific model"""
+        try:
+            # Validate provider
+            valid_providers = ["openai", "anthropic", "gemini", "groq"]
+            if provider not in valid_providers:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid provider. Valid providers: {', '.join(valid_providers)}"
+                )
+            
+            # Get model configuration from llm_service
+            config = llm_service.get_model_config(provider, model)
+            if not config:
+                # Check if model exists for this provider
+                all_models = llm_service.get_available_models()
+                provider_models = all_models.get(provider, [])
+                if model not in provider_models:
+                    raise HTTPException(
+                        status_code=404, 
+                        detail=f"Model '{model}' not found for provider '{provider}'. Available models: {provider_models[:10]}"
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=404, 
+                        detail=f"Configuration not found for model '{model}'"
+                    )
+            
+            # Return detailed configuration
+            return {
+                "success": True,
+                "provider": provider,
+                "model": model,
+                "config": {
+                    "max_tokens": config.max_tokens,
+                    "max_output_tokens": config.max_output_tokens,
+                    "cost_per_1M_input": config.cost_per_1M_input,
+                    "cost_per_1M_output": config.cost_per_1M_output,
+                    "cost_per_1M_cached_input": config.cost_per_1M_cached_input,
+                    "supports_function_calling": config.supports_function_calling,
+                    "supports_vision": config.supports_vision,
+                    "knowledge_cutoff": config.knowledge_cutoff,
+                    "is_reasoning_model": config.is_reasoning_model
+                }
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_available_models_response(
+        self,
+        user: User
+    ) -> AvailableModelsResponse:
+        """Get available models with user's key status - returns AvailableModelsResponse schema"""
+        try:
+            # Get user's keys
+            user_keys = await UserApiKey.find(
+                UserApiKey.user.id == BeanieObjectId(user.id),
+                UserApiKey.is_active == True
+            ).to_list()
+            
+            user_has_keys = [key.provider for key in user_keys]
+            
+            # Get available models from LangChain service
+            from utils.langchain_llm_service import langchain_service
+            models = langchain_service.get_available_models()
+            
+            response = AvailableModelsResponse(
+                providers=models,
+                current_limits={},  # Remove limits
+                user_has_keys=user_has_keys
+            )
+            
+            return response
+            
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 

@@ -13,8 +13,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, Settings, Zap, Brain, Sparkles, Gauge } from 'lucide-react';
+import { RefreshCw, Settings, Zap, Brain, Sparkles, Gauge, Eye, Wrench, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatTokenCount } from '@/utils/model-config';
 
 interface ModelSelectorProps {
   currentModel: Partial<{
@@ -26,6 +27,16 @@ interface ModelSelectorProps {
     providers: Record<string, string[]>;
     user_has_keys: string[];
   };
+  currentModelConfig?: {
+    max_tokens: number;
+    max_output_tokens: number;
+    supports_function_calling: boolean;
+    supports_vision: boolean;
+    is_reasoning_model: boolean;
+    cost_per_1M_input: number;
+    cost_per_1M_output: number;
+  } | null;
+  isLoadingModelConfig?: boolean;
   onModelChange: (provider: string, model: string) => void;
   onRefresh: () => void;
 }
@@ -33,6 +44,8 @@ interface ModelSelectorProps {
 export function ModelSelector({
   currentModel,
   availableModels,
+  currentModelConfig,
+  isLoadingModelConfig,
   onModelChange,
   onRefresh,
 }: ModelSelectorProps) {
@@ -95,20 +108,20 @@ export function ModelSelector({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">AI Model</Label>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onRefresh} className="h-7 w-7 p-0">
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={onRefresh} className="h-6 w-6 p-0">
             <RefreshCw className="h-3 w-3" />
           </Button>
           <Popover open={showAdvanced} onOpenChange={setShowAdvanced}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                 <Settings className="h-3 w-3" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-4">
+            <PopoverContent className="w-72" align="end">
+              <div className="space-y-3">
                 <div>
-                  <Label className="text-sm font-medium">Temperature</Label>
+                  <Label className="text-xs font-medium">Temperature</Label>
                   <div className="mt-2 space-y-2">
                     <Slider
                       value={[temperature]}
@@ -118,13 +131,93 @@ export function ModelSelector({
                       step={0.1}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-xs text-muted-foreground">
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
                       <span>Focused (0)</span>
                       <span className="font-medium">{temperature}</span>
                       <span>Creative (2)</span>
                     </div>
                   </div>
                 </div>
+                {/* Model Details */}
+                {currentModelConfig && (
+                  <div className="border-t pt-3">
+                    <div className="grid grid-cols-2 gap-3 text-[10px]">
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Context:</span>
+                          <span className="font-medium">
+                            {formatTokenCount(currentModelConfig.max_tokens)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Output:</span>
+                          <span className="font-medium">
+                            {formatTokenCount(currentModelConfig.max_output_tokens)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Input:</span>
+                          <span className="font-medium">
+                            ${currentModelConfig.cost_per_1M_input}/1M
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          {currentModelConfig.supports_function_calling ? (
+                            <Wrench className="h-2.5 w-2.5 text-green-500" />
+                          ) : (
+                            <Wrench className="h-2.5 w-2.5 text-muted-foreground/50" />
+                          )}
+                          <span
+                            className={cn(
+                              'text-[9px]',
+                              currentModelConfig.supports_function_calling
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            Functions
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {currentModelConfig.supports_vision ? (
+                            <Eye className="h-2.5 w-2.5 text-blue-500" />
+                          ) : (
+                            <Eye className="h-2.5 w-2.5 text-muted-foreground/50" />
+                          )}
+                          <span
+                            className={cn(
+                              'text-[9px]',
+                              currentModelConfig.supports_vision
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            Vision
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {currentModelConfig.is_reasoning_model ? (
+                            <Cpu className="h-2.5 w-2.5 text-purple-500" />
+                          ) : (
+                            <Cpu className="h-2.5 w-2.5 text-muted-foreground/50" />
+                          )}
+                          <span
+                            className={cn(
+                              'text-[9px]',
+                              currentModelConfig.is_reasoning_model
+                                ? 'text-purple-600 dark:text-purple-400'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            Reasoning
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </PopoverContent>
           </Popover>
@@ -178,6 +271,9 @@ export function ModelSelector({
                 >
                   {safeModel}
                 </Badge>
+                {isLoadingModelConfig && (
+                  <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+                )}
               </div>
             </SelectValue>
           </SelectTrigger>
@@ -194,6 +290,26 @@ export function ModelSelector({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Minimal Model Info */}
+        {currentModelConfig && (
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+            <div className="flex items-center gap-2">
+              <span>{formatTokenCount(currentModelConfig.max_tokens)}</span>
+              <div className="flex items-center gap-1">
+                {currentModelConfig.supports_function_calling && (
+                  <Wrench className="h-2.5 w-2.5 text-green-500" />
+                )}
+                {currentModelConfig.supports_vision && (
+                  <Eye className="h-2.5 w-2.5 text-blue-500" />
+                )}
+                {currentModelConfig.is_reasoning_model && (
+                  <Cpu className="h-2.5 w-2.5 text-purple-500" />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -11,7 +11,6 @@ import {
   type ChatSessionListItem,
 } from '@/utils/api';
 import { useApiWithAuth } from '@/hooks/useApiWithAuth';
-import { extractJwtToken } from '@/utils/token-utils';
 import {
   createStreamingChatRequest,
   parseStreamingResponse,
@@ -19,6 +18,7 @@ import {
 } from '@/lib/streaming-chat';
 import type { DailyUsage } from '@/api-client/types.gen';
 import { showToast } from '@/components/toaster';
+import { fetchModelConfig, type ModelConfig } from '@/utils/model-config';
 
 interface ContextSettings {
   scope: 'focused' | 'moderate' | 'comprehensive';
@@ -78,6 +78,8 @@ export function useChatSidebar(
   });
   const [chatHistory, setChatHistory] = useState<ChatSessionListItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [currentModelConfig, setCurrentModelConfig] = useState<ModelConfig | null>(null);
+  const [isLoadingModelConfig, setIsLoadingModelConfig] = useState(false);
 
   const [useUserKeys, setUseUserKeys] = useState<Record<string, boolean>>(userKeyPreferences);
   const [contextSettings, setContextSettings] = useState<ContextSettings>({
@@ -107,13 +109,17 @@ export function useChatSidebar(
       return;
     }
 
-    // Validate repository identifier format (should be owner/repo/branch)
-    if (!repositoryIdentifier.includes('/')) {
-      console.warn(
-        'Repository identifier should be in owner/repo/branch format:',
+    // Validate repository identifier format
+    // For GitHub repos: should be owner/repo/branch format
+    // For ZIP files: can be just the repository ID
+    if (!repositoryIdentifier.includes('/') && repositoryIdentifier.length !== 24) {
+      // If it's not a GitHub format (owner/repo/branch) and not a 24-char ObjectId,
+      // we might still want to allow it for ZIP files or other sources
+      console.log(
+        'Repository identifier format:',
         repositoryIdentifier,
+        '(non-GitHub format, proceeding anyway)',
       );
-      return;
     }
 
     // Models: only load once per token
@@ -130,11 +136,37 @@ export function useChatSidebar(
     }
   }, [autoLoad, session?.jwt_token, repositoryIdentifier]);
 
+  const loadModelConfig = async (provider?: string, model?: string) => {
+    const targetProvider = provider || modelState.provider;
+    const targetModel = model || modelState.model;
+
+    if (!targetProvider || !targetModel) return;
+
+    setIsLoadingModelConfig(true);
+    try {
+      const config = await fetchModelConfig(targetProvider, targetModel);
+      setCurrentModelConfig(config);
+
+      // Auto-adjust context settings based on model capabilities
+      if (config) {
+        setContextSettings((prev) => ({
+          ...prev,
+          maxTokens: Math.min(prev.maxTokens, Math.floor(config.max_tokens * 0.7)), // Use 70% of max context for repository content
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load model config:', error);
+      setCurrentModelConfig(null);
+    } finally {
+      setIsLoadingModelConfig(false);
+    }
+  };
+
   const loadAvailableModels = async () => {
     if (!session?.jwt_token) return;
 
     try {
-      const models = await getAvailableModelsWithAuth(extractJwtToken(session.jwt_token));
+      const models = await getAvailableModelsWithAuth(session.jwt_token || undefined);
       setAvailableModels(models);
 
       // Set default model if current one is not available
@@ -152,7 +184,12 @@ export function useChatSidebar(
             provider: firstProvider,
             model: firstModel,
           }));
+          // Load config for new model
+          loadModelConfig(firstProvider, firstModel);
         }
+      } else if (providerKey && modelKey) {
+        // Load config for current model
+        loadModelConfig(providerKey, modelKey);
       }
     } catch (error) {
       showToast.error('Failed to load available models');
@@ -168,7 +205,7 @@ export function useChatSidebar(
     setIsLoadingHistory(true);
     try {
       const chatSessions = await getUserChatSessionsWithAuth(
-        extractJwtToken(session.jwt_token),
+        session.jwt_token || undefined,
         repositoryIdentifier,
       );
       if (chatSessions.success) {
@@ -191,12 +228,18 @@ export function useChatSidebar(
   ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
 
-    // Check if repository identifier is valid - should be in owner/repo/branch format
-    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || !repositoryIdentifier.includes('/')) {
-      console.error(
-        'Cannot send message: Repository identifier is invalid:',
-        repositoryIdentifier,
-      );
+    // Check if repository identifier is valid
+    // For GitHub repos: should be owner/repo/branch format (contains '/')
+    // For ZIP files: should be a 24-character ObjectId (no '/')
+    const isGitHubFormat = repositoryIdentifier.includes('/');
+    const isObjectIdFormat = !isGitHubFormat && repositoryIdentifier.length === 24;
+
+    if (
+      !repositoryIdentifier ||
+      repositoryIdentifier.trim() === '' ||
+      (!isGitHubFormat && !isObjectIdFormat)
+    ) {
+      console.error('Cannot send message: Repository identifier is invalid:', repositoryIdentifier);
       throw new Error(
         'Repository not processed yet. Please wait for repository processing to complete before starting a chat.',
       );
@@ -230,7 +273,7 @@ export function useChatSidebar(
       }
 
       const streamingRequest: StreamingChatRequest = {
-        token: extractJwtToken(session.jwt_token),
+        token: session.jwt_token || undefined,
         message: content,
         repository_id: repositoryIdentifier,
         repository_branch: options?.repositoryBranch,
@@ -441,7 +484,7 @@ export function useChatSidebar(
 
     try {
       const conversation = await getConversationHistoryWithAuth(
-        extractJwtToken(session.jwt_token),
+        session.jwt_token || undefined,
         conversationId,
       );
 
@@ -513,6 +556,8 @@ export function useChatSidebar(
       provider,
       model,
     }));
+    // Load configuration for the new model
+    loadModelConfig(provider, model);
   };
 
   const refreshModels = async () => {
@@ -528,6 +573,8 @@ export function useChatSidebar(
     isLoading: chatState.isLoading,
     isLoadingHistory,
     currentModel: modelState,
+    currentModelConfig,
+    isLoadingModelConfig,
     availableModels,
     chatHistory,
     sendMessage,
@@ -539,12 +586,10 @@ export function useChatSidebar(
     setModel,
     refreshModels,
     refreshChatHistory, // New method to manually refresh chat history
-    // Expose current session info for debugging
     currentChatId: chatState.currentChatId,
     currentConversationId: chatState.currentConversationId,
     useUserKeys,
     setUseUserKeys,
-    // Context settings
     contextSettings,
     setContextSettings,
   };
