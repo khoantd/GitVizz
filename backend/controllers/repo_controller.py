@@ -337,7 +337,7 @@ async def save_and_cache_repository(
 
 async def generate_text_endpoint(
     background_tasks: BackgroundTasks,
-    current_user: User,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None,
         description="URL to a downloadable ZIP of the repository (e.g., GitHub archive link).",
@@ -490,7 +490,7 @@ async def generate_text_endpoint(
 
 async def generate_graph_endpoint(
     background_tasks: BackgroundTasks,
-    current_user: User,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
     ),
@@ -633,7 +633,7 @@ async def generate_graph_endpoint(
 
 async def generate_structure_endpoint(
     background_tasks: BackgroundTasks,
-    current_user: User,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
     ),
@@ -880,7 +880,7 @@ def _filter_subgraph(
 
 async def generate_subgraph_endpoint(
     background_tasks: BackgroundTasks,
-    current_user: User,
+    current_user: Optional[User],
     repo_url: Optional[str] = Form(
         None, description="URL to a downloadable ZIP of the repository."
     ),

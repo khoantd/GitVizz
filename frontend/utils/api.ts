@@ -329,12 +329,16 @@ async function executeOperation<T extends OperationType>(
     // Get the appropriate API function
     const apiFunction = API_FUNCTIONS[operationType];
 
-    // Execute the API call with Authorization header
+    // Prepare headers - only include Authorization if token exists
+    const headers: Record<string, string> = {};
+    if (request.token && request.token.trim()) {
+      headers.Authorization = request.token; // Token already contains "Bearer "
+    }
+
+    // Execute the API call
     const response = await apiFunction({
       body: requestData,
-      headers: {
-        Authorization: request.token || '', // Token already contains "Bearer "
-      },
+      headers,
     });
 
     // Handle errors
