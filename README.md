@@ -130,6 +130,9 @@ docker-compose up --build
 
 - Frontend: [http://localhost:3000](http://localhost:3000)
 - Backend API: [http://localhost:8003](http://localhost:8003)
+- Phoenix UI: [http://localhost:6006](http://localhost:6006) *(LLM observability dashboard)*
+
+> 📊 **Phoenix Observability**: GitVizz includes Arize Phoenix for comprehensive LLM monitoring and tracing. See [Phoenix Setup Guide](./docs/phoenix_observability.md) for detailed configuration options.
 
 ### Option 3: Manual Setup
 
