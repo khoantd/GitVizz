@@ -16,7 +16,7 @@ import { useLayoutNoverlap } from '@react-sigma/layout-noverlap';
 import { useLayoutCircular } from '@react-sigma/layout-circular';
 import { useLayoutRandom } from '@react-sigma/layout-random';
 import { animateNodes } from 'sigma/utils';
-import { EdgeArrowProgram } from 'sigma/rendering';
+import { EdgeArrowProgram, NodeCircleProgram } from 'sigma/rendering';
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
 // Layout control imports commented out for now
 /* 
@@ -178,6 +178,9 @@ const enhancedSigmaSettings = {
   allowInvalidContainer: true,
   renderLabels: true,
   renderEdgeLabels: false,
+  nodeProgramClasses: {
+    circle: NodeCircleProgram,
+  },
   edgeProgramClasses: {
     arrow: EdgeArrowProgram,
     curvedArrow: EdgeCurvedArrowProgram,
@@ -623,6 +626,7 @@ function LoadGraph({
           color: baseColor,
           originalColor: baseColor,
           degree: degree,
+          type: 'circle',
           x: (Math.random() - 0.5) * 300, // Moderate initial spread
           y: (Math.random() - 0.5) * 300, // Moderate initial spread
         });
