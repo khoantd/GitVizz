@@ -43,6 +43,13 @@ services:
       - "3000:3000"
     env_file:
       - ./frontend/.env
+    environment:
+      # Override environment variables for Docker deployment
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8003
+      - NEXTAUTH_URL_INTERNAL=http://frontend:3000
+      - DOCKER_ENV=true
+      - NODE_ENV=production
     depends_on:
       - backend
     networks:
