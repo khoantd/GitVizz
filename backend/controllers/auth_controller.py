@@ -76,8 +76,11 @@ async def login_user(request: LoginRequest) -> LoginResponse:
             profile_picture=github_profile_picture,
             github_access_token=request.access_token,
         )
-
         await user.insert()  # Save the new user to the database
+    else:
+        user.github_access_token = request.access_token
+        await user.save()  # Update the existing user in the database
+
 
     # Step 4: Create tokens for the user
     tokens = await create_tokens(user.email)
