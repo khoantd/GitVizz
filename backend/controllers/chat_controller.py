@@ -474,6 +474,320 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 chat_id=chat_id or "",
                 conversation_id=conversation_id or ""
             )
+
+    # Legacy process streaming chat FIXME: compare with new once and then need to be removed
+    # async def process_streaming_chat(
+    #     self,
+    #     user: User,
+    #     message: Annotated[str, Form(description="User's message/question")],
+    #     repository_id: Annotated[str, Form(description="Repository identifier in format owner/repo/branch")],
+    #     use_user: Annotated[bool, Form(description="Whether to use the user's saved API key")] = False,
+    #     chat_id: Annotated[Optional[str], Form(description="Chat session ID (auto-generated if not provided)")] = None,
+    #     conversation_id: Annotated[Optional[str], Form(description="Conversation thread ID (auto-generated if not provided)")] = None,
+    #     provider: Annotated[str, Form(description="LLM provider (openai, anthropic, gemini, groq)")] = "openai",
+    #     model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
+    #     temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
+    #     max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
+    #     context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart"
+    # ) -> AsyncGenerator[str, None]:
+    #     """Process a chat message with streaming response - yields JSON strings"""
+    #     # hardcode context_mode
+    #     # context_mode="agentic"
+
+    #     try:
+    #         # Validate required parameters early
+    #         if not repository_id or repository_id.strip() == "":
+    #             yield json.dumps(StreamChatResponse(
+    #                 event="error",
+    #                 error="Repository identifier is required for chat",
+    #                 error_type="validation_error"
+    #             ).model_dump()) + "\n"
+    #             return
+            
+    #         if not message or message.strip() == "":
+    #             yield json.dumps(StreamChatResponse(
+    #                 event="error",
+    #                 error="Message cannot be empty",
+    #                 error_type="validation_error"
+    #             ).model_dump()) + "\n"
+    #             return
+            
+            
+    #         # Get or create chat session
+    #         chat_session = await self.get_or_create_chat_session(
+    #             user, 
+    #             repository_id,
+    #             None,  # No separate branch parameter needed with new identifier format
+    #             chat_id
+    #         )
+            
+    #         # Generate conversation ID if not provided
+    #         conversation_id = conversation_id or str(uuid.uuid4())
+            
+    #         # EARLY API KEY VALIDATION - Using improved LangChain service
+    #         try:
+    #             from utils.langchain_llm_service import langchain_service
+                
+    #             # Check if provider is available and test API key access
+    #             available_providers = langchain_service.get_available_providers()
+    #             if provider not in available_providers:
+    #                 yield json.dumps(StreamChatResponse(
+    #                     event="error",
+    #                     error=f"Provider {provider} not available. Available: {', '.join(available_providers)}. Install required packages.",
+    #                     error_type="provider_unavailable",
+    #                     provider=provider,
+    #                     model=model,
+    #                     chat_id=chat_session.chat_id,
+    #                     conversation_id=conversation_id
+    #                 ).model_dump()) + "\n"
+    #                 return
+                
+    #             # Test API key access early
+    #             try:
+    #                 await langchain_service.get_api_key_with_fallback(provider, user, use_user)
+    #             except ValueError as e:
+    #                 yield json.dumps(StreamChatResponse(
+    #                     event="error",
+    #                     error=str(e),
+    #                     error_type="no_api_key",
+    #                     provider=provider,
+    #                     model=model,
+    #                     chat_id=chat_session.chat_id,
+    #                     conversation_id=conversation_id
+    #                 ).model_dump()) + "\n"
+    #                 return
+                    
+    #         except Exception as e:
+    #             yield json.dumps(StreamChatResponse(
+    #                 event="error",
+    #                 error=f"Service initialization error: {str(e)}",
+    #                 error_type="service_error",
+    #                 provider=provider,
+    #                 model=model,
+    #                 chat_id=chat_session.chat_id,
+    #                 conversation_id=conversation_id
+    #             ).model_dump()) + "\n"
+    #             return
+            
+    #         # Get or create conversation - fetch with links to ensure repository is loaded
+    #         conversation = await Conversation.find_one(
+    #             Conversation.conversation_id == conversation_id,
+    #             Conversation.user.id == BeanieObjectId(user.id),
+    #             fetch_links=True  # Ensure linked objects are fully loaded
+    #         )
+            
+    #         if not conversation:
+    #             conversation = Conversation(
+    #                 user=user,
+    #                 repository=chat_session.repository,
+    #                 chat_id=chat_session.chat_id,
+    #                 conversation_id=conversation_id,
+    #                 title=self.generate_conversation_title(message),
+    #                 model_provider=provider,
+    #                 model_name=model,
+    #                 temperature=temperature,
+    #                 max_tokens=max_tokens
+    #             )
+    #             await conversation.save()
+    #         else:
+    #             # Ensure repository is fully loaded if it's a Link
+    #             if hasattr(conversation.repository, 'id') and not hasattr(conversation.repository, 'file_paths'):
+    #                 conversation.repository = await Repository.get(conversation.repository.id)
+            
+    #         # Add user message to conversation
+    #         conversation.add_message("user", message)
+            
+    #         # Get repository context based on the selected mode
+    #         context, context_metadata = await self.get_repository_context_by_mode(
+    #             chat_session.repository,
+    #             context_mode,
+    #             user_query=message,
+    #             max_context_tokens=max_tokens or 8000,
+    #             model=model,
+    #             provider=provider
+    #         )
+            
+    #         # Prepare messages for LLM with intelligent context window management
+    #         recent_messages = conversation.messages[-20:]  # Get more recent context
+    #         messages = []
+    #         total_chars = 0
+    #         max_context_chars = 8000  # Roughly 2000 tokens
+            
+    #         # Include messages from newest to oldest until we hit context limit
+    #         for msg in reversed(recent_messages):
+    #             msg_content = f"{msg.role}: {msg.content}"
+    #             if total_chars + len(msg_content) > max_context_chars and messages:
+    #                 break
+    #             messages.insert(0, {"role": msg.role, "content": msg.content})
+    #             total_chars += len(msg_content)
+            
+    #         # Generate streaming response using appropriate service based on context_mode
+    #         try:
+    #             if context_mode == "agentic":
+    #                 # Use GitVizz-powered agentic chat service
+    #                 from utils.agentic_chat_service import agentic_chat_service
+                    
+    #                 response_generator = agentic_chat_service.stream_agentic_chat_response(
+    #                     user_query=message,
+    #                     repository=chat_session.repository,
+    #                     user=user,
+    #                     model=model,
+    #                     provider=provider,
+    #                     thread_id=f"{chat_session.chat_id}_{conversation_id}",
+    #                     conversation_id=conversation_id,
+    #                     chat_id=chat_session.chat_id
+    #                 )
+    #             else:
+    #                 # Use regular LangGraph service for other modes
+    #                 from utils.langgraph_chat_service import langgraph_chat_service
+                    
+    #                 response_generator = langgraph_chat_service.stream_chat_response(
+    #                     user_query=message,
+    #                     repository_id=repository_id,
+    #                     user=user,
+    #                     model=model,
+    #                     provider=provider,
+    #                     thread_id=f"{chat_session.chat_id}_{conversation_id}",
+    #                     repository_context=context,
+    #                     context_metadata=context_metadata
+    #                 )
+    #         except Exception as e:
+    #             # Handle API key and quota errors specifically
+    #             error_type = "server_error"
+    #             error_message = str(e)
+    #             if "no user api key found" in error_message.lower() or "invalid api key" in error_message.lower():
+    #                 error_type = "no_api_key"
+    #             elif "quota" in error_message.lower() or "rate limit" in error_message.lower():
+    #                 error_type = "quota_exceeded"
+    #             elif "invalid model" in error_message.lower():
+    #                 error_type = "invalid_model"
+                
+    #             yield json.dumps(StreamChatResponse(
+    #                 event="error",
+    #                 error=error_message,
+    #                 error_type=error_type,
+    #                 provider=provider,
+    #                 model=model,
+    #                 chat_id=chat_session.chat_id,
+    #                 conversation_id=conversation_id
+    #             ).model_dump()) + "\n"
+    #             return
+            
+    #         # Handle LangGraph streaming response
+    #         response_content = ""
+    #         final_usage = {}
+            
+    #         async for json_chunk in response_generator:
+    #             try:
+    #                 # Parse the JSON chunk
+    #                 chunk_data = json.loads(json_chunk.strip())
+    #                 event_type = chunk_data.get("event")
+                    
+    #                 if event_type == "progress":
+    #                     # Yield progress events
+    #                     yield json.dumps(StreamChatResponse(
+    #                         event="progress",
+    #                         progress_step=chunk_data.get("step"),
+    #                         provider=provider,
+    #                         model=model,
+    #                         chat_id=chat_session.chat_id,
+    #                         conversation_id=conversation_id
+    #                     ).model_dump()) + "\n"
+                        
+    #                 elif event_type == "reasoning":
+    #                     # Yield reasoning traces for o1/o3 models
+    #                     yield json.dumps(StreamChatResponse(
+    #                         event="reasoning",
+    #                         reasoning=chunk_data.get("reasoning"),
+    #                         provider=provider,
+    #                         model=model,
+    #                         chat_id=chat_session.chat_id,
+    #                         conversation_id=conversation_id
+    #                     ).model_dump()) + "\n"
+                        
+    #                 elif event_type == "token":
+    #                     token_content = chunk_data.get("token", "")
+    #                     response_content += token_content
+                        
+    #                     # Yield token event
+    #                     yield json.dumps(StreamChatResponse(
+    #                         event="token",
+    #                         token=token_content,
+    #                         provider=provider,
+    #                         model=model,
+    #                         chat_id=chat_session.chat_id,
+    #                         conversation_id=conversation_id
+    #                     ).model_dump()) + "\n"
+                        
+    #                 elif event_type == "complete":
+    #                     # Save conversation and yield completion
+    #                     conversation.add_message(
+    #                         "assistant",
+    #                         response_content,
+    #                         context_used=context[:500] + "..." if len(context) > 500 else context,
+    #                         metadata=final_usage
+    #                     )
+                        
+    #                     if final_usage:
+    #                         conversation.total_tokens_used += final_usage.get("total_tokens", 0)
+                        
+    #                     await conversation.save()
+                        
+    #                     yield json.dumps(StreamChatResponse(
+    #                         event="complete",
+    #                         provider=provider,
+    #                         model=model,
+    #                         usage=final_usage,
+    #                         chat_id=chat_session.chat_id,
+    #                         conversation_id=conversation_id,
+    #                         context_metadata=context_metadata
+    #                     ).model_dump()) + "\n"
+                        
+    #                 elif event_type == "error":
+    #                     yield json.dumps(StreamChatResponse(
+    #                         event="error",
+    #                         error=chunk_data.get("error", "Unknown error"),
+    #                         error_type="server_error",
+    #                         provider=provider,
+    #                         model=model,
+    #                         chat_id=chat_session.chat_id,
+    #                         conversation_id=conversation_id
+    #                     ).model_dump()) + "\n"
+    #                     break
+                        
+    #             except json.JSONDecodeError:
+    #                 # Skip malformed JSON
+    #                 continue
+    #             except Exception as chunk_error:
+    #                 # Handle individual chunk errors
+    #                 yield json.dumps(StreamChatResponse(
+    #                     event="error",
+    #                     error=f"Chunk processing error: {str(chunk_error)}",
+    #                     error_type="processing_error",
+    #                     provider=provider,
+    #                     model=model,
+    #                     chat_id=chat_session.chat_id,
+    #                     conversation_id=conversation_id
+    #                 ).model_dump()) + "\n"
+                    
+    #     except Exception as e:
+    #         # Include chat_id and conversation_id in error response if available
+    #         error_response = StreamChatResponse(
+    #             event="error",
+    #             error=str(e),
+    #             error_type="server_error"
+    #         )
+            
+    #         # Try to include IDs if they exist
+    #         try:
+    #             if 'chat_session' in locals():
+    #                 error_response.chat_id = chat_session.chat_id
+    #             if 'conversation_id' in locals():
+    #                 error_response.conversation_id = conversation_id
+    #         except Exception:
+    #             pass
+                
+    #         yield json.dumps(error_response.model_dump()) + "\n"
     
     async def process_streaming_chat(
         self,
@@ -487,11 +801,17 @@ Provide detailed, accurate responses based on the repository content. Reference 
         model: Annotated[str, Form(description="Model name")] = "gpt-3.5-turbo",
         temperature: Annotated[float, Form(description="Response randomness (0.0-2.0)", ge=0.0, le=2.0)] = 0.7,
         max_tokens: Annotated[Optional[int], Form(description="Maximum tokens in response (1-4000)", ge=1, le=4000)] = None,
-        context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = "smart"
+        context_mode: Annotated[str, Form(description="Context mode: full, smart, or agentic")] = ""
     ) -> AsyncGenerator[str, None]:
         """Process a chat message with streaming response - yields JSON strings"""
+        
+        # =========================================================
+        # START: THIS IS THE FIX 
+        # Force agentic mode to ensure the correct service is called
+        # context_mode = "agentic"
+        # =========================================================
+
         try:
-            # Validate required parameters early
             if not repository_id or repository_id.strip() == "":
                 yield json.dumps(StreamChatResponse(
                     event="error",
@@ -508,266 +828,90 @@ Provide detailed, accurate responses based on the repository content. Reference 
                 ).model_dump()) + "\n"
                 return
             
-            
-            # Get or create chat session
-            chat_session = await self.get_or_create_chat_session(
-                user, 
-                repository_id,
-                None,  # No separate branch parameter needed with new identifier format
-                chat_id
-            )
-            
-            # Generate conversation ID if not provided
+            chat_session = await self.get_or_create_chat_session(user, repository_id, None, chat_id)
             conversation_id = conversation_id or str(uuid.uuid4())
             
-            # EARLY API KEY VALIDATION - Using improved LangChain service
             try:
                 from utils.langchain_llm_service import langchain_service
-                
-                # Check if provider is available and test API key access
                 available_providers = langchain_service.get_available_providers()
                 if provider not in available_providers:
-                    yield json.dumps(StreamChatResponse(
-                        event="error",
-                        error=f"Provider {provider} not available. Available: {', '.join(available_providers)}. Install required packages.",
-                        error_type="provider_unavailable",
-                        provider=provider,
-                        model=model,
-                        chat_id=chat_session.chat_id,
-                        conversation_id=conversation_id
-                    ).model_dump()) + "\n"
+                    yield json.dumps(StreamChatResponse(event="error", error=f"Provider {provider} not available.").model_dump()) + "\n"
                     return
-                
-                # Test API key access early
-                try:
-                    await langchain_service.get_api_key_with_fallback(provider, user, use_user)
-                except ValueError as e:
-                    yield json.dumps(StreamChatResponse(
-                        event="error",
-                        error=str(e),
-                        error_type="no_api_key",
-                        provider=provider,
-                        model=model,
-                        chat_id=chat_session.chat_id,
-                        conversation_id=conversation_id
-                    ).model_dump()) + "\n"
-                    return
-                    
+                await langchain_service.get_api_key_with_fallback(provider, user, use_user)
+            except ValueError as e:
+                yield json.dumps(StreamChatResponse(event="error", error=str(e), error_type="no_api_key").model_dump()) + "\n"
+                return
             except Exception as e:
-                yield json.dumps(StreamChatResponse(
-                    event="error",
-                    error=f"Service initialization error: {str(e)}",
-                    error_type="service_error",
-                    provider=provider,
-                    model=model,
-                    chat_id=chat_session.chat_id,
-                    conversation_id=conversation_id
-                ).model_dump()) + "\n"
+                yield json.dumps(StreamChatResponse(event="error", error=f"Service initialization error: {str(e)}").model_dump()) + "\n"
                 return
             
-            # Get or create conversation - fetch with links to ensure repository is loaded
             conversation = await Conversation.find_one(
                 Conversation.conversation_id == conversation_id,
                 Conversation.user.id == BeanieObjectId(user.id),
-                fetch_links=True  # Ensure linked objects are fully loaded
+                fetch_links=True
             )
             
             if not conversation:
                 conversation = Conversation(
-                    user=user,
-                    repository=chat_session.repository,
-                    chat_id=chat_session.chat_id,
-                    conversation_id=conversation_id,
-                    title=self.generate_conversation_title(message),
-                    model_provider=provider,
-                    model_name=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens
+                    user=user, repository=chat_session.repository, chat_id=chat_session.chat_id,
+                    conversation_id=conversation_id, title=self.generate_conversation_title(message),
+                    model_provider=provider, model_name=model, temperature=temperature, max_tokens=max_tokens
                 )
                 await conversation.save()
             else:
-                # Ensure repository is fully loaded if it's a Link
                 if hasattr(conversation.repository, 'id') and not hasattr(conversation.repository, 'file_paths'):
                     conversation.repository = await Repository.get(conversation.repository.id)
             
-            # Add user message to conversation
             conversation.add_message("user", message)
             
-            # Get repository context based on the selected mode
             context, context_metadata = await self.get_repository_context_by_mode(
-                chat_session.repository,
-                context_mode,
-                user_query=message,
-                max_context_tokens=max_tokens or 8000,
-                model=model,
-                provider=provider
+                chat_session.repository, context_mode, user_query=message,
+                max_context_tokens=max_tokens or 8000, model=model, provider=provider
             )
             
-            # Prepare messages for LLM with intelligent context window management
-            recent_messages = conversation.messages[-20:]  # Get more recent context
-            messages = []
-            total_chars = 0
-            max_context_chars = 8000  # Roughly 2000 tokens
-            
-            # Include messages from newest to oldest until we hit context limit
-            for msg in reversed(recent_messages):
-                msg_content = f"{msg.role}: {msg.content}"
-                if total_chars + len(msg_content) > max_context_chars and messages:
-                    break
-                messages.insert(0, {"role": msg.role, "content": msg.content})
-                total_chars += len(msg_content)
-            
-            # Generate streaming response using the new LangGraph service
-            try:
-                from utils.langgraph_chat_service import langgraph_chat_service
-                
-                # Use LangGraph for advanced chat orchestration
-                response_generator = langgraph_chat_service.stream_chat_response(
-                    user_query=message,
-                    repository_id=repository_id,
-                    user=user,
-                    model=model,
-                    provider=provider,
-                    thread_id=f"{chat_session.chat_id}_{conversation_id}",
-                    repository_context=context,
-                    context_metadata=context_metadata
+            # This 'if' block will now correctly execute
+            if context_mode == "agentic":
+                from utils.agentic_chat_service import agentic_chat_service
+                response_generator = agentic_chat_service.stream_agentic_chat_response(
+                    user_query=message, repository=chat_session.repository, user=user, model=model,
+                    provider=provider, thread_id=f"{chat_session.chat_id}_{conversation_id}",
+                    conversation_id=conversation_id, chat_id=chat_session.chat_id
                 )
-            except Exception as e:
-                # Handle API key and quota errors specifically
-                error_type = "server_error"
-                error_message = str(e)
-                if "no user api key found" in error_message.lower() or "invalid api key" in error_message.lower():
-                    error_type = "no_api_key"
-                elif "quota" in error_message.lower() or "rate limit" in error_message.lower():
-                    error_type = "quota_exceeded"
-                elif "invalid model" in error_message.lower():
-                    error_type = "invalid_model"
-                
-                yield json.dumps(StreamChatResponse(
-                    event="error",
-                    error=error_message,
-                    error_type=error_type,
-                    provider=provider,
-                    model=model,
-                    chat_id=chat_session.chat_id,
-                    conversation_id=conversation_id
-                ).model_dump()) + "\n"
-                return
+            else:
+                # This part will be skipped for now
+                from utils.langgraph_chat_service import langgraph_chat_service
+                response_generator = langgraph_chat_service.stream_chat_response(
+                    user_query=message, repository_id=repository_id, user=user, model=model,
+                    provider=provider, thread_id=f"{chat_session.chat_id}_{conversation_id}",
+                    repository_context=context, context_metadata=context_metadata
+                )
             
-            # Handle LangGraph streaming response
             response_content = ""
             final_usage = {}
             
             async for json_chunk in response_generator:
+                yield json_chunk # Directly pass the chunk from the service
                 try:
-                    # Parse the JSON chunk
                     chunk_data = json.loads(json_chunk.strip())
-                    event_type = chunk_data.get("event")
-                    
-                    if event_type == "progress":
-                        # Yield progress events
-                        yield json.dumps(StreamChatResponse(
-                            event="progress",
-                            progress_step=chunk_data.get("step"),
-                            provider=provider,
-                            model=model,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
-                        ).model_dump()) + "\n"
-                        
-                    elif event_type == "reasoning":
-                        # Yield reasoning traces for o1/o3 models
-                        yield json.dumps(StreamChatResponse(
-                            event="reasoning",
-                            reasoning=chunk_data.get("reasoning"),
-                            provider=provider,
-                            model=model,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
-                        ).model_dump()) + "\n"
-                        
-                    elif event_type == "token":
-                        token_content = chunk_data.get("token", "")
-                        response_content += token_content
-                        
-                        # Yield token event
-                        yield json.dumps(StreamChatResponse(
-                            event="token",
-                            token=token_content,
-                            provider=provider,
-                            model=model,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
-                        ).model_dump()) + "\n"
-                        
-                    elif event_type == "complete":
-                        # Save conversation and yield completion
-                        conversation.add_message(
-                            "assistant",
-                            response_content,
-                            context_used=context[:500] + "..." if len(context) > 500 else context,
-                            metadata=final_usage
-                        )
-                        
-                        if final_usage:
-                            conversation.total_tokens_used += final_usage.get("total_tokens", 0)
-                        
-                        await conversation.save()
-                        
-                        yield json.dumps(StreamChatResponse(
-                            event="complete",
-                            provider=provider,
-                            model=model,
-                            usage=final_usage,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id,
-                            context_metadata=context_metadata
-                        ).model_dump()) + "\n"
-                        
-                    elif event_type == "error":
-                        yield json.dumps(StreamChatResponse(
-                            event="error",
-                            error=chunk_data.get("error", "Unknown error"),
-                            error_type="server_error",
-                            provider=provider,
-                            model=model,
-                            chat_id=chat_session.chat_id,
-                            conversation_id=conversation_id
-                        ).model_dump()) + "\n"
-                        break
-                        
-                except json.JSONDecodeError:
-                    # Skip malformed JSON
+                    if chunk_data.get("event") == "token":
+                        response_content += chunk_data.get("token", "")
+                    elif chunk_data.get("event") == "complete":
+                        final_usage = chunk_data.get("usage", {})
+                except (json.JSONDecodeError, AttributeError):
                     continue
-                except Exception as chunk_error:
-                    # Handle individual chunk errors
-                    yield json.dumps(StreamChatResponse(
-                        event="error",
-                        error=f"Chunk processing error: {str(chunk_error)}",
-                        error_type="processing_error",
-                        provider=provider,
-                        model=model,
-                        chat_id=chat_session.chat_id,
-                        conversation_id=conversation_id
-                    ).model_dump()) + "\n"
-                    
-        except Exception as e:
-            # Include chat_id and conversation_id in error response if available
-            error_response = StreamChatResponse(
-                event="error",
-                error=str(e),
-                error_type="server_error"
+
+            # Save the final message after streaming is complete
+            conversation.add_message(
+                "assistant", response_content, 
+                context_used=context[:500] + "...", 
+                metadata=final_usage
             )
-            
-            # Try to include IDs if they exist
-            try:
-                if 'chat_session' in locals():
-                    error_response.chat_id = chat_session.chat_id
-                if 'conversation_id' in locals():
-                    error_response.conversation_id = conversation_id
-            except Exception:
-                pass
-                
+            if final_usage:
+                conversation.total_tokens_used += final_usage.get("total_tokens", 0)
+            await conversation.save()
+
+        except Exception as e:
+            error_response = StreamChatResponse(event="error", error=str(e), error_type="server_error")
             yield json.dumps(error_response.model_dump()) + "\n"
             
     async def list_user_chat_sessions(

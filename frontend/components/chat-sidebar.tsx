@@ -102,7 +102,7 @@ export function ChatSidebar({
   // Remove unused lastDailyUsage state - daily usage is handled in the hook
 
   // Context Mode State
-  const [contextMode, setContextMode] = useState<ContextMode>('full');
+  const [contextMode, setContextMode] = useState<ContextMode>('agentic');
   const [loadingState, setLoadingState] = useState<LoadingState>({
     stage: 'initializing',
     message: 'Starting conversation...',
@@ -137,7 +137,7 @@ export function ChatSidebar({
       icon: Zap,
       color:
         'text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800',
-      available: false,
+      available: true,
     },
   };
 
@@ -213,7 +213,9 @@ export function ChatSidebar({
 
       setContextSettings(modeContextSettings);
 
-      const response = await sendMessage(message);
+      const response = await sendMessage(message, {
+        contextMode: contextMode
+      });
       // Daily usage is handled in the hook itself
       console.log('Message sent successfully', response);
     } catch {
