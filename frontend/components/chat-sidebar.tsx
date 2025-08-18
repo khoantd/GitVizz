@@ -460,43 +460,12 @@ export function ChatSidebar({
                     </div>
                   )}
 
-                  {/* {isLoading && (
-                    <div className="mx-1 p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200/50 dark:border-purple-800/50 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 flex items-center justify-center border border-purple-200/50 dark:border-purple-700/50">
-                            <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
-                        </div>
-                        <div className="space-y-2 min-w-0 flex-1">
-                          <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
-                            {loadingState.message}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <div className="h-1 bg-gradient-to-r from-purple-200 to-blue-200 dark:from-purple-800 dark:to-blue-800 rounded-full overflow-hidden flex-1">
-                              <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse w-3/4" />
-                            </div>
-                            <span className="text-xs text-purple-600 dark:text-purple-400">Thinking...</span>
-                          </div>
-                          {loadingState.functionCall && (
-                            <div className="mt-2 p-2 rounded-md bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/50 dark:border-orange-800/50">
-                              <div className="flex items-center gap-1.5">
-                                <Cpu className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                                <span className="text-xs font-medium text-orange-800 dark:text-orange-200">
-                                  Calling: {loadingState.functionCall.name}
-                                </span>
-                              </div>
-                              <div className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
-                                {Object.keys(loadingState.functionCall.args).length > 0 &&
-                                  `Args: ${Object.keys(loadingState.functionCall.args).join(', ')}`}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                  {isLoading && (
+                    <div className="flex items-center justify-center mx-2 my-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
+                      <span className="sr-only">Loading...</span>
                     </div>
-                  )} */}
+                  )}
                 </>
               )}
               <div ref={messagesEndRef} />
