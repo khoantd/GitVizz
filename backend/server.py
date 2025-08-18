@@ -18,7 +18,9 @@ from dotenv import load_dotenv
 # Load environment variables
 # =====================
 load_dotenv()
-initialize_observability()
+
+if os.getenv("IS_DISABLING_OBSERVABILITY", "false").lower() != "true":
+    initialize_observability()
 
 # Initialize the database connection
 @asynccontextmanager

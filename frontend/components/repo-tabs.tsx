@@ -540,7 +540,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl,
         access_token: session?.accessToken || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token || undefined,
+        token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -603,7 +603,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token || undefined,
+        token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);

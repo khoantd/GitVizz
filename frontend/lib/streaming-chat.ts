@@ -17,7 +17,7 @@ export interface StreamingChatRequest {
 }
 
 export interface StreamingChunk {
-  type: 'token' | 'metadata' | 'error' | 'done' | 'complete';
+  type: 'token' | 'metadata' | 'error' | 'done' | 'complete' | 'progress' | 'function_call' | 'function_complete';
   content?: string;
   chat_id?: string;
   conversation_id?: string;
@@ -35,6 +35,20 @@ export interface StreamingChunk {
   model?: string;
   context_metadata?: Record<string, unknown>;
   daily_usage?: DailyUsage;
+  // Progress events
+  step?: string;
+  // Function call events
+  function_name?: string;
+  arguments?: Record<string, unknown>;
+  result?: string;
+  status?: string;
+  function_calls?: Array<{
+    name: string;
+    arguments: Record<string, unknown>;
+    result?: unknown;
+    status?: string;
+  }>;
+  tools_used?: number;
 }
 
 export async function createStreamingChatRequest(request: StreamingChatRequest): Promise<Response> {
@@ -110,6 +124,34 @@ export async function* parseStreamingResponse(
 
           // Map backend events to our StreamingChunk format
           switch (data.event) {
+            case 'progress':
+              yield {
+                type: 'progress',
+                step: data.step,
+                message: data.message,
+              };
+              break;
+
+            case 'function_call':
+              yield {
+                type: 'function_call',
+                function_name: data.function_name,
+                arguments: data.arguments,
+                status: data.status || 'started',
+                message: data.message,
+              };
+              break;
+
+            case 'function_complete':
+              yield {
+                type: 'function_complete',
+                function_name: data.function_name,
+                result: data.result,
+                status: data.status || 'completed',
+                message: data.message,
+              };
+              break;
+
             case 'token':
               // First token in the stream contains metadata
               if (data.chat_id && data.conversation_id) {
@@ -143,6 +185,8 @@ export async function* parseStreamingResponse(
                 provider: data.provider,
                 model: data.model,
                 daily_usage: data.daily_usage,
+                function_calls: data.function_calls,
+                tools_used: data.tools_used,
               };
               yield { type: 'done' }; // Signal end
               break;
