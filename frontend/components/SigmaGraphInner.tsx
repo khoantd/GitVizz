@@ -594,8 +594,10 @@ function LoadGraph({
     const currentNodeCount = data.nodes.length;
 
     // Enhanced node sizing based on graph size and connectivity
-    const minNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 12 : 16; // 16 is the minimum size for the nodes
-    const maxNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 28 : 36; // 36 is the maximum size for the nodes
+    // const minNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 12 : 16; // 16 is the minimum size for the nodes
+    // const maxNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 28 : 36; // 36 is the maximum size for the nodes
+    const minNodeSize = 12;
+    const maxNodeSize = 12;
 
     // Calculate node degrees for size scaling
     const nodeDegrees = new Map<string, number>();
@@ -878,11 +880,11 @@ function LoadGraph({
 }
 
 // Enhanced zoom and camera controls
-function ZoomControls({ 
+function ZoomControls({
   onReorganize,
   nodeCount,
   edgeCount,
-}: { 
+}: {
   onReorganize?: () => void;
   nodeCount?: number;
   edgeCount?: number;
@@ -1196,7 +1198,7 @@ export default function SigmaGraphInner({
         />
 
         {/* Enhanced Zoom Controls - bottom left corner */}
-        <ZoomControls 
+        <ZoomControls
           onReorganize={handleReorganizeLayout}
           nodeCount={data.nodes.length}
           edgeCount={data.edges.length}
