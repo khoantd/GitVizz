@@ -1,15 +1,18 @@
 """
-Agentic LangGraph Chat Service with GitVizz Tools
-Advanced chat system with streaming, memory, GitVizz-powered tools, and repository context analysis
+Optimized Agentic LangGraph Chat Service with Reliable Tool Calling
+Fixed tool calling issues, improved system prompts, and better error handling
 """
 
 import json
 import asyncio
-from typing import Dict, List, Any, AsyncGenerator, Optional, TypedDict, Annotated
+from typing import Dict, List, Any, AsyncGenerator, Optional, TypedDict, Annotated, Literal
 from datetime import datetime
 from operator import add
-import asyncio
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # LangGraph imports
 try:
@@ -28,7 +31,7 @@ try:
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
-    print("⚠️ LangGraph not available - using fallback implementation")
+    logger.warning("LangGraph not available - using fallback implementation")
 
 # Import our services
 from utils.langchain_llm_service import langchain_service
@@ -37,11 +40,11 @@ from models.repository import Repository
 
 
 class AgenticChatState(TypedDict):
-    """State for the agentic chat workflow"""
-
+    """Enhanced state for the agentic chat workflow"""
     messages: Annotated[List[BaseMessage], add]
     repository_context: str
     user_query: str
+    original_query: str  # Keep original for context
     repository_id: str
     repository_zip_path: str
     context_metadata: Dict[str, Any]
@@ -55,21 +58,52 @@ class AgenticChatState(TypedDict):
     tool_results: Dict[str, Any]
     conversation_id: Optional[str]
     chat_id: Optional[str]
+    # New fields for better control
+    force_tool_use: bool
+    tool_selection_reasoning: str
+    iteration_count: int
+    max_iterations: int
 
 
 class AgenticLangGraphChatService:
-    """Advanced agentic chat service using LangGraph with GitVizz tools"""
+    """Agentic chat service with reliable tool calling"""
 
     def __init__(self):
         self.langgraph_available = LANGGRAPH_AVAILABLE
         if LANGGRAPH_AVAILABLE:
             self.memory = MemorySaver()
-            self.graphs = {}  # Cache for different repository graphs
+            self.graphs = {}
+        
+        # Tool selection mapping - more specific patterns
+        self.tool_patterns = {
+            "analyze_code_structure": [
+                "architecture", "structure", "organization", "layout", "overview",
+                "hierarchy", "modules", "components", "design", "pattern"
+            ],
+            "search_code_patterns": [
+                "find", "search", "locate", "where", "show", "look for", 
+                "implementation", "function", "class", "method", "variable"
+            ],
+            "find_code_quality_issues": [
+                "quality", "issues", "problems", "bugs", "errors", "improve",
+                "refactor", "cleanup", "best practices", "code smell"
+            ],
+            "analyze_dependencies_and_flow": [
+                "dependency", "dependencies", "flow", "connection", "relates",
+                "imports", "uses", "calls", "relationship", "coupling"
+            ],
+            "find_security_and_testing_insights": [
+                "security", "vulnerable", "safe", "risk", "test", "testing",
+                "coverage", "unit test", "secure", "vulnerability"
+            ],
+            "get_repository_statistics": [
+                "statistics", "metrics", "stats", "count", "how many", "size",
+                "lines", "files", "complexity", "summary"
+            ]
+        }
 
-    def _build_agentic_chat_graph(
-        self, repository_id: str, zip_file_path: str
-    ) -> StateGraph:
-        """Build the LangGraph workflow for agentic chat processing"""
+    def _build_agentic_chat_graph(self, repository_id: str, zip_file_path: str) -> StateGraph:
+        """Build optimized LangGraph workflow"""
         if not LANGGRAPH_AVAILABLE:
             return None
 
@@ -81,439 +115,275 @@ class AgenticLangGraphChatService:
         workflow = StateGraph(AgenticChatState)
 
         # Add nodes
-        workflow.add_node("analyze_query", self._analyze_query_node)
-        workflow.add_node("agent", self._agent_node)
+        workflow.add_node("analyze_and_plan", self._analyze_and_plan_node)
+        workflow.add_node("force_tool_selection", self._force_tool_selection_node)
+        workflow.add_node("agent_with_tools", self._agent_with_tools_node)
         workflow.add_node("tools", tool_node)
-        workflow.add_node("finalize_response", self._finalize_response_node)
+        workflow.add_node("synthesize_response", self._synthesize_response_node)
 
-        # Add edges
-        workflow.add_edge("analyze_query", "agent")
+        # Add edges - more controlled flow
+        workflow.add_edge("analyze_and_plan", "force_tool_selection")
+        workflow.add_edge("force_tool_selection", "agent_with_tools")
+        
         workflow.add_conditional_edges(
-            "agent",
-            self._should_continue_or_finish,
-            {"tools": "tools", "finish": "finalize_response"},
+            "agent_with_tools",
+            self._should_use_tools_or_synthesize,
+            {
+                "use_tools": "tools",
+                "synthesize": "synthesize_response",
+                "continue_agent": "agent_with_tools"
+            }
         )
-        workflow.add_edge("tools", "agent")
-        workflow.add_edge("finalize_response", END)
+        workflow.add_edge("tools", "agent_with_tools")
+        workflow.add_edge("synthesize_response", END)
 
         # Set entry point
-        workflow.set_entry_point("analyze_query")
+        workflow.set_entry_point("analyze_and_plan")
 
         return workflow.compile(checkpointer=self.memory)
 
-    async def _analyze_query_node(self, state: AgenticChatState) -> AgenticChatState:
-        """Analyze the user query to determine the best approach"""
-        user_query = state["user_query"]
-
-        # Enhanced analysis based on GitVizz capabilities
+    async def _analyze_and_plan_node(self, state: AgenticChatState) -> AgenticChatState:
+        """Enhanced query analysis with forced tool selection"""
+        user_query = state["user_query"].lower()
+        
+        # Determine analysis type and required tools
         analysis_type = "general"
-        if any(
-            keyword in user_query.lower()
-            for keyword in ["structure", "architecture", "organization", "overview"]
-        ):
+        required_tools = []
+        
+        # More sophisticated pattern matching
+        for tool_name, patterns in self.tool_patterns.items():
+            if any(pattern in user_query for pattern in patterns):
+                required_tools.append(tool_name)
+                
+        # Default to structure analysis if no specific tool needed
+        if not required_tools:
+            required_tools = ["analyze_code_structure"]
+            analysis_type = "general_exploration"
+        elif "structure" in user_query or "architecture" in user_query:
             analysis_type = "architecture"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["find", "search", "locate", "where is", "show me"]
-        ):
+        elif "find" in user_query or "search" in user_query:
             analysis_type = "search"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["quality", "issues", "problems", "refactor", "improve"]
-        ):
+        elif "quality" in user_query or "issues" in user_query:
             analysis_type = "quality"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in [
-                "dependency",
-                "dependencies",
-                "flow",
-                "connection",
-                "relates",
-            ]
-        ):
+        elif "dependency" in user_query:
             analysis_type = "dependencies"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["security", "vulnerable", "safe", "risk"]
-        ):
-            analysis_type = "security"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["test", "testing", "coverage", "unit test"]
-        ):
-            analysis_type = "testing"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["statistics", "metrics", "stats", "count", "how many"]
-        ):
+        elif "security" in user_query or "test" in user_query:
+            analysis_type = "security_testing"
+        elif "statistic" in user_query or "metric" in user_query:
             analysis_type = "statistics"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["bug", "error", "fix", "debug", "issue"]
-        ):
-            analysis_type = "debugging"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["implement", "add", "create", "build", "develop"]
-        ):
-            analysis_type = "implementation"
-        elif any(
-            keyword in user_query.lower()
-            for keyword in ["explain", "how", "what", "why", "understand"]
-        ):
-            analysis_type = "explanation"
 
-        state["analysis_type"] = analysis_type
-        state["tools_used"] = []
-        state["tool_results"] = {}
+        logger.info(f"Analysis type: {analysis_type}, Required tools: {required_tools}")
 
-        return state
+        return {
+            **state,
+            "analysis_type": analysis_type,
+            "force_tool_use": True,
+            "tool_selection_reasoning": f"Based on query analysis, using tools: {', '.join(required_tools)}",
+            "iteration_count": 0,
+            "max_iterations": 5,
+            "original_query": state["user_query"]
+        }
 
-    async def _agent_node(self, state: AgenticChatState) -> AgenticChatState:
-        """Main agent node that decides whether to use tools or provide final response"""
+    async def _force_tool_selection_node(self, state: AgenticChatState) -> AgenticChatState:
+        """Force appropriate tool selection based on query analysis"""
+        user_query = state["user_query"].lower()
+        
+        # Create a tool-forcing message
+        tool_instruction = self._generate_tool_instruction(user_query, state["analysis_type"])
+        
+        # Add the tool instruction as a system message
+        tool_message = SystemMessage(content=tool_instruction)
+        
+        return {
+            **state,
+            "messages": [tool_message] + state["messages"]
+        }
+
+    def _generate_tool_instruction(self, user_query: str, analysis_type: str) -> str:
+        """Generate specific tool usage instructions"""
+        
+        base_instruction = f"""CRITICAL: You MUST use GitVizz tools before responding. This is mandatory.
+
+Query Analysis Type: {analysis_type}
+User Query: "{user_query}"
+
+REQUIRED ACTIONS:
+"""
+        
+        # Specific tool instructions based on query type
+        if analysis_type == "architecture" or "structure" in user_query:
+            base_instruction += "1. MUST call analyze_code_structure first to understand the repository layout\n"
+        
+        if analysis_type == "search" or any(word in user_query for word in ["find", "search", "locate"]):
+            base_instruction += "1. MUST call search_code_patterns to find relevant code\n"
+        
+        if analysis_type == "quality" or any(word in user_query for word in ["quality", "issues", "problems"]):
+            base_instruction += "1. MUST call find_code_quality_issues to identify problems\n"
+        
+        if analysis_type == "dependencies" or "dependency" in user_query:
+            base_instruction += "1. MUST call analyze_dependencies_and_flow to understand relationships\n"
+        
+        if analysis_type == "security_testing" or any(word in user_query for word in ["security", "test"]):
+            base_instruction += "1. MUST call find_security_and_testing_insights for security/testing analysis\n"
+        
+        if analysis_type == "statistics" or any(word in user_query for word in ["statistic", "metric", "count"]):
+            base_instruction += "1. MUST call get_repository_statistics for metrics\n"
+        
+        # Default fallback
+        if analysis_type == "general_exploration":
+            base_instruction += "1. MUST call analyze_code_structure to get repository overview\n"
+
+        base_instruction += """
+DO NOT provide any textual response until you have called the appropriate tools.
+DO NOT explain what you're going to do - just call the tools immediately.
+The tools will provide the data you need to answer the user's question properly.
+"""
+        
+        return base_instruction
+
+    async def _agent_with_tools_node(self, state: AgenticChatState) -> AgenticChatState:
+        """Enhanced agent node with better tool calling"""
         try:
-            # Get or create LLM with tools
+            # Get tools and model
             gitvizz_tools = gitvizz_tools_service.create_tools(
                 state["repository_id"], state["repository_zip_path"]
             )
 
             chat_model = await langchain_service.get_chat_model(
                 model=state["model"],
-                user=None,  # We'll need to handle user context differently
+                user=None,
                 use_user_key=True,
-                temperature=0.7,
+                temperature=0.1,  # Lower temperature for more consistent tool calling
             )
 
-            print(f"[DEBUG] Using model: {state['model']}")
-            print(
-                f"[DEBUG] Model supports tool calling: {hasattr(chat_model, 'bind_tools')}"
-            )
-
-            # Bind tools to the model
+            # Bind tools to model
             llm_with_tools = chat_model.bind_tools(gitvizz_tools)
-            print(f"[DEBUG] Tools bound: {len(gitvizz_tools)} tools")
 
-            # Prepare system message with context about available tools
-            system_prompt = f"""You are an AI assistant specialized in code analysis and repository exploration. You MUST use the appropriate GitVizz tools to analyze the repository before providing any response.
+            # Enhanced system message with stronger tool calling guidance
+            system_message = SystemMessage(content=f"""You are a code analysis assistant with access to GitVizz tools. 
 
-Repository ID: {state["repository_id"]}
-Analysis Type: {state["analysis_type"]}
-Tools Used So Far: {', '.join(state["tools_used"]) if state["tools_used"] else "None"}
+CRITICAL RULES:
+- You MUST use tools before providing any analysis
+- If you haven't used tools yet, call them immediately
+- Do not provide explanations without tool data
+- Tools are your primary source of information about this repository
 
-MANDATORY TOOL USAGE RULES:
-- For architecture/structure questions: ALWAYS use analyze_code_structure first
-- For finding/searching code: ALWAYS use search_code_patterns 
-- For quality/issues questions: ALWAYS use find_code_quality_issues
-- For dependency questions: ALWAYS use analyze_dependencies_and_flow
-- For security/testing: ALWAYS use find_security_and_testing_insights
-- For statistics/metrics: ALWAYS use get_repository_statistics
+Repository: {state["repository_id"]}
+Available Tools: {[tool.name for tool in gitvizz_tools]}
 
-Available Tools:
-- analyze_code_structure: For understanding overall architecture and organization
-- search_code_patterns: For finding specific implementations or code patterns  
-- find_code_quality_issues: For identifying potential problems and improvements
-- analyze_dependencies_and_flow: For understanding component relationships
-- find_security_and_testing_insights: For security and testing analysis
-- get_repository_statistics: For comprehensive metrics and statistics
+Current iteration: {state.get('iteration_count', 0)}
+Tools used so far: {state.get('tools_used', [])}
 
-IMPORTANT: You MUST call the appropriate tool(s) based on the user's query BEFORE providing any textual response. Do not provide analysis without first using tools to gather data from the repository."""
+If no tools have been used yet, you MUST call the appropriate tool(s) now.""")
 
-            # Prepare messages - include conversation history
-            messages = [SystemMessage(content=system_prompt)]
-            messages.extend(state["messages"])
+            # Prepare messages
+            messages = [system_message]
+            
+            # Add conversation history, but keep it focused
+            recent_messages = state["messages"][-10:]  # Only keep recent context
+            messages.extend(recent_messages)
+            
+            # If this is the first iteration and no tools used, be more forceful
+            if state.get('iteration_count', 0) == 0 and not state.get('tools_used', []):
+                messages.append(HumanMessage(content=f"Use tools to analyze: {state['original_query']}"))
 
-            # If this is the first interaction, add the user query
-            if not any(
-                isinstance(msg, HumanMessage) and msg.content == state["user_query"]
-                for msg in messages
-            ):
-                messages.append(HumanMessage(content=state["user_query"]))
+            logger.info(f"Calling LLM with {len(messages)} messages, tools available: {len(gitvizz_tools)}")
 
-            # Get response from LLM
+            # Get response
             response = await llm_with_tools.ainvoke(messages)
+            
+            logger.info(f"LLM response - has tool_calls: {hasattr(response, 'tool_calls') and response.tool_calls}")
+            if hasattr(response, 'tool_calls') and response.tool_calls:
+                logger.info(f"Tool calls: {[tc.get('name', 'unknown') for tc in response.tool_calls]}")
 
-            # Debug logging
-            print(f"[DEBUG] LLM Response type: {type(response)}")
-            print(f"[DEBUG] Has tool_calls: {hasattr(response, 'tool_calls')}")
-            if hasattr(response, "tool_calls"):
-                print(f"[DEBUG] Tool calls: {response.tool_calls}")
-            print(f"[DEBUG] Response content: {response.content[:200]}...")
+            # Update iteration count
+            new_iteration_count = state.get('iteration_count', 0) + 1
 
-            # Add the response to messages
-            new_messages = [response]
-
-            return {**state, "messages": new_messages}
+            return {
+                **state,
+                "messages": [response],
+                "iteration_count": new_iteration_count
+            }
 
         except Exception as e:
-            # Create error response
-            error_response = AIMessage(
-                content=f"I encountered an error while processing your request: {str(e)}"
-            )
+            logger.error(f"Error in agent node: {str(e)}")
+            error_response = AIMessage(content=f"I encountered an error: {str(e)}")
             return {**state, "messages": [error_response]}
 
-    async def _finalize_response_node(
-        self, state: AgenticChatState
-    ) -> AgenticChatState:
-        """Finalize the response after all tool usage"""
-        # This node can be used for any final processing
-        return state
-
-    def _should_continue_or_finish(self, state: AgenticChatState) -> str:
-        """Determine whether to continue with tools or finish"""
-        messages = state["messages"]
-        last_message = messages[-1]
-
-        print(f"[DEBUG] Checking if should continue...")
-        print(f"[DEBUG] Last message type: {type(last_message)}")
-        print(
-            f"[DEBUG] Has tool_calls attribute: {hasattr(last_message, 'tool_calls')}"
-        )
-
-        if hasattr(last_message, "tool_calls"):
-            print(f"[DEBUG] Tool calls: {last_message.tool_calls}")
-            print(
-                f"[DEBUG] Tool calls length: {len(last_message.tool_calls) if last_message.tool_calls else 0}"
+    async def _synthesize_response_node(self, state: AgenticChatState) -> AgenticChatState:
+        """Final synthesis of response with tool results"""
+        try:
+            # Get the final model without tools for clean response
+            chat_model = await langchain_service.get_chat_model(
+                model=state["model"],
+                user=None,
+                use_user_key=True,
+                temperature=0.3,
             )
 
-        # Check if the last message has tool calls
-        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-            print("[DEBUG] → Going to tools")
-            return "tools"
+            # Create synthesis prompt
+            synthesis_prompt = f"""Based on the tool analysis results, provide a comprehensive answer to the user's question: "{state['original_query']}"
 
-        print("[DEBUG] → Going to finish")
-        return "finish"
+Tools used: {', '.join(state.get('tools_used', []))}
+Analysis type: {state['analysis_type']}
+
+Provide a clear, structured response that directly answers the user's question using the tool results."""
+
+            synthesis_message = SystemMessage(content=synthesis_prompt)
+            
+            # Get recent messages with tool results
+            messages = [synthesis_message] + state["messages"][-5:]
+
+            response = await chat_model.ainvoke(messages)
+
+            return {**state, "messages": [response]}
+
+        except Exception as e:
+            logger.error(f"Error in synthesis: {str(e)}")
+            error_response = AIMessage(content=f"Error synthesizing response: {str(e)}")
+            return {**state, "messages": [error_response]}
+
+    def _should_use_tools_or_synthesize(self, state: AgenticChatState) -> Literal["use_tools", "synthesize", "continue_agent"]:
+        """Enhanced decision logic for tool usage"""
+        messages = state["messages"]
+        if not messages:
+            return "continue_agent"
+
+        last_message = messages[-1]
+        iteration_count = state.get('iteration_count', 0)
+        max_iterations = state.get('max_iterations', 5)
+        tools_used = state.get('tools_used', [])
+
+        logger.info(f"Decision check - iteration: {iteration_count}, tools_used: {len(tools_used)}")
+
+        # Check for tool calls in the last message
+        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            logger.info("→ Using tools (tool calls detected)")
+            return "use_tools"
+
+        # If we haven't used any tools yet and haven't exceeded max iterations, continue with agent
+        if not tools_used and iteration_count < max_iterations:
+            logger.info("→ Continue agent (no tools used yet)")
+            return "continue_agent"
+
+        # If we have used tools or exceeded max iterations, synthesize
+        if tools_used or iteration_count >= max_iterations:
+            logger.info("→ Synthesize (tools used or max iterations reached)")
+            return "synthesize"
+
+        # Default: continue with agent
+        logger.info("→ Continue agent (default)")
+        return "continue_agent"
 
     async def get_or_create_graph(self, repository_id: str, zip_file_path: str):
-        """Get or create graph for the repository"""
+        """Get or create graph for the repository with caching"""
         graph_key = f"{repository_id}:{zip_file_path}"
 
         if graph_key not in self.graphs:
-            self.graphs[graph_key] = self._build_agentic_chat_graph(
-                repository_id, zip_file_path
-            )
+            logger.info(f"Creating new graph for {graph_key}")
+            self.graphs[graph_key] = self._build_agentic_chat_graph(repository_id, zip_file_path)
 
         return self.graphs[graph_key]
-
-    # async def stream_agentic_chat_response(
-    #     self,
-    #     user_query: str,
-    #     repository: Repository,
-    #     user: Any,
-    #     model: str = "gpt-4o-mini",
-    #     provider: str = "openai",
-    #     thread_id: Optional[str] = None,
-    #     conversation_id: Optional[str] = None,
-    #     chat_id: Optional[str] = None
-    # ) -> AsyncGenerator[str, None]:
-    #     """Stream agentic chat response with GitVizz tools as JSON strings for FastAPI"""
-
-    #     if not self.langgraph_available:
-    #         async for chunk in self._fallback_streaming(user_query, user, model, provider):
-    #             yield chunk
-    #         return
-
-    #     try:
-    #         # Get repository ZIP path
-    #         zip_file_path = repository.file_paths.zip if repository.file_paths else None
-    #         if not zip_file_path:
-    #             yield json.dumps({
-    #                 "event": "error",
-    #                 "error": "No ZIP file available for GitVizz analysis",
-    #                 "error_type": "no_zip_file"
-    #             }) + "\n"
-    #             return
-
-    #         # Get or create the graph for this repository
-    #         graph = await self.get_or_create_graph(str(repository.id), zip_file_path)
-    #         if not graph:
-    #             yield json.dumps({
-    #                 "event": "error",
-    #                 "error": "Unable to create analysis graph",
-    #                 "error_type": "graph_creation_failed"
-    #             }) + "\n"
-    #             return
-
-    #         # Prepare initial state
-    #         initial_state = AgenticChatState(
-    #             messages=[],
-    #             repository_context="",
-    #             user_query=user_query,
-    #             repository_id=str(repository.id),
-    #             repository_zip_path=zip_file_path,
-    #             context_metadata={},
-    #             analysis_type="",
-    #             current_response="",
-    #             streaming_enabled=True,
-    #             provider=provider,
-    #             model=model,
-    #             user_id=str(user.id),
-    #             tools_used=[],
-    #             tool_results={},
-    #             conversation_id=conversation_id,
-    #             chat_id=chat_id
-    #         )
-
-    #         # Configure thread for memory
-    #         config = {"configurable": {"thread_id": thread_id or f"chat_{chat_id}"}}
-
-    #         yield json.dumps({
-    #             "event": "progress",
-    #             "step": "initializing",
-    #             "message": "Starting agentic analysis..."
-    #         }) + "\n"
-
-    #         # Store function calls to include in final message
-    #         current_function_calls = []
-    #         accumulated_response = ""
-
-    #         # Use astream_events for detailed streaming
-    #         async for event in graph.astream_events(initial_state, config, version="v2"):
-    #             event_type = event.get("event")
-    #             event_name = event.get("name", "")
-
-    #             if event_type == "on_chain_start":
-    #                 if "analyze_query" in event_name:
-    #                     yield json.dumps({
-    #                         "event": "progress",
-    #                         "step": "analyzing_query",
-    #                         "message": "Analyzing your query to determine the best approach..."
-    #                     }) + "\n"
-    #                 elif "agent" in event_name:
-    #                     yield json.dumps({
-    #                         "event": "progress",
-    #                         "step": "thinking",
-    #                         "message": "AI agent is thinking about your request..."
-    #                     }) + "\n"
-    #                 elif "tools" in event_name:
-    #                     yield json.dumps({
-    #                         "event": "progress",
-    #                         "step": "using_tools",
-    #                         "message": "Using GitVizz tools for code analysis..."
-    #                     }) + "\n"
-
-    #             elif event_type == "on_tool_start":
-    #                 tool_name = event.get("name", "unknown_tool")
-    #                 tool_input = event.get("data", {}).get("input", {})
-
-    #                 # Ensure tool_input is JSON serializable
-    #                 try:
-    #                     serializable_input = dict(tool_input) if tool_input else {}
-    #                 except (TypeError, ValueError):
-    #                     serializable_input = {"input": str(tool_input)} if tool_input else {}
-
-    #                 # Store function call info
-    #                 function_call = {
-    #                     "name": tool_name,
-    #                     "arguments": serializable_input,
-    #                     "status": "running"
-    #                 }
-    #                 current_function_calls.append(function_call)
-
-    #                 yield json.dumps({
-    #                     "event": "function_call",
-    #                     "function_name": tool_name,
-    #                     "arguments": serializable_input,
-    #                     "status": "started",
-    #                     "message": f"🔧 Using {tool_name.replace('_', ' ').title()}..."
-    #                 }) + "\n"
-
-    #             elif event_type == "on_tool_end":
-    #                 tool_name = event.get("name", "unknown_tool")
-    #                 tool_output = event.get("data", {}).get("output", "")
-
-    #                 # Extract string content from tool output (handle ToolMessage objects)
-    #                 if hasattr(tool_output, 'content'):
-    #                     result_content = str(tool_output.content)
-    #                 elif isinstance(tool_output, dict):
-    #                     result_content = str(tool_output)
-    #                 else:
-    #                     result_content = str(tool_output)
-
-    #                 # Update function call with result
-    #                 for func_call in current_function_calls:
-    #                     if func_call["name"] == tool_name and func_call.get("status") == "running":
-    #                         func_call["result"] = result_content
-    #                         func_call["status"] = "completed"
-    #                         break
-
-    #                 # Truncate result for streaming
-    #                 truncated_result = result_content[:200] + ("..." if len(result_content) > 200 else "")
-
-    #                 yield json.dumps({
-    #                     "event": "function_complete",
-    #                     "function_name": tool_name,
-    #                     "result": truncated_result,
-    #                     "status": "completed",
-    #                     "message": f"✅ Completed {tool_name.replace('_', ' ').title()}"
-    #                 }) + "\n"
-
-    #             elif event_type == "on_chat_model_stream":
-    #                 # Stream LLM tokens
-    #                 chunk = event.get("data", {}).get("chunk")
-    #                 if chunk and hasattr(chunk, 'content') and chunk.content:
-    #                     accumulated_response += chunk.content
-    #                     yield json.dumps({
-    #                         "event": "token",
-    #                         "token": chunk.content
-    #                     }) + "\n"
-
-    #             elif event_type == "on_chain_end":
-    #                 if "finalize_response" in event_name:
-    #                     yield json.dumps({
-    #                         "event": "progress",
-    #                         "step": "finalizing",
-    #                         "message": "Finalizing response..."
-    #                     }) + "\n"
-
-    #         # Final completion with function calls
-    #         # Ensure all function call data is JSON serializable
-    #         serializable_function_calls = []
-    #         for func_call in current_function_calls:
-    #             serializable_call = {
-    #                 "name": func_call.get("name", "unknown"),
-    #                 "status": func_call.get("status", "unknown"),
-    #                 "arguments": func_call.get("arguments", {})
-    #             }
-
-    #             # Handle result serialization
-    #             result = func_call.get("result")
-    #             if result:
-    #                 if hasattr(result, 'content'):
-    #                     serializable_call["result"] = str(result.content)
-    #                 elif isinstance(result, dict):
-    #                     serializable_call["result"] = str(result)
-    #                 else:
-    #                     serializable_call["result"] = str(result)
-
-    #             serializable_function_calls.append(serializable_call)
-
-    #         yield json.dumps({
-    #             "event": "complete",
-    #             "message": "Agentic analysis completed",
-    #             "response": accumulated_response,
-    #             "function_calls": serializable_function_calls,
-    #             "tools_used": len(serializable_function_calls)
-    #         }) + "\n"
-
-    #     except Exception as e:
-    #         error_msg = str(e)
-    #         event_data = {"event": "error", "error": error_msg}
-
-    #         # Add specific error handling
-    #         if "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
-    #             event_data["error_type"] = "quota_exceeded"
-    #             event_data["suggestion"] = "API quota limit reached. Please try again later or use your own API key."
-    #         elif "api key" in error_msg.lower() or "unauthorized" in error_msg.lower():
-    #             event_data["error_type"] = "no_api_key"
-    #             event_data["suggestion"] = "No valid API key found. Please add your API key in settings."
-    #         elif "gitvizz" in error_msg.lower():
-    #             event_data["error_type"] = "gitvizz_error"
-    #             event_data["suggestion"] = "Error with GitVizz analysis. The repository may not be supported."
-    #         else:
-    #             event_data["error_type"] = "server_error"
-
-    #         yield json.dumps(event_data) + "\n"
 
     async def stream_agentic_chat_response(
         self,
@@ -526,36 +396,37 @@ IMPORTANT: You MUST call the appropriate tool(s) based on the user's query BEFOR
         conversation_id: Optional[str] = None,
         chat_id: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
-        """Stream agentic chat response with GitVizz tools as JSON strings for FastAPI"""
+        """Optimized streaming with better error handling"""
 
         if not self.langgraph_available:
-            async for chunk in self._fallback_streaming(
-                user_query, user, model, provider
-            ):
+            async for chunk in self._fallback_streaming(user_query, user, model, provider):
                 yield chunk
             return
 
         try:
             zip_file_path = repository.file_paths.zip if repository.file_paths else None
             if not zip_file_path:
-                yield json.dumps(
-                    {
-                        "event": "error",
-                        "error": "No ZIP file available for GitVizz analysis",
-                    }
-                ) + "\n"
+                yield json.dumps({
+                    "event": "error",
+                    "error": "No ZIP file available for GitVizz analysis",
+                    "error_type": "no_zip_file"
+                }) + "\n"
                 return
 
             graph = await self.get_or_create_graph(str(repository.id), zip_file_path)
             if not graph:
-                yield json.dumps(
-                    {"event": "error", "error": "Unable to create analysis graph"}
-                ) + "\n"
+                yield json.dumps({
+                    "event": "error",
+                    "error": "Unable to create analysis graph",
+                    "error_type": "graph_creation_failed"
+                }) + "\n"
                 return
 
+            # Enhanced initial state
             initial_state = AgenticChatState(
                 messages=[HumanMessage(content=user_query)],
                 user_query=user_query,
+                original_query=user_query,
                 repository_id=str(repository.id),
                 repository_zip_path=zip_file_path,
                 provider=provider,
@@ -570,144 +441,170 @@ IMPORTANT: You MUST call the appropriate tool(s) based on the user's query BEFOR
                 tool_results={},
                 conversation_id=conversation_id,
                 chat_id=chat_id,
+                force_tool_use=True,
+                tool_selection_reasoning="",
+                iteration_count=0,
+                max_iterations=5
             )
 
             config = {"configurable": {"thread_id": thread_id or f"chat_{chat_id}"}}
 
-            yield json.dumps(
-                {
-                    "event": "progress",
-                    "step": "initializing",
-                    "message": "Starting agentic analysis...",
-                }
-            ) + "\n"
+            yield json.dumps({
+                "event": "progress",
+                "step": "initializing",
+                "message": "Starting enhanced agentic analysis...",
+            }) + "\n"
 
             accumulated_response = ""
+            active_tools = set()
 
-            async for event in graph.astream_events(
-                initial_state, config, version="v2"
-            ):
+            async for event in graph.astream_events(initial_state, config, version="v2"):
                 event_type = event.get("event")
                 event_name = event.get("name", "")
 
                 if event_type == "on_chain_start":
-                    if "agent" in event_name:
-                        yield json.dumps(
-                            {
-                                "event": "progress",
-                                "step": "thinking",
-                                "message": "Agent is thinking...",
-                            }
-                        ) + "\n"
+                    if "analyze_and_plan" in event_name:
+                        yield json.dumps({
+                            "event": "progress",
+                            "step": "planning",
+                            "message": "Analyzing query and planning tool usage...",
+                        }) + "\n"
+                    elif "force_tool_selection" in event_name:
+                        yield json.dumps({
+                            "event": "progress",
+                            "step": "tool_selection",
+                            "message": "Selecting appropriate GitVizz tools...",
+                        }) + "\n"
+                    elif "agent_with_tools" in event_name:
+                        yield json.dumps({
+                            "event": "progress",
+                            "step": "agent_thinking",
+                            "message": "Agent analyzing with tools...",
+                        }) + "\n"
+                    elif "synthesize_response" in event_name:
+                        yield json.dumps({
+                            "event": "progress",
+                            "step": "synthesizing",
+                            "message": "Synthesizing final response...",
+                        }) + "\n"
 
                 elif event_type == "on_tool_start":
                     tool_name = event.get("name", "unknown_tool")
                     tool_input = event.get("data", {}).get("input", {})
+                    active_tools.add(tool_name)
 
-                    yield json.dumps(
-                        {
-                            "event": "function_call",
-                            "function_name": tool_name,
-                            "arguments": (
-                                tool_input
-                                if isinstance(tool_input, dict)
-                                else {"input": str(tool_input)}
-                            ),
-                            "status": "started",
-                            "message": f"🔧 Using {tool_name.replace('_', ' ').title()}...",
-                        }
-                    ) + "\n"
+                    yield json.dumps({
+                        "event": "function_call",
+                        "function_name": tool_name,
+                        "arguments": tool_input if isinstance(tool_input, dict) else {"input": str(tool_input)},
+                        "status": "started",
+                        "message": f"🔧 Analyzing with {tool_name.replace('_', ' ').title()}...",
+                    }) + "\n"
 
                 elif event_type == "on_tool_end":
-                    # =========================================================
-                    # THIS IS THE FIX: Add a small delay
-                    # This gives the frontend time to render the "calling" state
-                    # before the "complete" state arrives.
-                    # =========================================================
-                    await asyncio.sleep(0.5)
+                    # Add delay for better UX
+                    await asyncio.sleep(0.7)
 
                     tool_name = event.get("name", "unknown_tool")
                     tool_output_str = str(event.get("data", {}).get("output", ""))
-                    truncated_result = (
-                        tool_output_str[:250] + "..."
-                        if len(tool_output_str) > 250
-                        else tool_output_str
-                    )
+                    active_tools.discard(tool_name)
+                    
+                    # Better result truncation
+                    if len(tool_output_str) > 300:
+                        truncated_result = tool_output_str[:297] + "..."
+                    else:
+                        truncated_result = tool_output_str
 
-                    yield json.dumps(
-                        {
-                            "event": "function_complete",
-                            "function_name": tool_name,
-                            "result": truncated_result,
-                            "status": "completed",
-                            "message": f"✅ Completed {tool_name.replace('_', ' ').title()}",
-                        }
-                    ) + "\n"
+                    yield json.dumps({
+                        "event": "function_complete",
+                        "function_name": tool_name,
+                        "result": truncated_result,
+                        "status": "completed",
+                        "message": f"✅ Completed {tool_name.replace('_', ' ').title()}",
+                    }) + "\n"
 
                 elif event_type == "on_chat_model_stream":
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         accumulated_response += chunk.content
-                        yield json.dumps(
-                            {
-                                "event": "token",
-                                "token": chunk.content,
-                                "chat_id": chat_id,
-                                "conversation_id": conversation_id,
-                                "provider": provider,
-                                "model": model,
-                            }
-                        ) + "\n"
+                        yield json.dumps({
+                            "event": "token",
+                            "token": chunk.content,
+                            "chat_id": chat_id,
+                            "conversation_id": conversation_id,
+                            "provider": provider,
+                            "model": model,
+                        }) + "\n"
 
-            yield json.dumps(
-                {
-                    "event": "complete",
-                    "message": "Agentic analysis completed",
-                    "response": accumulated_response,
-                    "chat_id": chat_id,
-                    "conversation_id": conversation_id,
-                    "provider": provider,
-                    "model": model,
-                    "usage": {},
-                }
-            ) + "\n"
+            # Final completion
+            yield json.dumps({
+                "event": "complete",
+                "message": "Enhanced agentic analysis completed",
+                "response": accumulated_response,
+                "chat_id": chat_id,
+                "conversation_id": conversation_id,
+                "provider": provider,
+                "model": model,
+                "usage": {},
+            }) + "\n"
 
         except Exception as e:
+            logger.error(f"Streaming error: {str(e)}")
             error_msg = str(e)
-            yield json.dumps(
-                {"event": "error", "error": error_msg, "error_type": "server_error"}
-            ) + "\n"
+            error_type = "server_error"
+            
+            if "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
+                error_type = "quota_exceeded"
+            elif "api key" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                error_type = "no_api_key"
+            elif "gitvizz" in error_msg.lower():
+                error_type = "gitvizz_error"
+
+            yield json.dumps({
+                "event": "error",
+                "error": error_msg,
+                "error_type": error_type
+            }) + "\n"
 
     async def _fallback_streaming(
         self, user_query: str, user: Any, model: str, provider: str
     ) -> AsyncGenerator[str, None]:
-        """Fallback streaming when LangGraph is not available"""
+        """Enhanced fallback streaming"""
         try:
-            yield json.dumps(
-                {
-                    "event": "progress",
-                    "step": "fallback_mode",
-                    "message": "Using fallback mode (LangGraph not available)",
-                }
-            ) + "\n"
+            yield json.dumps({
+                "event": "progress",
+                "step": "fallback_mode",
+                "message": "Using fallback mode - LangGraph not available",
+            }) + "\n"
 
-            # Use simple streaming with LangChain
             chat_model = await langchain_service.get_chat_model(
                 model=model, user=user, temperature=0.7
             )
 
-            messages = [HumanMessage(content=user_query)]
+            system_msg = SystemMessage(content="""You are a helpful code analysis assistant. 
+While GitVizz tools are not available, provide the best analysis you can based on your knowledge.""")
+            
+            messages = [system_msg, HumanMessage(content=user_query)]
 
+            accumulated = ""
             async for chunk in chat_model.astream(messages):
                 if chunk.content:
+                    accumulated += chunk.content
                     yield json.dumps({"event": "token", "token": chunk.content}) + "\n"
 
-            yield json.dumps({"event": "complete"}) + "\n"
+            yield json.dumps({
+                "event": "complete",
+                "message": "Fallback analysis completed",
+                "response": accumulated
+            }) + "\n"
 
         except Exception as e:
-            yield json.dumps(
-                {"event": "error", "error": str(e), "error_type": "fallback_error"}
-            ) + "\n"
+            logger.error(f"Fallback error: {str(e)}")
+            yield json.dumps({
+                "event": "error",
+                "error": str(e),
+                "error_type": "fallback_error"
+            }) + "\n"
 
 
 # Global instance
