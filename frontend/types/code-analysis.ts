@@ -71,6 +71,42 @@ export interface HierarchyTree {
   totalNodes: number;
   maxDepth: number;
   relationshipTypes: string[];
+  filterStats?: FilterStats;
+  remappedConnections?: RemappedConnection[];
+}
+
+// Filter types for smart hierarchy filtering
+export interface NodeFilter {
+  categories: string[];
+  includeRemappedConnections: boolean;
+  skipFilteredNodes: boolean;
+}
+
+export interface FilterConfig {
+  activeCategories: Set<string>;
+  enableSmartRemapping: boolean;
+  preserveRelationshipContext: boolean;
+}
+
+export interface SmartFilterOptions {
+  filter: NodeFilter;
+  maxRemappingDepth: number;
+  preserveDirectConnections: boolean;
+}
+
+export interface FilterStats {
+  totalNodesBeforeFilter: number;
+  totalNodesAfterFilter: number;
+  remappedConnections: number;
+  filteredCategories: string[];
+}
+
+export interface RemappedConnection {
+  originalPath: string[];
+  remappedSource: string;
+  remappedTarget: string;
+  relationship: string;
+  skippedNodes: string[];
 }
 
 export interface HierarchyTabProps {
