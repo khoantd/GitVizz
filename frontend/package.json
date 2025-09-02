@@ -45,6 +45,7 @@
     "@sigma/edge-curve": "^3.1.0",
     "@sigma/export-image": "^3.0.0",
     "@sigma/node-border": "^3.0.0",
+    "@vercel/analytics": "^1.5.0",
     "@xyflow/react": "^12.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

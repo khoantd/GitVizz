@@ -4,7 +4,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { SessionProvider } from 'next-auth/react';
 import { generateSEOMetadata, structuredData } from '@/lib/seo';
-
+import { Analytics } from '@vercel/analytics/next';
 // Generate metadata for the site using our SEO function
 export const metadata: Metadata = generateSEOMetadata();
 
@@ -41,6 +41,7 @@ export default function RootLayout({
         <SessionProvider>
           <Providers>{children}</Providers>
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   );
