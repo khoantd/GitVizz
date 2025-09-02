@@ -129,6 +129,12 @@ export default function ResultsPage() {
       return;
     }
 
+    // Show coming soon message for documentation tab
+    if (value === 'documentation') {
+      showToast.info('📚 AI-powered Documentation generation, Coming Soon !!');
+      return;
+    }
+
     // Show coming soon message for video tab
     if (value === 'video') {
       showToast.info('🎬 Code walk through Video generation, Coming Soon !!');
@@ -455,8 +461,8 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="documentation"
                 className={cn(
-                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2',
-                  !session?.accessToken && 'opacity-60',
+                  'rounded-xl text-xs font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-2 opacity-60',
+                  !session?.accessToken && 'opacity-40',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-3 w-3" />}
@@ -524,13 +530,16 @@ export default function ResultsPage() {
               <TabsTrigger
                 value="documentation"
                 className={cn(
-                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center',
-                  !session?.accessToken && 'opacity-60',
+                  'rounded-xl px-8 py-3 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-muted/50 flex items-center gap-3 min-w-[140px] justify-center opacity-60 relative',
+                  !session?.accessToken && 'opacity-40',
                 )}
               >
                 {!session?.accessToken && <Lock className="h-4 w-4" />}
                 <BookOpen className="h-5 w-5" />
                 <span>Documentation</span>
+                <Badge className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  Soon
+                </Badge>
               </TabsTrigger>
               <TabsTrigger
                 value="video"
