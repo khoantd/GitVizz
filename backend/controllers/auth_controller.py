@@ -12,9 +12,12 @@ from beanie.operators import Or
 
 
 async def get_github_user(access_token: str) -> dict:
+    # GitHub user tokens (ghu_) use 'token' auth type, not 'Bearer'
+    auth_type = "token" if access_token.startswith(("ghu_", "ghp_", "gho_", "ghs_")) else "Bearer"
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": f"{auth_type} {access_token}",
         "Accept": "application/vnd.github+json",
+        "User-Agent": "GitVizz-Backend/1.0"
     }
 
     async with httpx.AsyncClient() as client:
@@ -73,8 +76,11 @@ async def login_user(request: LoginRequest) -> LoginResponse:
             profile_picture=github_profile_picture,
             github_access_token=request.access_token,
         )
-
         await user.insert()  # Save the new user to the database
+    else:
+        user.github_access_token = request.access_token
+        await user.save()  # Update the existing user in the database
+
 
     # Step 4: Create tokens for the user
     tokens = await create_tokens(user.email)

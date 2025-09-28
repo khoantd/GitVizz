@@ -36,6 +36,12 @@ interface Message {
   context_used?: string | null;
   metadata?: Record<string, any> | null;
   context_metadata?: Record<string, any> | null;
+  function_calls?: Array<{
+    name: string;
+    status: 'calling' | 'complete' | 'error';
+    arguments: Record<string, unknown>;
+    result?: unknown;
+  }>;
 }
 
 interface ChatState {
@@ -223,33 +229,27 @@ export function useChatSidebar(
     }
   };
 
-  const sendMessage = async (
+  // =================================================================
+  // <<< START: THIS IS THE FUNCTION TO REPLACE >>>
+  // =================================================================
+const sendMessage = async (
     content: string,
+    options?: {
+      repositoryBranch?: string;
+      contextMode?: 'full' | 'smart' | 'agentic';
+    },
   ): Promise<{ daily_usage?: DailyUsage } | undefined> => {
     if (!session?.jwt_token || chatState.isLoading) return;
 
-    // Check if repository identifier is valid
-    // For GitHub repos: should be owner/repo/branch format (contains '/')
-    // For ZIP files: should be a 24-character ObjectId (no '/')
+    // ... (rest of the initial validation code remains the same) ...
     const isGitHubFormat = repositoryIdentifier.includes('/');
     const isObjectIdFormat = !isGitHubFormat && repositoryIdentifier.length === 24;
-
-    if (
-      !repositoryIdentifier ||
-      repositoryIdentifier.trim() === '' ||
-      (!isGitHubFormat && !isObjectIdFormat)
-    ) {
+    if (!repositoryIdentifier || repositoryIdentifier.trim() === '' || (!isGitHubFormat && !isObjectIdFormat)) {
       console.error('Cannot send message: Repository identifier is invalid:', repositoryIdentifier);
-      throw new Error(
-        'Repository not processed yet. Please wait for repository processing to complete before starting a chat.',
-      );
+      throw new Error('Repository not processed yet. Please wait for repository processing to complete before starting a chat.');
     }
 
-    const userMessage: Message = {
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
+    const userMessage: Message = { role: 'user', content, timestamp: new Date() };
 
     setChatState((prev) => ({
       ...prev,
@@ -258,22 +258,8 @@ export function useChatSidebar(
     }));
 
     try {
-      // Determine appropriate temperature based on model
-      let temperature = modelState.temperature;
-
-      // O-series models (o1-preview, o1-mini, etc.) only support temperature=1
-      if (
-        modelState.model &&
-        (modelState.model.startsWith('o1') || modelState.model.includes('o1'))
-      ) {
-        temperature = 1.0;
-      } else if (temperature === undefined) {
-        // Default temperature for other models
-        temperature = 0.7;
-      }
-
       const streamingRequest: StreamingChatRequest = {
-        token: session.jwt_token || undefined,
+        token: session.jwt_token || '',
         message: content,
         repository_id: repositoryIdentifier,
         repository_branch: options?.repositoryBranch,
@@ -282,200 +268,134 @@ export function useChatSidebar(
         conversation_id: chatState.currentConversationId,
         provider: modelState.provider,
         model: modelState.model,
-        temperature: temperature,
-        context_mode: contextSettings.includeFullContext ? 'full' : 'smart',
+        temperature: modelState.temperature ?? 0.7,
+        context_mode: options?.contextMode || 'smart',
         max_tokens: contextSettings.maxTokens,
       };
 
       const response = await createStreamingChatRequest(streamingRequest);
 
-      let assistantMessage = '';
-      let chatId = chatState.currentChatId;
-      let conversationId = chatState.currentConversationId;
-      let hasStartedResponse = false;
-      let metadataReceived = false;
-      let hasReceivedTokens = false;
+      // --- NEW LOGIC: We will not create a placeholder here ---
+      // Instead, we create messages dynamically as events stream in.
       let dailyUsage: DailyUsage | null = null;
-
-      // Add placeholder assistant message immediately
-      setChatState((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          {
-            role: 'assistant',
-            content: '',
-            timestamp: new Date(),
-          },
-        ],
-      }));
+      let assistantTextContent = ''; // Accumulator for the final text response
 
       try {
-        // Process streaming response
         for await (const chunk of parseStreamingResponse(response)) {
-          console.log('Processing chunk:', chunk); // Debug log
-
           if (chunk.type === 'metadata') {
-            // Extract chat and conversation IDs from metadata
-            if (chunk.chat_id && chunk.conversation_id && !metadataReceived) {
-              chatId = chunk.chat_id;
-              conversationId = chunk.conversation_id;
-              metadataReceived = true;
+            setChatState((prev) => ({
+              ...prev,
+              currentChatId: chunk.chat_id || prev.currentChatId,
+              currentConversationId: chunk.conversation_id || prev.currentConversationId,
+            }));
+          } else if (chunk.type === 'function_call') {
+            setChatState((prev) => {
+              const newMessages = [...prev.messages];
+              const lastMessage = newMessages[newMessages.length - 1];
 
-              // Update state with new IDs immediately
-              setChatState((prev) => ({
-                ...prev,
-                currentChatId: chatId,
-                currentConversationId: conversationId,
-              }));
-            }
+              // Check if the last message is an assistant message meant for tools
+              if (lastMessage?.role === 'assistant' && !lastMessage.content) {
+                // If it is, update its function_calls array
+                const functionCalls = [...(lastMessage.function_calls || [])];
+                functionCalls.push({
+                  name: chunk.function_name || 'unknown_tool',
+                  status: 'calling',
+                  arguments: chunk.arguments || {},
+                });
+                newMessages[newMessages.length - 1] = { ...lastMessage, function_calls: functionCalls };
+              } else {
+                // Otherwise, create a NEW message bubble just for tools
+                newMessages.push({
+                  role: 'assistant',
+                  content: '', // IMPORTANT: Empty content signifies a tool message
+                  timestamp: new Date(),
+                  function_calls: [{
+                    name: chunk.function_name || 'unknown_tool',
+                    status: 'calling',
+                    arguments: chunk.arguments || {},
+                  }],
+                });
+              }
+              return { ...prev, messages: newMessages };
+            });
+          } else if (chunk.type === 'function_complete') {
+            setChatState((prev) => {
+              const newMessages = [...prev.messages];
+              const lastMessage = newMessages[newMessages.length - 1];
+
+              if (lastMessage?.role === 'assistant' && lastMessage.function_calls) {
+                const functionCalls = [...lastMessage.function_calls];
+                const callIndex = functionCalls.findIndex(
+                  (call) => call.name === chunk.function_name && call.status === 'calling'
+                );
+                if (callIndex !== -1) {
+                  functionCalls[callIndex].status = 'complete';
+                  functionCalls[callIndex].result = chunk.result;
+                  newMessages[newMessages.length - 1] = { ...lastMessage, function_calls: functionCalls };
+                }
+              }
+              return { ...prev, messages: newMessages };
+            });
           } else if (chunk.type === 'token') {
-            hasReceivedTokens = true;
-            hasStartedResponse = true;
-
-            // Handle token content (can be empty string)
             if (chunk.content !== undefined) {
-              assistantMessage += chunk.content;
-
-              // Update the last assistant message with streaming content
+              assistantTextContent += chunk.content;
               setChatState((prev) => {
                 const newMessages = [...prev.messages];
                 const lastMessage = newMessages[newMessages.length - 1];
 
-                if (lastMessage?.role === 'assistant') {
-                  newMessages[newMessages.length - 1] = {
-                    ...lastMessage,
-                    content: assistantMessage,
-                  };
+                // If the last message was for tools (empty content), create a new one for text
+                if (lastMessage?.role === 'assistant' && !lastMessage.content && lastMessage.function_calls?.length) {
+                  newMessages.push({
+                    role: 'assistant',
+                    content: assistantTextContent,
+                    timestamp: new Date(),
+                  });
+                } else if (lastMessage?.role === 'assistant') {
+                  // Otherwise, update the existing text message
+                  newMessages[newMessages.length - 1] = { ...lastMessage, content: assistantTextContent };
+                } else {
+                  // This handles cases where no tools are called, and the first event is a token
+                  newMessages.push({
+                    role: 'assistant',
+                    content: assistantTextContent,
+                    timestamp: new Date(),
+                  });
                 }
-
-                return {
-                  ...prev,
-                  messages: newMessages,
-                  currentChatId: chatId || prev.currentChatId,
-                  currentConversationId: conversationId || prev.currentConversationId,
-                };
+                return { ...prev, messages: newMessages };
               });
             }
           } else if (chunk.type === 'complete') {
-            console.log('Stream completed successfully');
-
-            // Capture daily usage data
-            if (chunk.daily_usage) {
-              dailyUsage = chunk.daily_usage;
-            }
-
-            // Update the final assistant message with context metadata if available
-            if (chunk.context_metadata) {
-              setChatState((prev) => {
-                const newMessages = [...prev.messages];
-                const lastMessage = newMessages[newMessages.length - 1];
-
-                if (lastMessage?.role === 'assistant') {
-                  newMessages[newMessages.length - 1] = {
-                    ...lastMessage,
-                    context_metadata: chunk.context_metadata,
-                  };
-                }
-
-                return {
-                  ...prev,
-                  messages: newMessages,
-                };
-              });
-            }
-
+            if (chunk.daily_usage) dailyUsage = chunk.daily_usage;
             break;
           } else if (chunk.type === 'error') {
-            const errorMessage = chunk.message || 'Streaming error occurred';
-            const errorType = chunk.error_type || 'unknown';
-            console.error('Streaming error:', errorMessage, 'Type:', errorType);
-
-            // Handle API key errors by redirecting to API keys page
-            if (errorType === 'no_api_key' || errorType === 'invalid_api_key') {
-              showToast.error('API key required. Redirecting to API keys page...');
-              setTimeout(() => {
-                router.push('/api-keys');
-              }, 2000);
-              throw new Error('API key required. Please add your API key to continue.');
-            }
-
-            // Handle repository not found errors
-            if (errorType === 'server_error' && errorMessage.includes('not found')) {
-              throw new Error(
-                'Repository not processed yet. Please process the repository first before chatting.',
-              );
-            }
-
-            // Check for specific error types
-            if (
-              errorMessage.toLowerCase().includes('quota') ||
-              errorMessage.toLowerCase().includes('limit') ||
-              errorMessage.toLowerCase().includes('rate')
-            ) {
-              throw new Error(
-                'API quota limit reached. Please try again later or use your own API key.',
-              );
-            } else if (errorMessage.toLowerCase().includes('authentication')) {
-              throw new Error('Authentication failed. Please Provide your API key.');
-            } else {
-              throw new Error(errorMessage);
-            }
+            throw new Error(chunk.message || 'Streaming error occurred');
           } else if (chunk.type === 'done') {
-            console.log('Stream done');
             break;
           }
         }
       } catch (streamError) {
         console.error('Stream processing error:', streamError);
-        throw streamError; // Re-throw to be caught by outer try-catch
+        throw streamError;
       }
 
-      // Check if we actually received any response
-      if (!hasReceivedTokens && !hasStartedResponse) {
-        throw new Error(
-          'No response received from AI. This may be due to API quota limits or temporary service issues. Please try again later.',
-        );
-      }
-
-      // Final state update
-      setChatState((prev) => ({
-        ...prev,
-        currentChatId: chatId || prev.currentChatId,
-        currentConversationId: conversationId || prev.currentConversationId,
-        isLoading: false,
-      }));
-
-      console.log('Message sent successfully, refreshing chat history');
-      // Refresh chat history after successful message
+      setChatState((prev) => ({ ...prev, isLoading: false }));
       await loadChatHistory();
-
-      // Return daily usage data if available
       return dailyUsage ? { daily_usage: dailyUsage } : undefined;
+
     } catch (error) {
-      console.error('Chat error:', error);
-
-      let errorMessage = 'Failed to send message';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-
-        // Check if it's an API key error and redirect if needed
-        if (errorMessage.toLowerCase().includes('api key required')) {
-          // The redirect is already handled in the streaming error handler
-          // Just show the error message here
-        }
-      }
-
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
       showToast.error(errorMessage);
-
-      // Remove both user and assistant messages if there was an error
       setChatState((prev) => ({
         ...prev,
-        messages: prev.messages.slice(0, -2), // Remove last 2 messages (user + assistant placeholder)
+        // On error, remove the user's optimistic message
+        messages: prev.messages.filter((msg) => msg.timestamp !== userMessage.timestamp),
         isLoading: false,
       }));
     }
   };
+  // =================================================================
+  // <<< END: THIS IS THE FUNCTION TO REPLACE >>>
+  // =================================================================
 
   const loadConversation = async (conversationId: string) => {
     if (!session?.jwt_token) return;
@@ -516,7 +436,6 @@ export function useChatSidebar(
   };
 
   const clearCurrentChat = () => {
-    // This creates a completely new chat session
     setChatState({
       messages: [],
       isLoading: false,
@@ -527,23 +446,19 @@ export function useChatSidebar(
   };
 
   const startNewConversation = () => {
-    // Keep the same chat_id but clear conversation_id to start a new conversation thread
     setChatState((prev) => ({
       messages: [],
       isLoading: false,
-      currentChatId: prev.currentChatId, // Keep the existing chat session
-      // Clear conversationId - will be generated on first message of new conversation
+      currentChatId: prev.currentChatId,
       currentConversationId: undefined,
     }));
     showToast.success('Started new conversation');
   };
 
   const startNewChatSession = () => {
-    // This creates a completely new chat session
     setChatState({
       messages: [],
       isLoading: false,
-      // Clear both IDs - new session will be created by backend
       currentChatId: undefined,
       currentConversationId: undefined,
     });
@@ -556,7 +471,6 @@ export function useChatSidebar(
       provider,
       model,
     }));
-    // Load configuration for the new model
     loadModelConfig(provider, model);
   };
 
@@ -579,13 +493,13 @@ export function useChatSidebar(
     chatHistory,
     sendMessage,
     loadConversation,
-    loadConversationBySessionItem, // New method specifically for session items
-    clearCurrentChat, // Creates completely new chat session
-    startNewConversation, // Starts new conversation in same chat session
-    startNewChatSession, // Same as clearCurrentChat for backward compatibility
+    loadConversationBySessionItem,
+    clearCurrentChat,
+    startNewConversation,
+    startNewChatSession,
     setModel,
     refreshModels,
-    refreshChatHistory, // New method to manually refresh chat history
+    refreshChatHistory,
     currentChatId: chatState.currentChatId,
     currentConversationId: chatState.currentConversationId,
     useUserKeys,

@@ -7,6 +7,7 @@ import { FileText, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { isWikiGenerated, generateWikiDocumentation, getWikiGenerationStatus } from '@/utils/api';
+import { useApiWithAuth } from '@/hooks/useApiWithAuth';
 
 interface DocumentationButtonProps {
   currentRepoId: string;
@@ -25,6 +26,10 @@ export default function DocumentationButton({
   const router = useRouter();
   const { data: session } = useSession();
 
+  const isWikiGeneratedWithAuth = useApiWithAuth(isWikiGenerated);
+  const generateWikiDocumentationWithAuth = useApiWithAuth(generateWikiDocumentation);
+  const getWikiGenerationStatusWithAuth = useApiWithAuth(getWikiGenerationStatus);
+
   const [isDocGenerated, setIsDocGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -35,7 +40,7 @@ export default function DocumentationButton({
     try {
       if (!session?.jwt_token || !currentRepoId) return;
 
-      const wikiResponse = await isWikiGenerated(session?.jwt_token || undefined, currentRepoId);
+      const wikiResponse = await isWikiGeneratedWithAuth(session?.jwt_token || undefined, currentRepoId);
       setIsDocGenerated(wikiResponse.is_generated);
       setCurrentStatus(wikiResponse.status);
 
@@ -71,7 +76,7 @@ export default function DocumentationButton({
       interval = setInterval(async () => {
         try {
           setIsCheckingStatus(true);
-          const statusResponse = await getWikiGenerationStatus(
+          const statusResponse = await getWikiGenerationStatusWithAuth(
             session?.jwt_token || undefined,
             currentRepoId,
           );
@@ -117,7 +122,7 @@ export default function DocumentationButton({
         throw new Error('Repository URL not available');
       }
 
-      await generateWikiDocumentation(
+      await generateWikiDocumentationWithAuth(
         session?.jwt_token || undefined,
         repositoryUrl,
         'en', // language

@@ -92,6 +92,10 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
   } = useResultData();
   const fetchGithubRepoWithAuth = useApiWithAuth(fetchGithubRepo);
   const uploadLocalZipWithAuth = useApiWithAuth(uploadLocalZip);
+  const getGitHubInstallationsWithAuth = useApiWithAuth(getGitHubInstallations);
+  const getGitHubInstallationRepositoriesWithAuth = useApiWithAuth(getGitHubInstallationRepositories);
+  const getRepositoryInfoWithAuth = useApiWithAuth(getRepositoryInfo);
+  const getRepositoryBranchesWithAuth = useApiWithAuth(getRepositoryBranches);
 
   // --- State for GitHub URL & ZIP Upload Tabs ---
   const [repoUrl, setRepoUrl] = useState(prefilledRepo || '');
@@ -202,7 +206,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
 
       try {
         // Use the new unified API function that fetches everything in one call
-        const repoInfo = await getRepositoryInfo(url, token);
+        const repoInfo = await getRepositoryInfoWithAuth(url, token);
 
         // Set all the repository information at once
         setRepoSize(repoInfo.size);
@@ -324,7 +328,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         
         // Use the new backend API  
         const jwtToken = session?.jwt_token || `Bearer ${session?.accessToken}`;
-        const installationsData = await getGitHubInstallations(jwtToken);
+        const installationsData = await getGitHubInstallationsWithAuth(jwtToken);
         
         const hasInstalls =
           Array.isArray(installationsData.installations) &&
@@ -367,7 +371,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         
         // Use the new backend API
         const jwtToken = session?.jwt_token || `Bearer ${session?.accessToken}`;
-        const reposData = await getGitHubInstallationRepositories(jwtToken, installationId);
+        const reposData = await getGitHubInstallationRepositoriesWithAuth(jwtToken, installationId);
         
         const transformedRepos = (reposData.repositories || []).map(
           (repo) => ({
@@ -460,7 +464,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
 
       try {
         const repoUrl = repo.html_url;
-        const branches = await getRepositoryBranches(repoUrl, session?.accessToken || undefined);
+        const branches = await getRepositoryBranchesWithAuth(repoUrl, session?.accessToken || undefined);
 
         // Determine a default branch
         let defaultBranch = repo.default_branch || '';
@@ -540,7 +544,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl,
         access_token: session?.accessToken || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token || undefined,
+        token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);
@@ -603,7 +607,7 @@ export function RepoTabs({ prefilledRepo }: { prefilledRepo?: string | null }) {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || undefined,
         branch: finalBranch,
-        jwt_token: session?.jwt_token || undefined,
+        token: session?.jwt_token || undefined,
       };
 
       const { text_content: formattedText, repo_id } = await fetchGithubRepoWithAuth(requestData);

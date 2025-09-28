@@ -75,15 +75,10 @@ const Header = () => {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/repositories" className="cursor-pointer">
-                      Repositories
-                    </Link>
-                  </DropdownMenuItem>
 
                   <DropdownMenuItem asChild>
                     <Link href="/api-keys" className="cursor-pointer">
-                      Api Keys
+                      API Keys
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

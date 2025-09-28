@@ -5,7 +5,7 @@ import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { Github, Star, Code, Search, MessageSquare, FileText, Network, Eye } from 'lucide-react';
+import { Github, Star, Code, Search, MessageSquare, FileText, Network, Eye, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -66,6 +66,8 @@ function HomeContent() {
       description: 'AI-powered conversations about your codebase with context-aware responses',
       image: '/screenshots/chat_with_repo_powered_by_graph.png',
       icon: MessageSquare,
+      comingSoon: true,
+      githubContribution: true,
     },
     {
       title: 'Code Viewer',
@@ -84,6 +86,8 @@ function HomeContent() {
       description: 'Automatically generate comprehensive documentation from your repository',
       image: '/screenshots/generate_documentation.png',
       icon: FileText,
+      comingSoon: true,
+      githubContribution: true,
     },
   ];
 
@@ -187,14 +191,71 @@ function HomeContent() {
                     <div className="flex items-center gap-2 mb-2 lg:mb-3">
                       <IconComponent className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
                       <h3 className="text-lg lg:text-xl font-semibold">{feature.title}</h3>
+                      {feature.comingSoon && (
+                        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                          Coming Soon
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-sm lg:text-base text-muted-foreground leading-relaxed">
+                    <p className="text-sm lg:text-base text-muted-foreground leading-relaxed mb-3">
                       {feature.description}
                     </p>
+                    {feature.githubContribution && (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href="https://github.com/adithya-s-k/GitVizz"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors group"
+                        >
+                          <Github className="h-3 w-3" />
+                          <span>Contribute on GitHub</span>
+                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Contributing Section */}
+        <div className="w-full mb-8 lg:mb-12">
+          <div className="bg-card/30 backdrop-blur-sm rounded-xl border border-border/50 p-6 lg:p-8">
+            <div className="text-center mb-6">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight mb-2">
+                Help Us Build the Future
+              </h2>
+              <p className="text-sm lg:text-base text-muted-foreground">
+                GitVizz is open source and we're looking for contributors to help us improve
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { title: 'Documentation', description: 'Help improve our docs and guides' },
+                { title: 'Video Content', description: 'Create tutorials and demos' },
+                { title: 'MCP Integration', description: 'Model Context Protocol features' },
+                { title: 'Chat Features', description: 'AI-powered repository chat' },
+              ].map((area, index) => (
+                <div key={index} className="text-center p-4 rounded-lg border border-border/30 hover:border-primary/30 transition-colors">
+                  <h3 className="font-semibold mb-2">{area.title}</h3>
+                  <p className="text-xs text-muted-foreground mb-3">{area.description}</p>
+                  <a
+                    href="https://github.com/adithya-s-k/GitVizz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors group"
+                  >
+                    <Github className="h-3 w-3" />
+                    <span>Contribute</span>
+                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </main>

@@ -2,6 +2,15 @@ import NextAuth from 'next-auth';
 import GitHub from 'next-auth/providers/github';
 import { getJwtToken, refreshJwtToken } from './api';
 
+// Get the correct backend URL for server-side requests
+const getBackendUrl = () => {
+  // In Docker environment, use internal container networking for server-side calls
+  if (process.env.NODE_ENV === 'production' && process.env.DOCKER_ENV) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL?.replace('localhost', 'backend') || 'http://backend:8003';
+  }
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+};
+
 export const { auth, handlers, signIn, signOut } = NextAuth({
   providers: [
     GitHub({

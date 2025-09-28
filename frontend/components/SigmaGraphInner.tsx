@@ -18,6 +18,7 @@ import { useLayoutRandom } from '@react-sigma/layout-random';
 import { animateNodes } from 'sigma/utils';
 import { EdgeArrowProgram, NodeCircleProgram } from 'sigma/rendering';
 import { EdgeCurvedArrowProgram, createEdgeCurveProgram } from '@sigma/edge-curve';
+import SigmaShareButton from '@/components/SigmaShareButton';
 // Layout control imports commented out for now
 /* 
 import {
@@ -593,8 +594,10 @@ function LoadGraph({
     const currentNodeCount = data.nodes.length;
 
     // Enhanced node sizing based on graph size and connectivity
-    const minNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 12 : 16; // 16 is the minimum size for the nodes
-    const maxNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 28 : 36; // 36 is the maximum size for the nodes
+    // const minNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 12 : 16; // 16 is the minimum size for the nodes
+    // const maxNodeSize = currentNodeCount > 1000 ? 16 : currentNodeCount > 500 ? 28 : 36; // 36 is the maximum size for the nodes
+    const minNodeSize = 12;
+    const maxNodeSize = 12;
 
     // Calculate node degrees for size scaling
     const nodeDegrees = new Map<string, number>();
@@ -877,7 +880,15 @@ function LoadGraph({
 }
 
 // Enhanced zoom and camera controls
-function ZoomControls({ onReorganize }: { onReorganize?: () => void }) {
+function ZoomControls({
+  onReorganize,
+  nodeCount,
+  edgeCount,
+}: {
+  onReorganize?: () => void;
+  nodeCount?: number;
+  edgeCount?: number;
+}) {
   const sigma = useSigma();
   const { zoomIn, zoomOut, reset } = useCamera({ duration: 200, factor: 1.5 });
 
@@ -914,6 +925,14 @@ function ZoomControls({ onReorganize }: { onReorganize?: () => void }) {
   return (
     <div className="absolute bottom-3 left-3 z-10">
       <div className="flex flex-col gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-xl p-1">
+        <SigmaShareButton
+          nodeCount={nodeCount}
+          edgeCount={edgeCount}
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          showTooltip={true}
+        />
         {onReorganize && (
           <Button
             size="sm"
@@ -1076,6 +1095,7 @@ export default function SigmaGraphInner({
   const [applyLayoutRef, setApplyLayoutRef] = useState<
     ((layoutType: string, animate?: boolean) => void) | null
   >(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset layout state when data changes
   useEffect(() => {
@@ -1125,7 +1145,7 @@ export default function SigmaGraphInner({
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       {/* Loading overlay during initial layout */}
       {!isInitialLayoutComplete && (
         <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -1178,7 +1198,11 @@ export default function SigmaGraphInner({
         />
 
         {/* Enhanced Zoom Controls - bottom left corner */}
-        <ZoomControls onReorganize={handleReorganizeLayout} />
+        <ZoomControls
+          onReorganize={handleReorganizeLayout}
+          nodeCount={data.nodes.length}
+          edgeCount={data.edges.length}
+        />
 
         {/* Enhanced Layout Controls - bottom right corner */}
         {/* <div className="absolute bottom-3 right-3 z-10">

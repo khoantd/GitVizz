@@ -632,9 +632,17 @@ export async function refreshJwtToken(
   refresh_token: string,
 ): Promise<{ access_token: string; expires_in: number }> {
   try {
-    const authClient = getAuthClient();
+    // Get the appropriate backend URL for the request context
+    const getBackendUrl = () => {
+      // For server-side requests in Docker, use internal container networking
+      if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.DOCKER_ENV) {
+        return process.env.NEXT_PUBLIC_BACKEND_URL?.replace('localhost', 'backend') || 'http://backend:8003';
+      }
+      return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+    };
+
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/backend-auth/refresh`,
+      `${getBackendUrl()}/api/backend-auth/refresh`,
       {
         method: 'POST',
         headers: {

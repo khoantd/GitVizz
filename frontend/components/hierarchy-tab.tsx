@@ -27,17 +27,26 @@ import {
   Package,
   Network,
   Crosshair,
+  RotateCw,
+  Info,
 } from 'lucide-react';
 import {
-  buildHierarchyTree,
+  buildFilteredHierarchyTree,
   toggleNodeExpansion,
   expandToDepth,
   expandAll,
   collapseAll,
   getVisibleNodes,
   getHierarchyStats,
+  createDefaultFilter,
 } from '@/utils/hierarchy-builder';
-import type { HierarchyTabProps, HierarchyNode, HierarchyTree } from '@/types/code-analysis';
+import type { 
+  HierarchyTabProps, 
+  HierarchyNode, 
+  HierarchyTree, 
+  NodeFilter 
+} from '@/types/code-analysis';
+import { HierarchyFilters } from '@/components/hierarchy-filters';
 
 // Icon mapping for different node categories
 const categoryIcons = {
@@ -210,7 +219,26 @@ function HierarchyNodeComponent({
                     <div className="flex items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-1 overflow-hidden">
                       {node.relationship && (
                         <>
-                          <span className="flex-shrink-0 hidden sm:inline">{node.relationship}</span>
+                          <span className="flex-shrink-0 hidden sm:inline">
+                            {node.relationship}
+                            {node.relationship?.startsWith('remapped_') && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="secondary" className="ml-1 px-1 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                                      <RotateCw className="h-2 w-2 mr-0.5" />
+                                      Smart
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs max-w-xs">
+                                      This connection was intelligently remapped, skipping filtered nodes to maintain graph connectivity.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </span>
                           <span className="flex-shrink-0 sm:inline hidden">•</span>
                         </>
                       )}
@@ -368,11 +396,13 @@ export function HierarchyTab({
   onToggleFocus,
 }: HierarchyTabProps) {
   const [currentDepth, setCurrentDepth] = useState(maxDepth);
+  const [filter, setFilter] = useState<NodeFilter>(() => createDefaultFilter());
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Build hierarchy tree
+  // Build hierarchy tree with filtering
   const hierarchyTree = useMemo(() => {
-    return buildHierarchyTree(selectedNode, graphData, currentDepth);
-  }, [selectedNode, graphData, currentDepth]);
+    return buildFilteredHierarchyTree(selectedNode, graphData, currentDepth, filter);
+  }, [selectedNode, graphData, currentDepth, filter]);
 
   const [tree, setTree] = useState<HierarchyTree>(hierarchyTree);
 
@@ -434,6 +464,18 @@ export function HierarchyTab({
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
+      {/* Filter Controls */}
+      <div className="flex-shrink-0">
+        <HierarchyFilters
+          graphData={graphData}
+          filter={filter}
+          onFilterChange={setFilter}
+          filterStats={hierarchyTree.filterStats}
+          isCollapsed={!showFilters}
+          onToggleCollapse={() => setShowFilters(!showFilters)}
+        />
+      </div>
+      
       {/* Header with Controls - Fixed */}
       <div className="flex-shrink-0 p-2 sm:p-3 lg:p-4 border-b border-border/20 bg-background/50 backdrop-blur-sm space-y-3 sm:space-y-4 overflow-hidden">
         {/* Node Info and Stats */}
@@ -470,6 +512,14 @@ export function HierarchyTab({
               <Layers className="w-3 h-3" />
               <span>Depth: {stats.maxDepth}</span>
             </div>
+            {hierarchyTree.filterStats && hierarchyTree.filterStats.remappedConnections > 0 && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <RotateCw className="w-3 h-3 text-orange-500" />
+                <span className="text-orange-700 dark:text-orange-300">
+                  {hierarchyTree.filterStats.remappedConnections} remapped
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -628,6 +678,66 @@ export function HierarchyTab({
                             level={1}
                           />
                         ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {/* Smart Remapping Info Section */}
+                {hierarchyTree.filterStats && hierarchyTree.remappedConnections && hierarchyTree.remappedConnections.length > 0 && (
+                  <Collapsible defaultOpen={false} className="w-full overflow-hidden">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between text-sm font-medium p-2 sm:p-3 h-auto overflow-hidden bg-orange-50/30 dark:bg-orange-950/20 border-orange-200/50 dark:border-orange-800/50"
+                      >
+                        <div className="flex items-center gap-1 sm:gap-2 min-w-0 overflow-hidden">
+                          <div className="w-1 h-3 sm:h-4 bg-orange-500 rounded-full flex-shrink-0" />
+                          <RotateCw className="h-3 w-3 text-orange-500" />
+                          <span className="truncate text-orange-700 dark:text-orange-300">Smart Connections</span>
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                          >
+                            {hierarchyTree.remappedConnections.length}
+                          </Badge>
+                        </div>
+                        <ChevronDown className="h-4 w-4 flex-shrink-0 text-orange-500" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2 sm:pt-3 w-full overflow-hidden">
+                      <div className="space-y-2 p-3 bg-orange-50/20 dark:bg-orange-950/10 rounded-lg border border-orange-200/30 dark:border-orange-800/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Info className="h-4 w-4 text-orange-500" />
+                          <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
+                            Intelligently Remapped Connections
+                          </span>
+                        </div>
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mb-3">
+                          These connections skip over filtered nodes to maintain graph connectivity. 
+                          For example: A → (filtered) → B becomes A → B.
+                        </p>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {hierarchyTree.remappedConnections.slice(0, 5).map((connection, index) => (
+                            <div 
+                              key={index} 
+                              className="text-xs p-2 bg-background/60 rounded border border-border/30"
+                            >
+                              <div className="font-medium text-foreground mb-1">
+                                {graphData.nodes.find(n => n.id === connection.remappedSource)?.name} →{' '}
+                                {graphData.nodes.find(n => n.id === connection.remappedTarget)?.name}
+                              </div>
+                              <div className="text-muted-foreground">
+                                Skipped {connection.skippedNodes.length} filtered node{connection.skippedNodes.length !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                          ))}
+                          {hierarchyTree.remappedConnections.length > 5 && (
+                            <div className="text-xs text-center text-muted-foreground py-1">
+                              ... and {hierarchyTree.remappedConnections.length - 5} more
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </CollapsibleContent>
                   </Collapsible>

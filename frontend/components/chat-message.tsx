@@ -2,18 +2,69 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Bot, User, Copy, Check, Clock, Code, FileText, Cpu, Zap, ArrowRight, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Bot,
+  User,
+  Copy,
+  Check,
+  Clock,
+  Code,
+  Cpu,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from 'next-themes';
 
+// Helper component for collapsible tool results
+function CollapsibleToolResult({ result }: { result: unknown }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const resultString = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+
+  return (
+    <div className="space-y-1 mt-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <Zap className="h-3 w-3 text-green-600 dark:text-green-400" />
+          <span className="text-xs font-medium text-green-700 dark:text-green-300">Result:</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsOpen(!isOpen)}
+          className="h-6 px-1 text-xs"
+        >
+          {isOpen ? 'Hide' : 'Show'}
+          {isOpen ? (
+            <ChevronUp className="h-3 w-3 ml-1" />
+          ) : (
+            <ChevronDown className="h-3 w-3 ml-1" />
+          )}
+        </Button>
+      </div>
+      {isOpen && (
+        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded p-2 text-xs">
+          <pre className="whitespace-pre-wrap text-green-800 dark:text-green-200">
+            {resultString}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface FunctionCall {
   name: string;
   arguments: Record<string, unknown>;
   result?: unknown;
+  status?: 'calling' | 'complete' | 'error';
 }
 
 interface Message {
@@ -23,8 +74,8 @@ interface Message {
   context_used?: string | null;
   metadata?: Record<string, unknown> | null;
   function_calls?: FunctionCall[];
-  reasoning?: string | null; // Reasoning traces for o1/o3 models
-  is_reasoning_model?: boolean; // Flag to indicate if this is a reasoning model response
+  reasoning?: string | null;
+  is_reasoning_model?: boolean;
 }
 
 interface ChatMessageProps {
@@ -33,11 +84,13 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
-  const [showReasoning, setShowReasoning] = useState(false);
   const { theme } = useTheme();
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
-  const hasReasoning = !isUser && message.reasoning && message.reasoning.trim().length > 0;
+
+  // This flag identifies messages that are ONLY for displaying tool calls
+  const isToolCallMessage =
+    !isUser && !message.content && message.function_calls && message.function_calls.length > 0;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -46,10 +99,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
   };
 
   const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+    return new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(date);
   };
 
   if (isSystem) {
@@ -62,9 +112,92 @@ export function ChatMessage({ message }: ChatMessageProps) {
     );
   }
 
+  // Render a unique, simplified UI for tool call messages
+  if (isToolCallMessage) {
+    return (
+      <div className="group flex gap-3 w-full mb-4">
+        <div className="flex-shrink-0">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center border shadow-sm bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700">
+            <Bot className="h-4 w-4" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 space-y-2 max-w-[85%]">
+          {message.function_calls?.map((call, index) => {
+            const getStatusIcon = () => {
+              switch (call.status) {
+                case 'calling':
+                  return (
+                    <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
+                  );
+                case 'complete':
+                  return <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />;
+                case 'error':
+                  return <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />;
+                default:
+                  return <Cpu className="h-4 w-4 text-orange-600 dark:text-orange-400" />;
+              }
+            };
+            const getStatusText = () => {
+              return call.status === 'calling'
+                ? 'Calling tool...'
+                : call.status === 'complete'
+                  ? 'Completed'
+                  : 'Function Call';
+            };
+            const getColors = () => {
+              switch (call.status) {
+                case 'calling':
+                  return {
+                    border: 'border-blue-200 dark:border-blue-800',
+                    bg: 'bg-blue-50 dark:bg-blue-950/20',
+                    text: 'text-blue-800 dark:text-blue-200',
+                    icon: 'text-blue-600 dark:text-blue-400',
+                  };
+                case 'complete':
+                  return {
+                    border: 'border-green-200 dark:border-green-800',
+                    bg: 'bg-green-50 dark:bg-green-950/20',
+                    text: 'text-green-800 dark:text-green-200',
+                    icon: 'text-green-600 dark:text-green-400',
+                  };
+                case 'error':
+                  return {
+                    border: 'border-red-200 dark:border-red-800',
+                    bg: 'bg-red-50 dark:bg-red-950/20',
+                    text: 'text-red-800 dark:text-red-200',
+                    icon: 'text-red-600 dark:text-red-400',
+                  };
+                default:
+                  return {
+                    border: 'border-orange-200 dark:border-orange-800',
+                    bg: 'bg-orange-50 dark:bg-orange-950/20',
+                    text: 'text-orange-800 dark:text-orange-200',
+                    icon: 'text-orange-600 dark:text-orange-400',
+                  };
+              }
+            };
+            const colors = getColors();
+
+            return (
+              <div key={index} className={cn('border rounded-lg p-3', colors.bg, colors.border)}>
+                <div className="flex items-center gap-2">
+                  {getStatusIcon()}
+                  <span className={cn('text-sm font-medium', colors.text)}>
+                    {getStatusText()}: {call.name}
+                  </span>
+                </div>
+                {call.result != null && <CollapsibleToolResult result={call.result} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Default rendering for user messages and final assistant text responses
   return (
     <div className={cn('group flex gap-3 w-full mb-6', isUser && 'flex-row-reverse')}>
-      {/* Avatar */}
       <div className="flex-shrink-0">
         <div
           className={cn(
@@ -78,11 +211,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
         </div>
       </div>
 
-      {/* Message Content */}
       <div
         className={cn('flex-1 min-w-0 space-y-3 max-w-full', isUser && 'flex flex-col items-end')}
       >
-        {/* Message Bubble */}
         <div
           className={cn(
             'relative w-full rounded-2xl px-4 py-3 shadow-sm border overflow-hidden',
@@ -170,40 +301,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     <ol className="text-sm space-y-1 ml-4 mb-3 break-words w-full">{children}</ol>
                   ),
                   li: ({ children }) => <li className="break-words">{children}</li>,
-                  h1: ({ children }) => (
-                    <h1 className="text-base font-semibold mb-2 mt-4 first:mt-0 break-words w-full">
-                      {children}
-                    </h1>
-                  ),
-                  h2: ({ children }) => (
-                    <h2 className="text-sm font-semibold mb-2 mt-3 first:mt-0 break-words w-full">
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="text-sm font-medium mb-2 mt-3 first:mt-0 break-words w-full">
-                      {children}
-                    </h3>
-                  ),
-                  blockquote: ({ children }) => (
-                    <blockquote className="border-l-4 border-primary/20 pl-4 my-3 text-muted-foreground italic break-words w-full">
-                      {children}
-                    </blockquote>
-                  ),
-                  table: ({ children }) => (
-                    <div className="overflow-x-auto my-3 w-full">
-                      <table className="min-w-full text-xs border border-border/30 rounded-lg">
-                        {children}
-                      </table>
-                    </div>
-                  ),
-                  pre: ({ children }) => (
-                    <div className="overflow-x-auto w-full">
-                      <pre className="text-xs p-3 bg-muted/30 rounded-lg border border-border/30 overflow-auto w-full">
-                        {children}
-                      </pre>
-                    </div>
-                  ),
                 }}
               >
                 {message.content}
@@ -212,146 +309,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
           )}
         </div>
 
-        {/* Thinking/Reasoning Traces */}
-        {hasReasoning && (
-          <div className="space-y-2">
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm">
-              <Button
-                variant="ghost"
-                onClick={() => setShowReasoning(!showReasoning)}
-                className="w-full flex items-center justify-between p-3 h-auto hover:bg-gradient-to-r hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-900/30 dark:hover:to-blue-900/30 transition-all duration-200"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
-                  </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
-                      AI Thinking Process
-                    </span>
-                    <span className="text-xs text-purple-600 dark:text-purple-400">
-                      {message.is_reasoning_model ? 'Advanced reasoning model' : 'Step-by-step analysis'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px] h-4 px-2 bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">
-                    {showReasoning ? 'Hide' : 'Show'} Thoughts
-                  </Badge>
-                  {showReasoning ? (
-                    <ChevronUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  )}
-                </div>
-              </Button>
-              
-              {showReasoning && (
-                <div className="border-t border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-25 to-blue-25 dark:from-purple-950/10 dark:to-blue-950/10">
-                  <div className="p-4">
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => (
-                            <p className="text-sm leading-relaxed mb-3 last:mb-0 text-purple-800 dark:text-purple-200">
-                              {children}
-                            </p>
-                          ),
-                          code: ({ children }) => (
-                            <code className="bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 px-1.5 py-0.5 rounded text-xs font-mono border border-purple-200 dark:border-purple-700">
-                              {children}
-                            </code>
-                          ),
-                          pre: ({ children }) => (
-                            <pre className="bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 p-3 rounded-lg text-xs overflow-x-auto border border-purple-200 dark:border-purple-700">
-                              {children}
-                            </pre>
-                          ),
-                          ul: ({ children }) => (
-                            <ul className="text-sm space-y-1 ml-4 mb-3 text-purple-800 dark:text-purple-200">{children}</ul>
-                          ),
-                          ol: ({ children }) => (
-                            <ol className="text-sm space-y-1 ml-4 mb-3 text-purple-800 dark:text-purple-200">{children}</ol>
-                          ),
-                          li: ({ children }) => <li className="text-purple-800 dark:text-purple-200">{children}</li>,
-                          h3: ({ children }) => (
-                            <h3 className="text-sm font-semibold mb-2 mt-3 first:mt-0 text-purple-900 dark:text-purple-100">
-                              {children}
-                            </h3>
-                          ),
-                          blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-purple-300 dark:border-purple-600 pl-3 my-2 text-purple-700 dark:text-purple-300 italic">
-                              {children}
-                            </blockquote>
-                          ),
-                        }}
-                      >
-                        {message.reasoning}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Function Calls */}
-        {!isUser && message.function_calls && message.function_calls.length > 0 && (
-          <div className="space-y-2">
-            {message.function_calls.map((call, index) => (
-              <div
-                key={index}
-                className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Cpu className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                    Function Call: {call.name}
-                  </span>
-                </div>
-
-                {Object.keys(call.arguments).length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1">
-                      <ArrowRight className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                      <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
-                        Arguments:
-                      </span>
-                    </div>
-                    <div className="bg-orange-100 dark:bg-orange-900/30 rounded p-2 text-xs font-mono">
-                      <pre className="whitespace-pre-wrap text-orange-800 dark:text-orange-200">
-                        {JSON.stringify(call.arguments, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-
-                {/* Result */}
-                {call.result != null && (
-                  <div className="space-y-1 mt-2">
-                    <div className="flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-green-600 dark:text-green-400" />
-                      <span className="text-xs font-medium text-green-700 dark:text-green-300">
-                        Result:
-                      </span>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded p-2 text-xs">
-                      <pre className="whitespace-pre-wrap text-green-800 dark:text-green-200">
-                        {typeof call.result === 'string'
-                          ? call.result
-                          : JSON.stringify(call.result, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Message Footer */}
         <div
           className={cn(
             'flex items-center gap-3 px-1 opacity-0 group-hover:opacity-100 transition-all duration-200',
@@ -362,7 +319,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <Clock className="h-3 w-3" />
             <span>{formatTime(message.timestamp)}</span>
           </div>
-
           {!isUser && (
             <Button
               variant="ghost"
@@ -382,20 +338,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 </>
               )}
             </Button>
-          )}
-
-          {message.context_used && (
-            <Badge variant="secondary" className="text-xs h-6 px-2 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800">
-              <FileText className="h-3 w-3 mr-1" />
-              Context
-            </Badge>
-          )}
-
-          {message.is_reasoning_model && (
-            <Badge variant="secondary" className="text-xs h-6 px-2 bg-gradient-to-r from-purple-50 to-blue-50 text-purple-700 border-purple-200 dark:from-purple-950/50 dark:to-blue-950/50 dark:text-purple-300 dark:border-purple-800">
-              <Brain className="h-3 w-3 mr-1" />
-              Reasoning
-            </Badge>
           )}
         </div>
       </div>

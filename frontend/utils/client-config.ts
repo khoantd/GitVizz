@@ -18,13 +18,18 @@ export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> =
 
 // Get environment variables with proper fallbacks
 const getApiBaseUrl = () => {
-  // Use the unified backend URL environment variable
+  // For server-side requests in Docker, use internal container networking
+  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.DOCKER_ENV) {
+    // Server-side request in Docker - use internal container name
+    return process.env.NEXT_PUBLIC_BACKEND_URL?.replace('localhost', 'backend') || 'http://backend:8003';
+  }
+  // Client-side requests or development - use public URL
   return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 };
 
 const getAuthBaseUrl = () => {
   // Use the same backend URL for auth (since they point to the same server)
-  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
+  return getApiBaseUrl();
 };
 
 // Default client for main API operations
