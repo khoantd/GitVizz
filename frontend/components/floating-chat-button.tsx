@@ -10,13 +10,12 @@ import { ApiKeyModal } from './api-key-modal';
 import { showToast } from '@/components/toaster';
 
 interface FloatingChatButtonProps {
-  onClick: () => void;
   isOpen: boolean;
   unreadCount?: number;
   isLoading?: boolean;
 }
 
-export function FloatingChatButton({ onClick, isOpen, unreadCount = 0, isLoading = false }: FloatingChatButtonProps) {
+export function FloatingChatButton({ isOpen, unreadCount = 0, isLoading = false }: FloatingChatButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
   const apiKeyValidation = useApiKeyValidation();
 
