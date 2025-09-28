@@ -229,7 +229,7 @@ function HomeContent() {
                 Help Us Build the Future
               </h2>
               <p className="text-sm lg:text-base text-muted-foreground">
-                GitVizz is open source and we're looking for contributors to help us improve
+                GitVizz is open source and we&apos;re looking for contributors to help us improve
               </p>
             </div>
 
