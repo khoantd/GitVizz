@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,9 +113,18 @@ export default function ResultsPage() {
 
   const popupRef = useRef<HTMLDivElement>(null);
   const popupGraphRef = useRef<HTMLDivElement>(null);
+  const lastToastRef = useRef<{ tab: string; time: number } | null>(null);
 
-  // Handle restricted tab clicks
-  const handleTabChange = (value: string) => {
+  // Handle restricted tab clicks with debouncing to prevent duplicate toasts
+  const handleTabChange = useCallback((value: string) => {
+    // Prevent duplicate toast calls within 100ms for the same tab
+    const now = Date.now();
+    if (lastToastRef.current &&
+        lastToastRef.current.tab === value &&
+        now - lastToastRef.current.time < 100) {
+      return;
+    }
+
     if (
       (value === 'graph' ||
         value === 'explorer' ||
@@ -131,24 +140,27 @@ export default function ResultsPage() {
 
     // Show coming soon message for documentation tab
     if (value === 'documentation') {
+      lastToastRef.current = { tab: value, time: now };
       showToast.info('📚 AI-powered Documentation generation, Coming Soon !!');
       return;
     }
 
     // Show coming soon message for video tab
     if (value === 'video') {
+      lastToastRef.current = { tab: value, time: now };
       showToast.info('🎬 Code walk through Video generation, Coming Soon !!');
       return;
     }
 
     // Show coming soon message for MCP tab
     if (value === 'mcp') {
+      lastToastRef.current = { tab: value, time: now };
       showToast.info('⚡ MCP features, Coming Soon !!');
       return;
     }
 
     setActiveTab(value);
-  };
+  }, [session?.accessToken, router]);
 
   // Handle click outside to close expanded view
   useEffect(() => {
