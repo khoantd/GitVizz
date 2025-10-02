@@ -25,6 +25,10 @@ GitVizz revolutionizes how developers understand and navigate codebases. Whether
 
 ---
 
+https://github.com/user-attachments/assets/52eeb2c1-598b-4173-b0e8-8d4b986dbf64
+
+
+
 ## Features Showcase
 
 <div align="center">
