@@ -496,7 +496,12 @@ For detailed documentation, see [`gitvizz/README.md`](./gitvizz/README.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This repository contains multiple components with different licenses:
+
+- **Backend & Frontend Applications**: Licensed under the [GNU Affero General Public License v3.0](./backend/LICENSE)
+- **GitVizz Core Library**: Licensed under the [Apache License 2.0](./gitvizz/LICENSE)
+
+Please refer to the respective LICENSE files in each component directory for detailed terms and conditions.
 
 ---
 
