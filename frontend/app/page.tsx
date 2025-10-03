@@ -1,7 +1,7 @@
 'use client';
 
 import { useResultData } from '@/context/ResultDataContext';
-import { useEffect, Suspense } from 'react';
+import { useEffect, Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { NumberTicker } from '@/components/ui/number-ticker';
 
 // Custom Components
 import { RepoTabs } from '@/components/repo-tabs';
@@ -25,6 +26,14 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const prefilledRepo = searchParams.get('repo');
+  const [stars, setStars] = useState(37);
+
+  useEffect(() => {
+    fetch('/api/github-stars')
+      .then((res) => res.json())
+      .then((data) => setStars(data.stars))
+      .catch(() => setStars(37)); // Fallback to default
+  }, []);
 
   // Clean up URL after prefill is detected and processed
   useEffect(() => {
@@ -102,7 +111,7 @@ function HomeContent() {
       {/* Open Source Badge */}
       <div className="flex justify-center mb-4 relative z-10">
         <a
-          href="https://github.com/adithya-s-k/gitvizz"
+          href="https://github.com/adithya-s-k/GitVizz"
           target="_blank"
           rel="noopener noreferrer"
           className="group"
@@ -113,7 +122,10 @@ function HomeContent() {
           >
             <Github className="h-4 w-4 mr-2" />
             <span className="font-semibold">Proudly Open Source</span>
-            <Star className="h-4 w-4 ml-2 group-hover:text-yellow-500 transition-colors" />
+            <div className="flex items-center gap-1 ml-2">
+              <Star className="h-4 w-4 group-hover:text-yellow-500 transition-colors fill-yellow-500 text-yellow-500" />
+              <NumberTicker value={stars} className="text-sm font-semibold" />
+            </div>
           </Badge>
         </a>
       </div>

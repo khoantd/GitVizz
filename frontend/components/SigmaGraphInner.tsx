@@ -1095,6 +1095,7 @@ export default function SigmaGraphInner({
   const [applyLayoutRef, setApplyLayoutRef] = useState<
     ((layoutType: string, animate?: boolean) => void) | null
   >(null);
+  const [forceShowLargeGraph, setForceShowLargeGraph] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset layout state when data changes
@@ -1125,7 +1126,7 @@ export default function SigmaGraphInner({
   const showPerformanceWarning = nodeCount > 3000;
   const showMaxWarning = nodeCount > 10000;
 
-  if (showMaxWarning) {
+  if (showMaxWarning && !forceShowLargeGraph) {
     return (
       <div className="flex justify-center items-center h-full">
         <div className="text-center space-y-4 p-8 max-w-md">
@@ -1138,7 +1139,17 @@ export default function SigmaGraphInner({
               This graph has {nodeCount.toLocaleString()} nodes, which exceeds the 10,000 node limit
               for optimal performance.
             </p>
+            <p className="text-sm text-muted-foreground">
+              Rendering this graph may affect performance and could potentially crash your browser.
+            </p>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setForceShowLargeGraph(true)}
+            className="rounded-xl text-sm"
+          >
+            Show graph anyway
+          </Button>
         </div>
       </div>
     );
