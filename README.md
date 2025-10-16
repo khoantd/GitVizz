@@ -477,20 +477,138 @@ For detailed documentation, see [`gitvizz/README.md`](./gitvizz/README.md).
 
 ## Roadmap
 
-### Current Focus
+### 🚀 Current Focus (Q4 2025)
 
+#### AI-Powered Features
+- [ ] **Agentic Chat System** - Advanced multi-agent conversation system with tool usage and autonomous reasoning
+  - Context-aware code navigation agents
+  - Automated refactoring suggestions
+  - Intelligent bug detection and fix proposals
+  - Self-healing code recommendations
+
+- [ ] **Enhanced Documentation Generation** - Next-generation AI-powered documentation
+  - Multi-format output (Markdown, HTML, PDF, Confluence)
+  - Interactive API documentation
+  - Auto-generated code examples and tutorials
+  - Version-aware documentation diffing
+  - Architecture decision records (ADRs) generation
+
+- [ ] **Video Generation from Code** - Transform code into visual explanations
+  - Animated code walkthroughs
+  - Function execution flow visualizations
+  - Architecture diagram animations
+  - Tutorial video generation from codebases
+  - Code review video summaries
+
+#### Core Improvements
 - [ ] **Enhanced AI Models** - Support for more LLM providers
-- [ ] **Real-time Collaboration** - Multi-user code exploration
-- [ ] **Plugin System** - Extensible architecture
-- [ ] **Advanced Analytics** - Code quality metrics and insights
+  - OpenRouter integration for unified model access
+  - Local LLM support (Ollama, LM Studio)
+  - Custom model fine-tuning capabilities
+  - Cost optimization with model routing
+
 - [ ] **PyPI Release** - Publish GitVizz core library to PyPI
+  - Stable v1.0 release
+  - Comprehensive API documentation
+  - Usage examples and cookbook
 
-### Future Plans
+### 🔮 Near Future (Q1-Q2 2026)
 
+#### Advanced Analysis Features
+- [ ] **Smart Context Builder** - AI-powered retrieval for relevant code
+  - Semantic code search with embeddings
+  - Intelligent context pruning for LLM queries
+  - Multi-hop reasoning across dependencies
+  - Automated code snippet selection
+
+- [ ] **Code Quality & Security Analysis**
+  - Security vulnerability detection
+  - Performance bottleneck identification
+  - Code smell detection and refactoring suggestions
+  - Test coverage analysis and recommendations
+  - Technical debt tracking
+
+- [ ] **Advanced Analytics** - Comprehensive code quality metrics
+  - Complexity metrics and visualization
+  - Code churn analysis
+  - Developer contribution insights
+  - Codebase health scoring
+
+#### Collaboration Features
+- [ ] **Real-time Collaboration** - Multi-user code exploration
+  - Shared analysis sessions
+  - Collaborative annotations
+  - Team knowledge bases
+  - Code review workflow integration
+
+- [ ] **Plugin System** - Extensible architecture
+  - Custom language parsers
+  - Third-party tool integrations
+  - Custom visualization plugins
+  - Export format extensions
+
+### 🌟 Future Vision (2026+)
+
+#### Platform Expansion
 - [ ] **VS Code Extension** - Native IDE integration
+  - Inline documentation preview
+  - Graph visualization in editor
+  - AI chat sidebar
+  - Quick analysis commands
+
+- [ ] **JetBrains IDE Plugin** - IntelliJ IDEA, PyCharm, WebStorm support
+  - Native IDE integration
+  - Context-aware suggestions
+  - Code navigation enhancements
+
 - [ ] **Mobile App** - Code exploration on the go
-- [ ] **Enterprise Features** - Team collaboration and SSO
-- [ ] **Multi-language Support** - Beyond current language support
+  - iOS and Android native apps
+  - Offline repository access
+  - Push notifications for analysis completion
+  - Mobile-optimized graph visualization
+
+#### Enterprise Features
+- [ ] **Self-Hosted Enterprise Edition**
+  - On-premise deployment
+  - LDAP/SAML/SSO authentication
+  - Advanced security controls
+  - Audit logging and compliance
+
+- [ ] **Team Collaboration Suite**
+  - Organization-wide knowledge bases
+  - Team analytics and insights
+  - Project management integration
+  - Custom workflows and automations
+
+#### Advanced Capabilities
+- [ ] **Multi-Repository Analysis** - Cross-project insights
+  - Microservices dependency mapping
+  - Shared library usage tracking
+  - Organization-wide code patterns
+
+- [ ] **Time-Travel Code Analysis** - Historical codebase exploration
+  - Repository evolution visualization
+  - Regression analysis
+  - Contributor timeline analysis
+  - Code archaeology tools
+
+- [ ] **AI Code Generation & Migration**
+  - Automated migration between frameworks
+  - Legacy code modernization
+  - Cross-language code translation
+  - Architecture transformation assistance
+
+- [ ] **Extended Language Support**
+  - Rust, Swift, Kotlin support
+  - SQL and database schema analysis
+  - Infrastructure-as-Code (Terraform, CloudFormation)
+  - Configuration file analysis (YAML, TOML, JSON)
+
+---
+
+### 💡 Community Wishlist
+
+Have an idea? [Submit a feature request](https://github.com/adithya-s-k/gitvizz/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=) and help shape the future of GitVizz!
 
 ---
 
