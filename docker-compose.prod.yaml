@@ -35,8 +35,10 @@ services:
     volumes:
       - backend-storage:/data/storage
     depends_on:
-      - mongo
-      - phoenix
+      mongo:
+        condition: service_healthy
+      phoenix:
+        condition: service_started
     networks:
       - gitvizz-network
     restart: always
@@ -73,19 +75,20 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ADMIN_PASSWORD}
+      MONGO_INITDB_DATABASE: gitvizz_prod
     volumes:
       - mongo-data:/data/db
       - ./mongo/backup:/backup
     networks:
       - gitvizz-network
     restart: always
-    command: mongod --auth
+    # Remove --auth command to allow proper initialization
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   phoenix:
     image: arizephoenix/phoenix:latest
