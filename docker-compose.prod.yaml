@@ -43,7 +43,7 @@ services:
       - gitvizz-network
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8003/health')\" || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
