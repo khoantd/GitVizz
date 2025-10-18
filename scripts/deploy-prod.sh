@@ -143,7 +143,8 @@ prompt_user_inputs() {
     
     # Optional settings
     echo ""
-    read -p "Email for SSL certificate notifications (optional): " SSL_EMAIL
+    read -p "Email for SSL certificate notifications (default: khoa0702@gmail.com): " SSL_EMAIL
+    SSL_EMAIL=${SSL_EMAIL:-khoa0702@gmail.com}
     read -p "Backup retention days (default: 30): " BACKUP_RETENTION_DAYS
     BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
 }
