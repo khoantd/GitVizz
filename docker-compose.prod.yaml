@@ -54,7 +54,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_BACKEND_URL=https://gitviz.sutools.app
+        - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app
     container_name: gitvizz-frontend
     env_file:
       - ./scripts/env-templates/frontend.env.production
