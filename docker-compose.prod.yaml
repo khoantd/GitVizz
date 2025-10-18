@@ -73,7 +73,7 @@ services:
     container_name: gitvizz-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: {{MONGO_ADMIN_PASSWORD}}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ADMIN_PASSWORD}
     volumes:
       - mongo-data:/data/db
       - ./mongo/backup:/backup
