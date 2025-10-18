@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { MessageCircle, X, Loader2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApiKeyValidation } from '@/hooks/use-api-key-validation';
 import { ApiKeyModal } from './api-key-modal';
-import { showToast } from '@/components/toaster';
 
 interface FloatingChatButtonProps {
   isOpen: boolean;
