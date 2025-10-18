@@ -35,8 +35,10 @@ services:
     volumes:
       - backend-storage:/data/storage
     depends_on:
-      - mongo
-      - phoenix
+      mongo:
+        condition: service_healthy
+      phoenix:
+        condition: service_started
     networks:
       - gitvizz-network
     restart: always
@@ -82,10 +84,10 @@ services:
     restart: always
     # Remove --auth command to allow proper initialization
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping')"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
       start_period: 60s
 
   phoenix:
