@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # GitVizz Production Deployment Script
-# This script deploys GitVizz to a VPS with domain gitviz.sutools.app
+# This script deploys GitVizz to a VPS with domain gitvizz.sutools.app
 
 set -e  # Exit on any error
 
@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DOMAIN="gitviz.sutools.app"
+DOMAIN="gitvizz.sutools.app"
 BACKUP_DIR="/opt/gitvizz-backups"
 ENV_TEMPLATES_DIR="$PROJECT_ROOT/scripts/env-templates"
 
@@ -253,22 +253,63 @@ setup_ssl() {
     # Stop nginx if running
     docker-compose -f "$PROJECT_ROOT/docker-compose.prod.yaml" stop nginx 2>/dev/null || true
     
-    # Obtain SSL certificate
+    # Try Let's Encrypt first (if email provided)
     if [ -n "$SSL_EMAIL" ]; then
-        certbot certonly --standalone --non-interactive --agree-tos --email "$SSL_EMAIL" -d "$DOMAIN" -d "www.$DOMAIN"
-    else
-        certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d "$DOMAIN" -d "www.$DOMAIN"
+        print_status "Attempting to obtain Let's Encrypt certificate..."
+        if certbot certonly --standalone --non-interactive --agree-tos --email "$SSL_EMAIL" -d "$DOMAIN" -d "www.$DOMAIN" 2>/dev/null; then
+            # Copy certificates to nginx directory
+            sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$PROJECT_ROOT/nginx/ssl/"
+            sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$PROJECT_ROOT/nginx/ssl/"
+            sudo chown -R $(whoami):$(whoami) "$PROJECT_ROOT/nginx/ssl"
+            
+            # Set up auto-renewal
+            (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
+            
+            print_success "Let's Encrypt SSL certificates configured"
+            return 0
+        else
+            print_warning "Let's Encrypt certificate generation failed. Falling back to self-signed certificates."
+        fi
     fi
     
-    # Copy certificates to nginx directory
-    sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$PROJECT_ROOT/nginx/ssl/"
-    sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$PROJECT_ROOT/nginx/ssl/"
-    sudo chown -R $(whoami):$(whoami) "$PROJECT_ROOT/nginx/ssl"
+    # Fallback to self-signed certificates
+    print_status "Generating self-signed SSL certificates..."
     
-    # Set up auto-renewal
-    (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
+    # Run the SSL certificate generation script
+    if [ -f "$PROJECT_ROOT/scripts/generate-ssl-certs.sh" ]; then
+        cd "$PROJECT_ROOT"
+        chmod +x "$PROJECT_ROOT/scripts/generate-ssl-certs.sh"
+        "$PROJECT_ROOT/scripts/generate-ssl-certs.sh"
+        print_success "Self-signed SSL certificates generated"
+    else
+        print_error "SSL certificate generation script not found at $PROJECT_ROOT/scripts/generate-ssl-certs.sh"
+        print_status "Creating self-signed certificates manually..."
+        
+        # Generate private key
+        openssl genrsa -out "$PROJECT_ROOT/nginx/ssl/privkey.pem" 2048
+        
+        # Generate certificate signing request
+        openssl req -new -key "$PROJECT_ROOT/nginx/ssl/privkey.pem" -out "$PROJECT_ROOT/nginx/ssl/cert.csr" -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=$DOMAIN"
+        
+        # Generate self-signed certificate
+        openssl x509 -req -days 365 -in "$PROJECT_ROOT/nginx/ssl/cert.csr" -signkey "$PROJECT_ROOT/nginx/ssl/privkey.pem" -out "$PROJECT_ROOT/nginx/ssl/cert.pem"
+        
+        # Create fullchain.pem (same as cert.pem for self-signed)
+        cp "$PROJECT_ROOT/nginx/ssl/cert.pem" "$PROJECT_ROOT/nginx/ssl/fullchain.pem"
+        
+        # Set proper permissions
+        chmod 600 "$PROJECT_ROOT/nginx/ssl/privkey.pem"
+        chmod 644 "$PROJECT_ROOT/nginx/ssl/cert.pem"
+        chmod 644 "$PROJECT_ROOT/nginx/ssl/fullchain.pem"
+        
+        # Clean up CSR file
+        rm "$PROJECT_ROOT/nginx/ssl/cert.csr"
+        
+        print_success "Self-signed SSL certificates created manually"
+    fi
     
-    print_success "SSL certificates configured"
+    print_warning "⚠️  Using self-signed certificates. Browsers will show security warnings."
+    print_status "For production, consider using Let's Encrypt or commercial certificates."
 }
 
 # Function to create backup directory
