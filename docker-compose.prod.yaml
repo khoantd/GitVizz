@@ -35,19 +35,17 @@ services:
     volumes:
       - backend-storage:/data/storage
     depends_on:
-      mongo:
-        condition: service_healthy
-      phoenix:
-        condition: service_started
+      - mongo
+      - phoenix
     networks:
       - gitvizz-network
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s
 
   frontend:
     build:
@@ -74,7 +72,7 @@ services:
     container_name: gitvizz-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ADMIN_PASSWORD}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ADMIN_PASSWORD:-defaultpassword}
       MONGO_INITDB_DATABASE: gitvizz_prod
     volumes:
       - mongo-data:/data/db
