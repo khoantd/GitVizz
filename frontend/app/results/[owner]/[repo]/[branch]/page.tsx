@@ -846,7 +846,7 @@ export default function ResultsPage() {
       {session?.accessToken && owner && repo && (
         <>
           <FloatingChatButton
-            onClick={toggleChat}
+            onToggle={toggleChat}
             isOpen={isChatOpen}
             unreadCount={0}
             isLoading={!repositoryIdentifier && loading}

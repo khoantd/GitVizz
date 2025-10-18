@@ -13,15 +13,20 @@ interface FloatingChatButtonProps {
   isOpen: boolean;
   unreadCount?: number;
   isLoading?: boolean;
+  onToggle?: () => void;
 }
 
-export function FloatingChatButton({ isOpen, unreadCount = 0, isLoading = false }: FloatingChatButtonProps) {
+export function FloatingChatButton({ isOpen, unreadCount = 0, isLoading = false, onToggle }: FloatingChatButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
   const apiKeyValidation = useApiKeyValidation();
 
   const handleClick = async () => {
-    // Show coming soon message instead of opening chat
-    showToast.info('💬 AI-powered Repository Chat, Coming Soon !!');
+    // Check API keys before opening chat
+    const canProceed = await apiKeyValidation.checkApiKeysBeforeAction();
+    if (!canProceed) return;
+    
+    // Toggle chat sidebar
+    onToggle?.();
   };
 
   return (
@@ -62,10 +67,6 @@ export function FloatingChatButton({ isOpen, unreadCount = 0, isLoading = false 
             )}
           </Button>
 
-          {/* Coming Soon Badge */}
-          <Badge className="absolute -top-3 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full border-2 border-background shadow-sm">
-            Soon
-          </Badge>
         </div>
       </div>
 

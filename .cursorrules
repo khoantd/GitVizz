@@ -1,0 +1,224 @@
+# GitVizz - AI-Powered Repository Analysis Platform
+
+## Project Overview
+GitVizz is a comprehensive AI-powered platform for analyzing and understanding code repositories. It consists of three main components:
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + ShadCN UI
+- **Backend**: FastAPI + Python 3.12+ + MongoDB + Beanie ODM
+- **Core Library**: Standalone Python package for code analysis
+
+## Architecture & Tech Stack
+
+### Frontend (Next.js 14)
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript with strict mode
+- **Styling**: Tailwind CSS + ShadCN UI components
+- **State Management**: React Context + Custom hooks
+- **Authentication**: NextAuth.js with GitHub OAuth
+- **Package Manager**: pnpm
+- **Code Quality**: ESLint + Prettier
+
+### Backend (FastAPI)
+- **Framework**: FastAPI with async/await
+- **Language**: Python 3.12+
+- **Database**: MongoDB with Beanie ODM
+- **Authentication**: JWT tokens
+- **AI Integration**: LiteLLM for multiple providers (OpenAI, Anthropic, Gemini, Groq)
+- **Observability**: Phoenix for LLM tracing
+- **Package Manager**: uv
+
+### Core Library (gitvizz/)
+- **Purpose**: Standalone Python package for code analysis
+- **Features**: AST parsing, dependency graphs, multi-language support
+- **Languages**: Python, JavaScript, TypeScript, React, Next.js, Go, Rust
+
+## Coding Standards & Conventions
+
+### TypeScript/React (Frontend)
+- Use functional components with hooks
+- Prefer `'use client'` directive for client components
+- Use TypeScript interfaces for props and state
+- Follow React naming conventions (PascalCase for components)
+- Use custom hooks for complex state logic
+- Prefer composition over inheritance
+- Use React.memo() for performance optimization when needed
+
+### Python (Backend)
+- Follow PEP 8 style guidelines
+- Use type hints for all function parameters and return values
+- Use async/await for I/O operations
+- Follow FastAPI patterns for route handlers
+- Use Pydantic models for request/response validation
+- Use dependency injection for authentication and database access
+
+### File Organization
+```
+frontend/
+├── app/                    # Next.js App Router pages
+├── components/             # Reusable UI components
+│   ├── ui/                # ShadCN UI components
+│   └── [feature].tsx      # Feature-specific components
+├── hooks/                 # Custom React hooks
+├── utils/                 # Utility functions
+├── types/                 # TypeScript type definitions
+└── context/               # React Context providers
+
+backend/
+├── controllers/           # Business logic handlers
+├── routes/               # FastAPI route definitions
+├── models/               # Beanie ODM models
+├── schemas/              # Pydantic request/response schemas
+├── utils/                # Utility functions
+├── middleware/           # FastAPI middleware
+└── documentation_generator/ # AI-powered analysis
+```
+
+## Key Patterns & Best Practices
+
+### Frontend Patterns
+- **Component Structure**: Use interface props, destructure in function signature
+- **State Management**: Use useState for local state, useContext for global state
+- **API Integration**: Use custom hooks for API calls with error handling
+- **Styling**: Use Tailwind CSS classes with cn() utility for conditional styling
+- **Icons**: Use Lucide React icons consistently
+- **Forms**: Use controlled components with proper validation
+
+### Backend Patterns
+- **Route Handlers**: Use dependency injection for auth and database
+- **Error Handling**: Use FastAPI's HTTPException with proper status codes
+- **Database**: Use Beanie ODM with async operations
+- **Authentication**: Use JWT tokens with middleware validation
+- **AI Integration**: Use LiteLLM for provider abstraction
+
+### Database Models
+- **User**: Authentication and user preferences
+- **Repository**: Repository metadata and analysis results
+- **Conversation**: Chat conversation threads
+- **ChatSession**: Individual chat sessions
+- **UserApiKey**: User's API keys for LLM providers
+
+## Development Guidelines
+
+### Code Quality
+- Use TypeScript strict mode in frontend
+- Use type hints in Python backend
+- Follow ESLint rules (configured in eslint.config.mjs)
+- Use Prettier for code formatting
+- Write meaningful commit messages following conventional commits
+
+### Performance
+- Use React.memo() for expensive components
+- Implement proper loading states
+- Use async/await for database operations
+- Implement proper error boundaries
+- Use React.lazy() for code splitting when appropriate
+
+### Security
+- Validate all inputs with Pydantic schemas
+- Use JWT tokens for authentication
+- Implement proper CORS policies
+- Sanitize user inputs
+- Use environment variables for secrets
+
+### Testing
+- Write unit tests for utility functions
+- Test API endpoints with proper fixtures
+- Use mocking for external services
+- Test error scenarios
+
+## AI Integration Patterns
+
+### LLM Provider Management
+- Use LiteLLM for provider abstraction
+- Support multiple providers (OpenAI, Anthropic, Gemini, Groq)
+- Implement fallback mechanisms
+- Use user's API keys when available
+
+### Chat System
+- Implement streaming responses
+- Use context-aware conversations
+- Support tool calling for code analysis
+- Implement conversation history
+
+### Code Analysis
+- Use Tree-sitter for AST parsing
+- Support multiple programming languages
+- Generate dependency graphs
+- Implement semantic search
+
+## Environment Configuration
+
+### Frontend (.env.local)
+```bash
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8003
+NEXTAUTH_URL=http://localhost:3000
+AUTH_SECRET=your-auth-secret
+AUTH_GITHUB_ID=your-github-client-id
+AUTH_GITHUB_SECRET=your-github-client-secret
+```
+
+### Backend (.env)
+```bash
+MONGO_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=gitvizz
+JWT_SECRET=your-jwt-secret
+OPENAI_API_KEY=your-openai-key
+ANTHROPIC_API_KEY=your-anthropic-key
+GEMINI_API_KEY=your-gemini-key
+GROQ_API_KEY=your-groq-key
+```
+
+## Deployment
+
+### Docker
+- Use docker-compose for local development
+- Separate containers for frontend, backend, and database
+- Use multi-stage builds for optimization
+
+### Production
+- Use environment variables for configuration
+- Implement proper logging
+- Use reverse proxy (nginx) for production
+- Implement health checks
+
+## Common Tasks
+
+### Adding New Features
+1. Create feature branch
+2. Implement backend API endpoints
+3. Create frontend components
+4. Add proper TypeScript types
+5. Test integration
+6. Update documentation
+
+### Adding New LLM Providers
+1. Add provider configuration
+2. Update LiteLLM configuration
+3. Add provider-specific error handling
+4. Update frontend model selector
+5. Test with sample requests
+
+### Adding New Languages
+1. Add Tree-sitter language support
+2. Update AST parser
+3. Add language-specific patterns
+4. Update documentation
+5. Test with sample code
+
+## Important Notes
+
+- **Do not mess up with the working pieces** - Enhance things carefully
+- **Fix things carefully** - Test thoroughly before deploying
+- Use proper error handling and logging
+- Follow the existing code patterns
+- Maintain backward compatibility
+- Document new features and APIs
+- Use semantic versioning for releases
+
+## Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+- [ShadCN UI Documentation](https://ui.shadcn.com/)
+- [Beanie ODM Documentation](https://beanie-odm.dev/)
+- [LiteLLM Documentation](https://docs.litellm.ai/)

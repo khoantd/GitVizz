@@ -1,4 +1,4 @@
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 from beanie import init_beanie
 from dotenv import load_dotenv
 import os
@@ -10,7 +10,7 @@ from models.repository import Repository
 from models.chat import Conversation, ChatSession, UserApiKey
 
 # Singleton for the database client
-client: AsyncIOMotorClient = None
+client: AsyncMongoClient = None
 
 # Set up logger
 logger = logging.getLogger("db")
@@ -23,11 +23,11 @@ logger.addHandler(handler)
 load_dotenv()
 
 # Singleton for the database client
-client: AsyncIOMotorClient = None
+client: AsyncMongoClient = None
 
 class Database:
     def __init__(self):
-        self.client: AsyncIOMotorClient = None
+        self.client: AsyncMongoClient = None
 
     async def init_db(self):
         if self.client is None:
@@ -35,7 +35,7 @@ class Database:
                 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
                 print(f"Connecting to MongoDB at {mongo_uri}...")
                 db_name = os.getenv("MONGODB_DB_NAME", "default_db")
-                self.client = AsyncIOMotorClient(mongo_uri)
+                self.client = AsyncMongoClient(mongo_uri)
                 await init_beanie(database=self.client[db_name], document_models=[User, Repository, Conversation, ChatSession, UserApiKey])
                 logger.info("✅ Connected to MongoDB and initialized Beanie.")
             except Exception as e:
