@@ -2,10 +2,12 @@
 
 # Generate self-signed SSL certificates for testing
 # This script creates self-signed certificates for gitvizz.sutools.app
+# Email: khoa0702@gmail.com
 
 set -e
 
 echo "🔐 Generating self-signed SSL certificates for gitvizz.sutools.app..."
+echo "📧 Certificate email: khoa0702@gmail.com"
 
 # Create SSL directory if it doesn't exist
 mkdir -p ./nginx/ssl
@@ -13,8 +15,8 @@ mkdir -p ./nginx/ssl
 # Generate private key
 openssl genrsa -out ./nginx/ssl/privkey.pem 2048
 
-# Generate certificate signing request
-openssl req -new -key ./nginx/ssl/privkey.pem -out ./nginx/ssl/cert.csr -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=gitvizz.sutools.app"
+# Generate certificate signing request with email
+openssl req -new -key ./nginx/ssl/privkey.pem -out ./nginx/ssl/cert.csr -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=gitvizz.sutools.app/emailAddress=khoa0702@gmail.com"
 
 # Generate self-signed certificate
 openssl x509 -req -days 365 -in ./nginx/ssl/cert.csr -signkey ./nginx/ssl/privkey.pem -out ./nginx/ssl/cert.pem
@@ -34,6 +36,7 @@ echo "✅ SSL certificates generated successfully!"
 echo "📁 Certificates location: ./nginx/ssl/"
 echo "🔑 Private key: ./nginx/ssl/privkey.pem"
 echo "📜 Certificate: ./nginx/ssl/fullchain.pem"
+echo "📧 Certificate email: khoa0702@gmail.com"
 echo ""
 echo "⚠️  Note: These are self-signed certificates for testing only."
 echo "   Browsers will show security warnings. For production, use Let's Encrypt or commercial certificates."
