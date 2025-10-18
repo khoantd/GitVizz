@@ -641,10 +641,10 @@ main() {
     trap cleanup ERR
     
     # Check if running as root
-    if [ "$EUID" -eq 0 ]; then
-        print_error "Please do not run this script as root. Run as a regular user with sudo privileges."
-        exit 1
-    fi
+    # if [ "$EUID" -eq 0 ]; then
+    #     print_error "Please do not run this script as root. Run as a regular user with sudo privileges."
+    #     exit 1
+    # fi
     
     # Check prerequisites
     check_prerequisites
