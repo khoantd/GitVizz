@@ -25,6 +25,7 @@ BACKEND_PORT="8003"
 MONGO_PORT="27017"
 PHOENIX_PORT="6006"
 DOMAIN="localhost"
+INCLUDE_MONGO="true"  # true or false
 
 # Function to print colored output
 print_status() {
@@ -60,12 +61,14 @@ show_usage() {
     echo "  -r, --restart          Restart backend service"
     echo "  -l, --logs             Show backend logs"
     echo "  -h, --health           Run health check"
+    echo "  --no-mongo             Deploy without MongoDB (external DB)"
     echo "  --help                 Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                     # Deploy with Docker (default)"
     echo "  $0 --mode native       # Deploy natively with Python"
     echo "  $0 --port 8004         # Deploy on port 8004"
+    echo "  $0 --no-mongo           # Deploy without MongoDB"
     echo "  $0 --update            # Update existing deployment"
     echo "  $0 --stop              # Stop backend service"
     echo "  $0 --health            # Check backend health"
@@ -237,9 +240,15 @@ EOF
 create_docker_compose() {
     print_status "Creating Docker Compose configuration for backend..."
     
-    local compose_file="$PROJECT_ROOT/docker-compose.backend.yaml"
+    local compose_file
+    if [ "$INCLUDE_MONGO" = "true" ]; then
+        compose_file="$PROJECT_ROOT/docker-compose.backend.yaml"
+    else
+        compose_file="$PROJECT_ROOT/docker-compose.backend-no-mongo.yaml"
+    fi
     
-    cat > "$compose_file" << EOF
+    if [ "$INCLUDE_MONGO" = "true" ]; then
+        cat > "$compose_file" << EOF
 version: '3.8'
 
 services:
@@ -323,6 +332,67 @@ volumes:
   backend-storage:
     name: gitvizz-backend-storage
 EOF
+    else
+        cat > "$compose_file" << EOF
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gitvizz-backend
+    ports:
+      - "$BACKEND_PORT:$BACKEND_PORT"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:$PHOENIX_PORT/v1/traces
+    volumes:
+      - backend-storage:/app/storage
+    depends_on:
+      phoenix:
+        condition: service_started
+    networks:
+      - gitvizz-backend-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:$BACKEND_PORT/health || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:$BACKEND_PORT/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: gitvizz-phoenix
+    ports:
+      - "$PHOENIX_PORT:$PHOENIX_PORT"
+    environment:
+      - PHOENIX_WORKING_DIR=/mnt/data
+    volumes:
+      - phoenix-data:/mnt/data
+    networks:
+      - gitvizz-backend-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:$PHOENIX_PORT"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  gitvizz-backend-network:
+    name: gitvizz-backend-network
+    driver: bridge
+
+volumes:
+  phoenix-data:
+    name: gitvizz-phoenix-data
+  backend-storage:
+    name: gitvizz-backend-storage
+EOF
+    fi
 
     print_success "Docker Compose file created at $compose_file"
 }
@@ -382,12 +452,19 @@ deploy_docker() {
     
     cd "$PROJECT_ROOT"
     
+    local compose_file
+    if [ "$INCLUDE_MONGO" = "true" ]; then
+        compose_file="docker-compose.backend.yaml"
+    else
+        compose_file="docker-compose.backend-no-mongo.yaml"
+    fi
+    
     # Stop existing services
-    docker-compose -f docker-compose.backend.yaml down 2>/dev/null || true
+    docker-compose -f "$compose_file" down 2>/dev/null || true
     
     # Build and start services
-    docker-compose -f docker-compose.backend.yaml build
-    docker-compose -f docker-compose.backend.yaml up -d
+    docker-compose -f "$compose_file" build
+    docker-compose -f "$compose_file" up -d
     
     print_success "Backend deployed with Docker"
 }
@@ -432,7 +509,7 @@ wait_for_services() {
 
 # Function to initialize MongoDB
 init_mongodb() {
-    if [ "$DEPLOYMENT_MODE" = "docker" ]; then
+    if [ "$DEPLOYMENT_MODE" = "docker" ] && [ "$INCLUDE_MONGO" = "true" ]; then
         print_status "Initializing MongoDB..."
         
         # Wait for MongoDB to be ready
@@ -463,6 +540,8 @@ init_mongodb() {
         " 2>/dev/null || print_warning "MongoDB user creation failed (may already exist)"
         
         print_success "MongoDB initialized"
+    elif [ "$INCLUDE_MONGO" = "false" ]; then
+        print_status "MongoDB not included - using external database"
     fi
 }
 
@@ -615,6 +694,10 @@ while [[ $# -gt 0 ]]; do
         -h|--health)
             run_health_check
             exit $?
+            ;;
+        --no-mongo)
+            INCLUDE_MONGO="false"
+            shift
             ;;
         --help)
             show_usage

@@ -26,6 +26,9 @@ The primary script for deploying the GitVizz backend service.
 # Deploy on custom port
 ./scripts/deploy-backend.sh --port 8004
 
+# Deploy without MongoDB (external DB)
+./scripts/deploy-backend.sh --no-mongo
+
 # Deploy with backup
 ./scripts/deploy-backend.sh --backup
 
@@ -52,6 +55,9 @@ A user-friendly interface for managing the backend service.
 ```bash
 # Deploy backend
 ./scripts/backend-manager.sh deploy
+
+# Deploy without MongoDB
+./scripts/backend-manager.sh deploy --no-mongo
 
 # Start service
 ./scripts/backend-manager.sh start
@@ -89,6 +95,13 @@ A user-friendly interface for managing the backend service.
 - Automatic health checks
 - Easy scaling and management
 - Isolated environment
+
+### Docker Mode (No MongoDB)
+- Uses Docker Compose for orchestration
+- Excludes MongoDB (uses external database)
+- Includes Phoenix observability
+- Lighter resource usage
+- Suitable for external database setups
 
 ### Native Mode
 - Direct Python execution
@@ -282,10 +295,22 @@ For issues and questions:
 ./scripts/backend-manager.sh start
 ```
 
+### External Database Setup
+```bash
+# Deploy without MongoDB (external DB)
+./scripts/deploy-backend.sh --no-mongo
+
+# Configure external MongoDB connection
+# Update backend/.env with your MongoDB URI
+```
+
 ### Production Deployment
 ```bash
 # Deploy with backup
 ./scripts/deploy-backend.sh --backup --domain yourdomain.com
+
+# Deploy without MongoDB for external DB
+./scripts/deploy-backend.sh --no-mongo --backup
 
 # Set up monitoring
 ./scripts/backend-manager.sh status

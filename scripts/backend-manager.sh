@@ -58,12 +58,14 @@ show_usage() {
     echo "  --mode native        Deploy natively with Python"
     echo "  --port PORT          Backend port (default: 8003)"
     echo "  --domain DOMAIN      Domain for CORS (default: localhost)"
+    echo "  --no-mongo           Deploy without MongoDB (external DB)"
     echo "  --backup             Create backup before deployment"
     echo ""
     echo "Examples:"
     echo "  $0 deploy                    # Deploy with Docker"
     echo "  $0 deploy --mode native     # Deploy natively"
     echo "  $0 deploy --port 8004       # Deploy on port 8004"
+    echo "  $0 deploy --no-mongo        # Deploy without MongoDB"
     echo "  $0 start                    # Start service"
     echo "  $0 status                   # Check status"
     echo "  $0 logs                     # View logs"
@@ -145,14 +147,19 @@ start_backend() {
     print_status "Starting backend service..."
     
     # Check if Docker Compose file exists
+    local compose_file
     if [ -f "$PROJECT_ROOT/docker-compose.backend.yaml" ]; then
-        cd "$PROJECT_ROOT"
-        docker-compose -f docker-compose.backend.yaml up -d
-        print_success "Backend started with Docker"
+        compose_file="docker-compose.backend.yaml"
+    elif [ -f "$PROJECT_ROOT/docker-compose.backend-no-mongo.yaml" ]; then
+        compose_file="docker-compose.backend-no-mongo.yaml"
     else
         print_error "No deployment found. Please run 'deploy' first."
         exit 1
     fi
+    
+    cd "$PROJECT_ROOT"
+    docker-compose -f "$compose_file" up -d
+    print_success "Backend started with Docker"
 }
 
 # Function to stop backend
@@ -167,8 +174,17 @@ stop_backend() {
     # Stop Docker containers
     if docker ps --format "table {{.Names}}" | grep -q "gitvizz-backend"; then
         cd "$PROJECT_ROOT"
-        docker-compose -f docker-compose.backend.yaml down
-        print_success "Backend stopped (Docker)"
+        local compose_file
+        if [ -f "docker-compose.backend.yaml" ]; then
+            compose_file="docker-compose.backend.yaml"
+        elif [ -f "docker-compose.backend-no-mongo.yaml" ]; then
+            compose_file="docker-compose.backend-no-mongo.yaml"
+        fi
+        
+        if [ -n "$compose_file" ]; then
+            docker-compose -f "$compose_file" down
+            print_success "Backend stopped (Docker)"
+        fi
     fi
     
     # Stop native process
@@ -201,7 +217,18 @@ show_logs() {
     
     # Show Docker logs
     if docker ps --format "table {{.Names}}" | grep -q "gitvizz-backend"; then
-        docker-compose -f "$PROJECT_ROOT/docker-compose.backend.yaml" logs -f backend
+        local compose_file
+        if [ -f "$PROJECT_ROOT/docker-compose.backend.yaml" ]; then
+            compose_file="docker-compose.backend.yaml"
+        elif [ -f "$PROJECT_ROOT/docker-compose.backend-no-mongo.yaml" ]; then
+            compose_file="docker-compose.backend-no-mongo.yaml"
+        fi
+        
+        if [ -n "$compose_file" ]; then
+            docker-compose -f "$PROJECT_ROOT/$compose_file" logs -f backend
+        else
+            print_error "No Docker Compose file found"
+        fi
     # Show native logs
     elif [ -f "$PROJECT_ROOT/backend/backend.log" ]; then
         tail -f "$PROJECT_ROOT/backend/backend.log"
@@ -258,10 +285,15 @@ clean_up() {
     print_status "Cleaning up backend resources..."
     
     # Stop and remove Docker containers
-    if [ -f "$PROJECT_ROOT/docker-compose.backend.yaml" ]; then
-        cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT"
+    if [ -f "docker-compose.backend.yaml" ]; then
         docker-compose -f docker-compose.backend.yaml down -v
-        print_success "Docker resources cleaned"
+        print_success "Docker resources cleaned (with MongoDB)"
+    fi
+    
+    if [ -f "docker-compose.backend-no-mongo.yaml" ]; then
+        docker-compose -f docker-compose.backend-no-mongo.yaml down -v
+        print_success "Docker resources cleaned (no MongoDB)"
     fi
     
     # Remove native files
@@ -273,10 +305,15 @@ clean_up() {
         rm "$PROJECT_ROOT/backend/backend.log"
     fi
     
-    # Remove Docker Compose file
+    # Remove Docker Compose files
     if [ -f "$PROJECT_ROOT/docker-compose.backend.yaml" ]; then
         rm "$PROJECT_ROOT/docker-compose.backend.yaml"
-        print_success "Docker Compose file removed"
+        print_success "Docker Compose file removed (with MongoDB)"
+    fi
+    
+    if [ -f "$PROJECT_ROOT/docker-compose.backend-no-mongo.yaml" ]; then
+        rm "$PROJECT_ROOT/docker-compose.backend-no-mongo.yaml"
+        print_success "Docker Compose file removed (no MongoDB)"
     fi
     
     print_success "Cleanup completed"
