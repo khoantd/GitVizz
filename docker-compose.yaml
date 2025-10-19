@@ -38,7 +38,7 @@ services:
       # GitHub OAuth
       - GITHUB_CLIENT_ID=your-github-client-id
       - GITHUB_CLIENT_SECRET=your-github-client-secret
-      - CORS_ORIGINS=http://localhost:3000,https://localhost:3000,http://gitvizz.sutools.app,https://gitvizz.sutools.app,http://backend:8003,https://backend:8003
+      - CORS_ORIGINS=https://gitvizz.sutools.app,http://localhost:3000,https://localhost:3000
       # Development settings
       - DEBUG=true
       - LOG_LEVEL=info
@@ -49,6 +49,13 @@ services:
       - phoenix
     networks:
       - gitvizz-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.gitvizz-backend.entrypoints=https
+      - traefik.http.routers.gitvizz-backend.rule=Host(`gitvizz.sutools.app`) && PathPrefix(`/api`)
+      - traefik.http.routers.gitvizz-backend.service=gitvizz-backend
+      - traefik.http.routers.gitvizz-backend.tls.certresolver=letsencrypt
+      - traefik.http.services.gitvizz-backend.loadbalancer.server.port=8003
 
   frontend:
     build:
@@ -57,7 +64,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://backend:8003
+      - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app
       - NEXTAUTH_URL=https://gitvizz.sutools.app
       - AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
       - AUTH_GITHUB_ID=your-github-client-id

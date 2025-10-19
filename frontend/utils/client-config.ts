@@ -18,16 +18,18 @@ export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> =
 
 // Get environment variables with proper fallbacks
 const getApiBaseUrl = () => {
-  // Use environment variable if available
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-    return process.env.NEXT_PUBLIC_BACKEND_URL;
+  // For client-side requests (browser), use the public URL
+  if (typeof window !== 'undefined') {
+    return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
   }
+  
   // For server-side requests in Docker, use internal container networking
-  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production') {
     // Server-side request in Docker - use internal container name
     return 'http://backend:8003';
   }
-  // Client-side requests - always use localhost (accessible from browser)
+  
+  // Development server-side requests
   return 'http://localhost:8003';
 };
 

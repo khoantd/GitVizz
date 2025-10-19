@@ -4,14 +4,11 @@ import { getJwtToken, refreshJwtToken } from './api';
 
 // Get the correct backend URL for server-side requests
 const getBackendUrl = () => {
-  // Use environment variable if available, otherwise fallback to localhost
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-    return process.env.NEXT_PUBLIC_BACKEND_URL;
-  }
-  // In Docker environment, use internal container networking for server-side calls
+  // For server-side requests in Docker, use internal container networking
   if (process.env.NODE_ENV === 'production') {
     return 'http://backend:8003';
   }
+  // Development server-side requests
   return 'http://localhost:8003';
 };
 

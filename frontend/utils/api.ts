@@ -634,12 +634,12 @@ export async function refreshJwtToken(
   try {
     // Get the appropriate backend URL for the request context
     const getBackendUrl = () => {
-      // Use environment variable if available
-      if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-        return process.env.NEXT_PUBLIC_BACKEND_URL;
+      // For client-side requests (browser), use the public URL
+      if (typeof window !== 'undefined') {
+        return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
       }
       // For server-side requests in Docker, use internal container networking
-      if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === 'production') {
         return 'http://backend:8003';
       }
       return 'http://localhost:8003';
