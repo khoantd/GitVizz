@@ -47,3 +47,4 @@ async def get_github_installation_repositories(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch GitHub repositories: {str(e)}"
         )
+
