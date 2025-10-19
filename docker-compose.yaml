@@ -58,6 +58,7 @@ services:
       - traefik.http.routers.gitvizz-backend.rule=Host(`gitvizz.sutools.app`) && PathPrefix(`/api`)
       - traefik.http.routers.gitvizz-backend.service=gitvizz-backend
       - traefik.http.routers.gitvizz-backend.tls.certresolver=letsencrypt
+      - traefik.http.routers.gitvizz-backend.priority=100
       - traefik.http.services.gitvizz-backend.loadbalancer.server.port=8003
 
   frontend:
@@ -83,6 +84,7 @@ services:
       - traefik.http.routers.gitvizz-frontend.rule=Host(`gitvizz.sutools.app`) && !PathPrefix(`/api`)
       - traefik.http.routers.gitvizz-frontend.service=gitvizz-frontend
       - traefik.http.routers.gitvizz-frontend.tls.certresolver=letsencrypt
+      - traefik.http.routers.gitvizz-frontend.priority=50
       - traefik.http.services.gitvizz-frontend.loadbalancer.server.port=3000
     depends_on:
       - backend
