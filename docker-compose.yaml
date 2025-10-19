@@ -68,7 +68,7 @@ services:
       - traefik.http.routers.gitvizz-frontend.rule=Host(`gitvizz.sutools.app`)
       - traefik.http.routers.gitvizz-frontend.service=gitvizz-frontend
       - traefik.http.routers.gitvizz-frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.gitvizz-frontend.loadbalancer.server.port=3000`
+      - traefik.http.services.gitvizz-frontend.loadbalancer.server.port=3000
     depends_on:
       - backend
     networks:
