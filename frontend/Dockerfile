@@ -23,6 +23,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Set build-time environment variables for Next.js
+ARG NEXT_PUBLIC_BACKEND_URL
+ARG NEXTAUTH_URL
+ARG NODE_ENV=production
+
+# Set environment variables for the build process
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
+ENV NODE_ENV=$NODE_ENV
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.

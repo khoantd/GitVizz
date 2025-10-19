@@ -64,10 +64,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app
+        - NEXTAUTH_URL=https://gitvizz.sutools.app
+        - NODE_ENV=production
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app/api
+      - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app
       - NEXTAUTH_URL=https://gitvizz.sutools.app
       - AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
       - AUTH_GITHUB_ID=your-github-client-id
@@ -76,7 +80,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.gitvizz-frontend.entrypoints=https
-      - traefik.http.routers.gitvizz-frontend.rule=Host(`gitvizz.sutools.app`)
+      - traefik.http.routers.gitvizz-frontend.rule=Host(`gitvizz.sutools.app`) && !PathPrefix(`/api`)
       - traefik.http.routers.gitvizz-frontend.service=gitvizz-frontend
       - traefik.http.routers.gitvizz-frontend.tls.certresolver=letsencrypt
       - traefik.http.services.gitvizz-frontend.loadbalancer.server.port=3000
