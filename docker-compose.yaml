@@ -38,6 +38,7 @@ services:
       # GitHub OAuth
       - GITHUB_CLIENT_ID=your-github-client-id
       - GITHUB_CLIENT_SECRET=your-github-client-secret
+      - CORS_ORIGINS=http://localhost:3000,https://localhost:3000,http://gitvizz.sutools.app,https://gitvizz.sutools.app,http://backend:8003,https://backend:8003
       # Development settings
       - DEBUG=true
       - LOG_LEVEL=info
