@@ -19,12 +19,28 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8003:8003"
-    env_file:
-      - ./backend/.env
     environment:
-      # Override Phoenix settings for local Docker deployment
+      # MongoDB Configuration
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGODB_DB_NAME=gitvizz
+      # JWT Configuration
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+      # LLM Provider API Keys
+      - OPENAI_API_KEY=your-openai-api-key
+      - ANTHROPIC_API_KEY=your-anthropic-api-key
+      - GEMINI_API_KEY=your-gemini-api-key
+      - GROQ_API_KEY=your-groq-api-key
+      # Phoenix settings for local Docker deployment
       - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006/v1/traces
       - PHOENIX_PROJECT_NAME=gitvizz-backend
+      # GitHub OAuth
+      - GITHUB_CLIENT_ID=your-github-client-id
+      - GITHUB_CLIENT_SECRET=your-github-client-secret
+      # Development settings
+      - DEBUG=true
+      - LOG_LEVEL=info
     volumes:
       - ./storage:/app/storage
     depends_on:
@@ -39,8 +55,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    env_file:
-      - ./frontend/.env.local
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8003
+      - NEXTAUTH_URL=http://localhost:3000
+      - AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
+      - AUTH_GITHUB_ID=your-github-client-id
+      - AUTH_GITHUB_SECRET=your-github-client-secret
+      - NODE_ENV=production
     depends_on:
       - backend
     networks:

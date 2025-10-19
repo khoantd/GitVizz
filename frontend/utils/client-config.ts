@@ -18,6 +18,10 @@ export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> =
 
 // Get environment variables with proper fallbacks
 const getApiBaseUrl = () => {
+  // Use environment variable if available
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
   // For server-side requests in Docker, use internal container networking
   if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
     // Server-side request in Docker - use internal container name
