@@ -4,12 +4,9 @@ import { getJwtToken, refreshJwtToken } from './api';
 
 // Get the correct backend URL for server-side requests
 const getBackendUrl = () => {
-  // For server-side requests in Docker, use internal container networking
-  if (process.env.NODE_ENV === 'production') {
-    return 'http://backend:8003';
-  }
-  // Development server-side requests
-  return 'http://localhost:8003';
+  // Always use the public URL for server-side requests
+  // This ensures NextAuth callbacks work correctly
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 };
 
 export const { auth, handlers, signIn, signOut } = NextAuth({

@@ -638,11 +638,9 @@ export async function refreshJwtToken(
       if (typeof window !== 'undefined') {
         return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
       }
-      // For server-side requests in Docker, use internal container networking
-      if (process.env.NODE_ENV === 'production') {
-        return 'http://backend:8003';
-      }
-      return 'http://localhost:8003';
+      // For server-side requests, always use the public URL
+      // This ensures NextAuth callbacks work correctly
+      return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
     };
 
     const response = await fetch(

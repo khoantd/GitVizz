@@ -23,14 +23,9 @@ const getApiBaseUrl = () => {
     return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
   }
   
-  // For server-side requests in Docker, use internal container networking
-  if (process.env.NODE_ENV === 'production') {
-    // Server-side request in Docker - use internal container name
-    return 'http://backend:8003';
-  }
-  
-  // Development server-side requests
-  return 'http://localhost:8003';
+  // For server-side requests, always use the public URL
+  // This ensures NextAuth callbacks work correctly
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8003';
 };
 
 const getAuthBaseUrl = () => {
