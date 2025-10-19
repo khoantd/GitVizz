@@ -64,7 +64,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app
+      - NEXT_PUBLIC_BACKEND_URL=https://gitvizz.sutools.app/api
       - NEXTAUTH_URL=https://gitvizz.sutools.app
       - AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
       - AUTH_GITHUB_ID=your-github-client-id
